@@ -39,6 +39,7 @@ const SENSITIVE_PATTERNS = [
 /**
  * Characters that can cause log injection attacks
  */
+// eslint-disable-next-line no-control-regex
 const DANGEROUS_CHARS = /[\x00-\x1F\x7F-\x9F]/g;
 
 /**
