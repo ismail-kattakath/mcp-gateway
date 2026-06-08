@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/ismail-kattakath/mcp-gateway/compare/v1.0.0...v1.1.0) (2026-06-08)
+
+
+### Features
+
+* push tools/list_changed notifications on registry reload ([#6](https://github.com/ismail-kattakath/mcp-gateway/issues/6)) ([ff9d908](https://github.com/ismail-kattakath/mcp-gateway/commit/ff9d908aaae7af8e28e2e4d6f8e4a90a7ac24d08))
+
 ## [1.0.0](https://github.com/ismail-kattakath/mcp-gateway/compare/v0.1.0...v1.0.0) (2026-06-08)
 
 
