@@ -258,7 +258,6 @@
         "format":  { "type": "string", "enum": ["json", "text"], "default": "json" },
         "outputs": { "type": "array", "items": { "type": "string", "enum": ["console", "file"] }, "minItems": 1 }
       }
-    },
-
+    }
   }
 }
