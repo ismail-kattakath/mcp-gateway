@@ -10,7 +10,7 @@
  */
 
 import { EventEmitter } from 'events';
-import logger from '../../logging/logger.js';
+import logger, { sanitizeServerName, sanitizeUrl } from '../../logging/logger.js';
 import type { RemoteServer as RemoteServerConfig } from '../../types/registry.js';
 import type { ServerLog, ServerStatus, ServerState } from './base.js';
 
@@ -55,7 +55,7 @@ export class RemoteServer extends EventEmitter {
     if (this.state === 'running' || this.state === 'starting') return;
     this.state = 'starting';
     this.addLog('info', 'Connecting to remote server', {
-      url: this.config.url,
+      url: sanitizeUrl(this.config.url),
       transport: this.config.transport,
     });
 
@@ -89,7 +89,7 @@ export class RemoteServer extends EventEmitter {
 
     this.parseStream(response.body).catch((error: Error) => {
       if (error.name !== 'AbortError') {
-        logger.error(`SSE stream error for ${this.serverName}`, { error: error.message });
+        logger.error(`SSE stream error for ${sanitizeServerName(this.serverName)}`, { error: error.message });
         this.state = 'failed';
         this.emit('exit', null, null);
       }
@@ -163,7 +163,7 @@ export class RemoteServer extends EventEmitter {
     if (!this.isRunning()) throw new Error(`Server ${this.serverName} is not running`);
 
     if (this.config.transport === 'sse') {
-      logger.warn(`Cannot write to SSE remote ${this.serverName}; SSE is read-only`);
+      logger.warn(`Cannot write to SSE remote ${sanitizeServerName(this.serverName)}; SSE is read-only`);
       return;
     }
 
@@ -179,11 +179,11 @@ export class RemoteServer extends EventEmitter {
         const message = JSON.parse(text) as JsonRpcMessage;
         if (message.jsonrpc === '2.0') this.emit('message', message);
       } catch {
-        logger.warn(`Non-JSON response from ${this.serverName}`);
+        logger.warn(`Non-JSON response from ${sanitizeServerName(this.serverName)}`);
       }
     } catch (error) {
       const err = error as Error;
-      logger.error(`HTTP request to ${this.serverName} failed`, { error: err.message });
+      logger.error(`HTTP request to ${sanitizeServerName(this.serverName)} failed`, { error: err.message });
       this.emit('error', err);
     }
   }

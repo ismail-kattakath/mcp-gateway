@@ -14,7 +14,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
-import logger, { sanitizeServerName, sanitizeUrl, sanitizePath } from '../../logging/logger.js';
+import logger, { sanitizeServerName, sanitizeUrl, sanitizePath, sanitizeString } from '../../logging/logger.js';
 import { getGatewayConfig } from '../registry.js';
 import { BaseServer, SpawnArgs } from './base.js';
 import type { GitServer as GitServerConfig } from '../../types/registry.js';
@@ -108,9 +108,9 @@ export class GitServer extends BaseServer {
     if (!(await fileExists(this.repoDir))) {
       await fs.mkdir(path.dirname(this.repoDir), { recursive: true });
       logger.info(`Cloning ${sanitizeUrl(repo)} into ${sanitizePath(this.repoDir)}`, {
-        branch,
-        tag,
-        commit,
+        branch: branch ? sanitizeString(branch) : undefined,
+        tag: tag ? sanitizeString(tag) : undefined,
+        commit: commit ? sanitizeString(commit) : undefined,
       });
       const cloneArgs = ['clone'];
       if (branch) cloneArgs.push('--branch', branch);

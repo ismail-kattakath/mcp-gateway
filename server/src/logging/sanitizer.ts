@@ -76,11 +76,14 @@ export function sanitizeServerName(serverName: unknown): string {
   if (typeof serverName !== 'string') {
     return '[INVALID_SERVER_NAME]';
   }
-  // Server names should be alphanumeric with dashes/underscores
-  if (!/^[a-zA-Z0-9_-]+$/.test(serverName)) {
-    return `[SANITIZED:${sanitizeString(serverName, 50)}]`;
+  // Sanitize FIRST (remove control chars, truncate)
+  const sanitized = serverName.replace(DANGEROUS_CHARS, '').substring(0, 50);
+
+  // THEN validate the sanitized value
+  if (!/^[a-zA-Z0-9_-]+$/.test(sanitized)) {
+    return `[SANITIZED:${sanitized}]`;
   }
-  return serverName;
+  return sanitized;
 }
 
 /**

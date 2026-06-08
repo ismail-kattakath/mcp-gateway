@@ -8,7 +8,7 @@
  */
 
 import { EventEmitter } from 'events';
-import logger from '../../logging/logger.js';
+import logger, { sanitizeServerName } from '../../logging/logger.js';
 import { createPkgServer } from './pkg.js';
 import { createGitServer } from './git.js';
 import { createContainerServer } from './container.js';
@@ -77,15 +77,15 @@ export class ServerManager extends EventEmitter {
 
     for (const [name, config] of enabled) {
       if (config.lifecycle === 'persistent') {
-        logger.info(`Starting persistent server: ${name}`);
+        logger.info(`Starting persistent server: ${sanitizeServerName(name)}`);
         try {
           await this.startServer(name, config);
         } catch (error) {
           const err = error as Error;
-          logger.error(`Failed to start persistent server ${name}`, { error: err.message });
+          logger.error(`Failed to start persistent server ${sanitizeServerName(name)}`, { error: err.message });
         }
       } else {
-        logger.debug(`Server ${name} is on-demand, will start when needed`);
+        logger.debug(`Server ${sanitizeServerName(name)} is on-demand, will start when needed`);
       }
     }
 
@@ -99,12 +99,12 @@ export class ServerManager extends EventEmitter {
     if (this.servers.has(serverName)) {
       const existing = this.servers.get(serverName)!;
       if (existing.isRunning()) {
-        logger.debug(`Server ${serverName} is already running`);
+        logger.debug(`Server ${sanitizeServerName(serverName)} is already running`);
         return existing;
       }
     }
 
-    logger.info(`Starting server: ${serverName}`, {
+    logger.info(`Starting server: ${sanitizeServerName(serverName)}`, {
       source: config.source,
       lifecycle: config.lifecycle,
     });
@@ -112,30 +112,30 @@ export class ServerManager extends EventEmitter {
     const server = createServerForSource(serverName, config);
 
     server.on('started', (pid: number | null) => {
-      logger.info(`Server ${serverName} started`, { pid });
+      logger.info(`Server ${sanitizeServerName(serverName)} started`, { pid });
       this.emit('server:started', serverName, pid);
     });
 
     server.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
-      logger.info(`Server ${serverName} exited`, { code, signal });
+      logger.info(`Server ${sanitizeServerName(serverName)} exited`, { code, signal });
       this.emit('server:exit', serverName, code, signal);
       if (config.lifecycle === 'persistent') {
-        logger.info(`Restarting persistent server: ${serverName}`);
+        logger.info(`Restarting persistent server: ${sanitizeServerName(serverName)}`);
         setTimeout(() => {
           this.startServer(serverName, config).catch((error: Error) => {
-            logger.error(`Failed to restart server ${serverName}`, { error: error.message });
+            logger.error(`Failed to restart server ${sanitizeServerName(serverName)}`, { error: error.message });
           });
         }, 2000);
       }
     });
 
     server.on('error', (error: Error) => {
-      logger.error(`Server ${serverName} error`, { error: error.message });
+      logger.error(`Server ${sanitizeServerName(serverName)} error`, { error: error.message });
       this.emit('server:error', serverName, error);
     });
 
     server.on('failed', (error: string) => {
-      logger.error(`Server ${serverName} failed`, { error });
+      logger.error(`Server ${sanitizeServerName(serverName)} failed`, { error });
       this.emit('server:failed', serverName, error);
     });
 
@@ -155,10 +155,10 @@ export class ServerManager extends EventEmitter {
   async stopServer(serverName: string): Promise<void> {
     const server = this.servers.get(serverName);
     if (!server) {
-      logger.warn(`Server ${serverName} not found`);
+      logger.warn(`Server ${sanitizeServerName(serverName)} not found`);
       return;
     }
-    logger.info(`Stopping server: ${serverName}`);
+    logger.info(`Stopping server: ${sanitizeServerName(serverName)}`);
     const timeout = this.onDemandTimeouts.get(serverName);
     if (timeout) {
       clearTimeout(timeout);
@@ -167,13 +167,13 @@ export class ServerManager extends EventEmitter {
     await server.kill();
     this.servers.delete(serverName);
     this.lastActivity.delete(serverName);
-    logger.info(`Server ${serverName} stopped`);
+    logger.info(`Server ${sanitizeServerName(serverName)} stopped`);
   }
 
   async getServer(serverName: string, config: Server): Promise<ManagedServer> {
     let server = this.servers.get(serverName);
     if (!server || !server.isRunning()) {
-      logger.info(`Server ${serverName} not running, starting on-demand`);
+      logger.info(`Server ${sanitizeServerName(serverName)} not running, starting on-demand`);
       server = await this.startServer(serverName, config);
     }
     if (config.lifecycle === 'on-demand') {
@@ -196,7 +196,7 @@ export class ServerManager extends EventEmitter {
       if (!last) return;
       const idle = Date.now() - last;
       if (idle >= this.onDemandIdleTime) {
-        logger.info(`Server ${serverName} idle for ${(idle / 1000).toFixed(0)}s, stopping`);
+        logger.info(`Server ${sanitizeServerName(serverName)} idle for ${(idle / 1000).toFixed(0)}s, stopping`);
         await this.stopServer(serverName);
       } else {
         this.scheduleIdleCheck(serverName, config);
@@ -257,7 +257,7 @@ export class ServerManager extends EventEmitter {
       if (server.isRunning()) {
         stopPromises.push(
           server.kill().catch((error: Error) => {
-            logger.error(`Error stopping server ${name}`, { error: error.message });
+            logger.error(`Error stopping server ${sanitizeServerName(name)}`, { error: error.message });
           })
         );
       }
@@ -276,7 +276,7 @@ export class ServerManager extends EventEmitter {
     for (const [name] of Object.entries(prev)) {
       const newCfg = next[name];
       if (!newCfg || !newCfg.enabled) {
-        logger.info(`Server ${name} disabled or removed, stopping`);
+        logger.info(`Server ${sanitizeServerName(name)} disabled or removed, stopping`);
         await this.stopServer(name);
       }
     }
@@ -287,13 +287,13 @@ export class ServerManager extends EventEmitter {
       const changed = JSON.stringify(oldCfg) !== JSON.stringify(newCfg);
       if (!oldCfg || changed) {
         if (oldCfg) {
-          logger.info(`Server ${name} config changed, restarting`);
+          logger.info(`Server ${sanitizeServerName(name)} config changed, restarting`);
           await this.stopServer(name);
         }
         if (newCfg.lifecycle === 'persistent') {
-          logger.info(`Starting server ${name}`);
+          logger.info(`Starting server ${sanitizeServerName(name)}`);
           await this.startServer(name, newCfg).catch((error: Error) => {
-            logger.error(`Failed to start server ${name}`, { error: error.message });
+            logger.error(`Failed to start server ${sanitizeServerName(name)}`, { error: error.message });
           });
         }
       }

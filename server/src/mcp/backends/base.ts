@@ -142,7 +142,7 @@ export abstract class BaseServer extends EventEmitter {
           if (this.retryCount < this.maxRetries) {
             this.retryCount++;
             logger.warn(
-              `Server ${this.serverName} failed, retrying ${this.retryCount}/${this.maxRetries}`
+              `Server ${sanitizeServerName(this.serverName)} failed, retrying ${this.retryCount}/${this.maxRetries}`
             );
             setTimeout(() => {
               this.spawn().catch((err: Error) => {

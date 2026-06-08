@@ -9,7 +9,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs/promises';
-import logger, { sanitizeUrl, sanitizePath } from '../../logging/logger.js';
+import logger, { sanitizeUrl, sanitizePath, sanitizeString } from '../../logging/logger.js';
 import { getGatewayConfig } from '../registry.js';
 import { BaseServer, SpawnArgs } from './base.js';
 import type { ContainerServer as ContainerServerConfig } from '../../types/registry.js';
@@ -56,7 +56,7 @@ export class ContainerServer extends BaseServer {
     if (image) {
       this.imageRef = image;
       if (pull === 'always' || (pull === 'missing' && !(await this.imageExistsLocally(image)))) {
-        logger.info(`Pulling image: ${image}`);
+        logger.info(`Pulling image: ${sanitizeString(image)}`);
         await runShell('docker', ['pull', image]);
       }
       return;
@@ -103,7 +103,7 @@ export class ContainerServer extends BaseServer {
       buildArgs.push('--build-arg', `${k}=${v}`);
     }
     buildArgs.push(contextDir);
-    logger.info(`Building image: ${this.imageRef}`, { context: sanitizePath(contextDir) });
+    logger.info(`Building image: ${sanitizeString(this.imageRef)}`, { context: sanitizePath(contextDir) });
     await runShell('docker', buildArgs);
   }
 
