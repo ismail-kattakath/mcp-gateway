@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getOrCreateApiKey } from '../../security/apikey.js';
 import { deleteSecret } from '../../security/secure-storage.js';
 
-describe('apikey', () => {
+// Run sequentially to avoid keychain race conditions
+describe.sequential('apikey', () => {
   beforeEach(async () => {
     // Clean up any previous keys
     await deleteSecret().catch(() => {});

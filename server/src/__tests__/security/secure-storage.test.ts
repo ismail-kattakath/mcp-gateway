@@ -13,7 +13,8 @@ const STORAGE_DIR = path.join(process.env.HOME ?? '/tmp', '.mcp');
 const ENCRYPTED_FILE = path.join(STORAGE_DIR, '.gateway-api-key.enc');
 const TEST_SECRET = 'test-secret-key-' + Date.now();
 
-describe('secure-storage', () => {
+// Run sequentially to avoid keychain race conditions
+describe.sequential('secure-storage', () => {
   beforeEach(async () => {
     // Clean up any existing test keys
     await deleteSecret().catch(() => {});

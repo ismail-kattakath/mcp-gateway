@@ -5,6 +5,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Run test files sequentially to avoid keychain race conditions in security tests.
+    // The security tests share the same system keychain entry (mcp-gateway/api-key),
+    // so parallel execution causes tests to interfere with each other's setup/cleanup.
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
