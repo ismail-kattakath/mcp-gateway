@@ -270,11 +270,13 @@
   "lint-staged": {
     "server/src/**/*.{ts,tsx}": [
       "cd server && npm run lint:fix",
-      "cd server && npm run format"
+      "cd server && npm run format",
+      "cd server && npm run type-check"
     ],
     "ui/src/**/*.{ts,tsx}": [
       "cd ui && npm run lint:fix",
-      "cd ui && npm run format"
+      "cd ui && npm run format",
+      "cd ui && npm run type-check"
     ]
   },
   "repository": {
