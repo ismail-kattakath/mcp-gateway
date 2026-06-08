@@ -255,19 +255,59 @@ cd ui && npm run dev
 
 ### Pointing a client at the gateway
 
-**Claude Code** (`~/.claude/.mcp.json`) or **Claude Desktop**:
+The gateway supports **three transports simultaneously**: stdio, SSE, and HTTP. Choose based on your use case.
+
+#### Auto-spawn mode (stdio transport)
+
+The client spawns the gateway automatically. Zero manual setup:
+
 ```json
 {
   "mcpServers": {
     "gateway": {
-      "url": "http://localhost:3000/sse",
-      "transport": "sse"
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "${HOME}/.mcp:/root/.mcp",
+        "-v", "${HOME}/.mcp-gateway/registry.json:/app/registry.json:ro",
+        "ghcr.io/ismail-kattakath/mcp-gateway:latest"
+      ],
+      "transport": "stdio"
     }
   }
 }
 ```
 
-The same SSE URL works for Cline and Cursor.
+**How it works:**
+- Client spawns `docker run -i` (interactive, attached to stdin/stdout)
+- Gateway detects stdin is a pipe (`!process.stdin.isTTY`) → enables stdio transport
+- JSON-RPC flows over stdin/stdout (one message per line)
+- **No auth required** — pipe ownership is inherent authentication
+- HTTP/SSE endpoints also start on `:3000` (with auth) for other clients
+
+**When stdin closes** (client exits), the gateway shuts down gracefully.
+
+#### Persistent daemon mode (SSE or HTTP transport)
+
+Start the gateway once, all clients connect via network:
+
+```json
+{
+  "mcpServers": {
+    "gateway": {
+      "url": "http://localhost:3000/sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authenticated Access](#authenticated-access)).
+
+Works for Claude Code, Claude Desktop, Cline, Cursor, and any MCP client.
 
 ## HTTPS / Custom Domain
 

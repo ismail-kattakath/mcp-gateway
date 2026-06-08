@@ -35,18 +35,50 @@ docker run -d --name mcp-gateway \
 
 The gateway auto-generates a secure API key on first run and stores it in `~/.mcp/gateway-api-key`.
 
-Then point any MCP client at `http://localhost:3000/sse`:
+### Option 1: Auto-spawn (zero setup)
+
+The gateway spawns automatically when your MCP client starts. Just paste this config:
+
+```json
+{
+  "mcpServers": {
+    "gateway": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "${HOME}/.mcp:/root/.mcp",
+        "-v", "${HOME}/.mcp-gateway/registry.json:/app/registry.json:ro",
+        "ghcr.io/ismail-kattakath/mcp-gateway:latest"
+      ],
+      "transport": "stdio"
+    }
+  }
+}
+```
+
+- First client spawns the container
+- Uses stdio transport (no auth needed - pipe is trusted)
+- HTTP/SSE endpoints also available on `:3000` (with auth)
+
+### Option 2: Persistent daemon
+
+For shared access or remote deployment, run once as a daemon:
 
 ```json
 {
   "mcpServers": {
     "gateway": {
       "url": "http://localhost:3000/sse",
-      "transport": "sse"
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
     }
   }
 }
 ```
+
+Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authentication](#authentication) section).
 
 For HTTPS or a custom domain, put **Caddy** in front. Templates ship with the repo (`Caddyfile.local`, `Caddyfile.prod`) and the steps are in [`CLAUDE.md`](CLAUDE.md#https--custom-domain).
 

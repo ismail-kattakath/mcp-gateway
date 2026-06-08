@@ -24,6 +24,7 @@ import {
 import { listAllTools } from './mcp/router.js';
 import { createAuthMiddleware } from './middleware/auth.js';
 import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './security/apikey.js';
+import { startStdioTransport } from './mcp/stdio-transport.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +92,16 @@ async function initializeServer() {
 
     const serverManager = getServerManager();
     await serverManager.initialize(registry);
+
+    // Check if stdin is a pipe (docker run -i) → enable stdio transport
+    const isStdinPipe = !process.stdin.isTTY;
+    if (isStdinPipe) {
+      logger.info('Detected stdin pipe, enabling stdio transport');
+      startStdioTransport(serverManager, registry);
+      // stdio mode: skip HTTP server setup, just listen on stdin
+      // The process will exit when stdin closes
+      return null;
+    }
 
     // Active SSE sessions — declared up front so the registry-watch callback
     // below can broadcast tools/list_changed notifications to all of them.
