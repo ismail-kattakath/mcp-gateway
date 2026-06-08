@@ -43,7 +43,6 @@ declare module 'keytar' {
 
 declare module 'dockerode' {
   import { Readable } from 'stream';
-  import { EventEmitter } from 'events';
 
   export interface ContainerCreateOptions {
     Image: string;

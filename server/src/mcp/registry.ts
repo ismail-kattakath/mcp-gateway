@@ -74,7 +74,7 @@ function resolveEnvVarsRecursive(obj: unknown, context: Record<string, string> =
  * Apply BaseServer defaults to each server entry.
  */
 function applyDefaults(registry: Registry): Registry {
-  for (const [name, server] of Object.entries(registry.servers || {})) {
+  for (const server of Object.values(registry.servers || {})) {
     const s = server as Record<string, unknown>;
     if (s.lifecycle === undefined) s.lifecycle = DEFAULTS.lifecycle;
     if (s.enabled === undefined) s.enabled = DEFAULTS.enabled;

@@ -41,11 +41,13 @@ interface ServerManagerEvents {
   'server:log': (serverName: string, entry: ServerLog) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 declare interface ServerManager {
   on<U extends keyof ServerManagerEvents>(event: U, listener: ServerManagerEvents[U]): this;
   emit<U extends keyof ServerManagerEvents>(event: U, ...args: Parameters<ServerManagerEvents[U]>): boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class ServerManager extends EventEmitter {
   private servers: Map<string, ManagedServer>;
   private lastActivity: Map<string, number>;

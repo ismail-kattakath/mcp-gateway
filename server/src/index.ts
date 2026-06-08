@@ -58,13 +58,8 @@ async function initializeServer(): Promise<HttpServer | null> {
     // Load or generate API key (persisted in ~/.mcp/gateway-api-key)
     const apiKey = await getOrCreateApiKey();
 
-<<<<<<< HEAD:server/src/index.js
-    const app = express();
-    // Behind a reverse proxy (Caddy/nginx) on loopback — honor X-Forwarded-* so
-=======
     const app: Express = express();
     // Behind a reverse proxy on loopback — honor X-Forwarded-* so
->>>>>>> a4895a8 (chore: remove internal and meta-documentation):server/src/index.ts
     // req.ip and req.protocol reflect the real client / scheme.
     app.set('trust proxy', 'loopback');
     app.use(express.json());
@@ -310,7 +305,7 @@ async function initializeServer(): Promise<HttpServer | null> {
       res.status(404).json({ error: 'Not found', path: req.path, method: req.method });
     });
 
-    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
       logger.error('Express error', { error: err.message, stack: err.stack, path: req.path });
       res.status((err as any).status || 500).json({ error: err.message || 'Internal server error', path: req.path });
     });

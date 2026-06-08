@@ -6,11 +6,7 @@
 
 import winston from 'winston';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Determine log directory from environment or default
 const LOG_DIR: string =
@@ -23,9 +19,6 @@ if (!fs.existsSync(LOG_DIR)) {
 
 // Log level from environment or default to 'info'
 const LOG_LEVEL: string = process.env.LOG_LEVEL ?? 'info';
-
-// Format configuration
-const isProduction: boolean = process.env.NODE_ENV === 'production';
 
 // Custom format for console output (human-readable)
 const consoleFormat = winston.format.combine(

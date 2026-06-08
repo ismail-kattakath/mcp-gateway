@@ -260,9 +260,9 @@ async function handleToolsCall(
  * Handle prompts/list request
  */
 async function handlePromptsList(
-  params: unknown,
-  serverManager: ServerManager,
-  registry: Registry
+  _params: unknown,
+  _serverManager: ServerManager,
+  _registry: Registry
 ): Promise<{ prompts: unknown[] }> {
   logger.info('Handling prompts/list request');
 
@@ -278,8 +278,8 @@ async function handlePromptsList(
  */
 async function handlePromptsGet(
   params: unknown,
-  serverManager: ServerManager,
-  registry: Registry
+  _serverManager: ServerManager,
+  _registry: Registry
 ): Promise<never> {
   const promptParams = params as { name?: string };
 
@@ -297,9 +297,9 @@ async function handlePromptsGet(
  * Handle resources/list request
  */
 async function handleResourcesList(
-  params: unknown,
-  serverManager: ServerManager,
-  registry: Registry
+  _params: unknown,
+  _serverManager: ServerManager,
+  _registry: Registry
 ): Promise<{ resources: unknown[] }> {
   logger.info('Handling resources/list request');
 
@@ -314,8 +314,8 @@ async function handleResourcesList(
  */
 async function handleResourcesRead(
   params: unknown,
-  serverManager: ServerManager,
-  registry: Registry
+  _serverManager: ServerManager,
+  _registry: Registry
 ): Promise<never> {
   const resourceParams = params as { uri?: string };
 

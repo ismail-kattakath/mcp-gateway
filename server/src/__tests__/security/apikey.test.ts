@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getOrCreateApiKey } from '../../security/apikey.js';
-import { deleteSecret, storeSecret } from '../../security/secure-storage.js';
-import crypto from 'crypto';
+import { deleteSecret } from '../../security/secure-storage.js';
 
 describe('apikey', () => {
   beforeEach(async () => {

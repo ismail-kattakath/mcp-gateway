@@ -13,7 +13,6 @@ import logger from '../logging/logger.js';
 import {
   storeSecret,
   retrieveSecret,
-  deleteSecret,
   migrateFromCleartext,
 } from './secure-storage.js';
 

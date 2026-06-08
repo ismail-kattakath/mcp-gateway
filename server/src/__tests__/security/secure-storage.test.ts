@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   storeSecret,
   retrieveSecret,
@@ -118,7 +118,7 @@ describe('secure-storage', () => {
       expect(stored).toBe(true);
 
       // Directory may or may not exist depending on whether keychain was used
-      const dirExists = await fs
+      await fs
         .access(STORAGE_DIR)
         .then(() => true)
         .catch(() => false);
