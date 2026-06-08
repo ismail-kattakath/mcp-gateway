@@ -18,6 +18,7 @@ import logger, {
   sanitizeServerName,
   sanitizeUrl,
   sanitizeString,
+  sanitizePath,
 } from '../../logging/logger.js';
 import { getGatewayConfig } from '../registry.js';
 import { BaseServer, SpawnArgs } from './base.js';

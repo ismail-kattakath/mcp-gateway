@@ -69,7 +69,7 @@ describe('sanitizer', () => {
 
     it('should sanitize invalid server names', () => {
       const result = sanitizeServerName('../../etc/passwd');
-      expect(result).toContain('[SANITIZED:');
+      expect(result).toBe('[INVALID_SERVER_NAME]');
     });
 
     it('should handle non-string input', () => {
