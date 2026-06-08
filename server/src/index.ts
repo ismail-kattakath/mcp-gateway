@@ -26,11 +26,8 @@ import { listAllTools } from './mcp/router.js';
 import { createAuthMiddleware } from './middleware/auth.js';
 import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './security/apikey.js';
 import { startStdioTransport } from './mcp/stdio-transport.js';
-<<<<<<< HEAD:server/src/index.js
-=======
 import type { JsonRpcRequest } from './mcp/protocol.js';
 import type { ServerLog } from './mcp/backends/base.js';
->>>>>>> a4895a8 (chore: remove internal and meta-documentation):server/src/index.ts
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
