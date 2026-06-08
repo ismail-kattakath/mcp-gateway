@@ -228,7 +228,9 @@ async function handleInitialize(params, serverManager, registry) {
     },
     capabilities: {
       tools: {
-        listChanged: false // We don't support dynamic tool list changes yet
+        // Gateway emits notifications/tools/list_changed when registry.json is
+        // edited at runtime and the server manager reloads. See index.js.
+        listChanged: true
       },
       prompts: {
         listChanged: false

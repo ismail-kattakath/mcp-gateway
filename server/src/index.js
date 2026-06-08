@@ -80,12 +80,29 @@ async function initializeServer() {
     const serverManager = getServerManager();
     await serverManager.initialize(registry);
 
+    // Active SSE sessions — declared up front so the registry-watch callback
+    // below can broadcast tools/list_changed notifications to all of them.
+    const sseConnections = new Map();
+
     watchRegistry(async (newRegistry, oldRegistry) => {
       logger.info('Registry changed, reloading servers');
       await serverManager.reload(newRegistry, oldRegistry);
-    });
 
-    const sseConnections = new Map();
+      // Tell every connected client that the tools list may have changed.
+      // Per MCP spec, this is a parameter-less notification — clients re-call
+      // tools/list when they see it. Fire-and-forget; we don't track ACKs.
+      const sessionCount = sseConnections.size;
+      if (sessionCount > 0) {
+        logger.info(`Broadcasting tools/list_changed to ${sessionCount} session(s)`);
+        for (const res of sseConnections.values()) {
+          try {
+            sendNotification(res, 'notifications/tools/list_changed', {});
+          } catch (error) {
+            logger.warn('Failed to send list_changed notification', { error: error.message });
+          }
+        }
+      }
+    });
 
     // ===== SSE endpoint (MCP transport) =====
     app.get('/sse', async (req, res) => {
