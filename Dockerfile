@@ -58,7 +58,6 @@ COPY types/ ./types/
 
 # Default registry — overridden by a host bind mount in real deployments.
 COPY registry.example.json ./registry.json
-COPY .env.example ./.env.example
 
 # Storage dirs (bind-mount these from the host in compose).
 RUN mkdir -p /root/.mcp/repos /root/.mcp/cache /root/.mcp/logs
