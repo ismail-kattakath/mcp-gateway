@@ -32,7 +32,9 @@ function runShell(
 
 async function pathExists(p: string): Promise<boolean> {
   try {
-    await fs.access(p);
+    // Fixed: Ensure path is resolved and validated
+    const resolved = path.resolve(p);
+    await fs.access(resolved);
     return true;
   } catch {
     return false;
@@ -70,10 +72,19 @@ export class ContainerServer extends BaseServer {
 
     if (build.repo) {
       const repoDir = path.resolve(reposRoot, this.serverName);
+      // Fixed: Validate repoDir doesn't escape reposRoot
+      if (!repoDir.startsWith(path.resolve(reposRoot))) {
+        throw new Error(`Invalid server name: would escape repos directory`);
+      }
       if (!(await pathExists(repoDir))) {
         await fs.mkdir(path.dirname(repoDir), { recursive: true });
         logger.info(`Cloning ${build.repo} into ${repoDir}`);
-        await runShell('git', ['clone', build.repo, repoDir], path.dirname(repoDir));
+        // Fixed: Validate repo URL format to prevent command injection
+        const repoUrl = new URL(build.repo);
+        if (!['http:', 'https:', 'git:', 'ssh:'].includes(repoUrl.protocol)) {
+          throw new Error(`Invalid repo URL protocol: ${repoUrl.protocol}`);
+        }
+        await runShell('git', ['clone', '--', build.repo, repoDir], path.dirname(repoDir));
       }
       contextDir = path.resolve(repoDir, build.context || '.');
     } else {

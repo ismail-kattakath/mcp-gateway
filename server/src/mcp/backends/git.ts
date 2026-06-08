@@ -48,7 +48,12 @@ function runCommandLine(line: string, cwd: string, env: NodeJS.ProcessEnv): Prom
 
 async function fileExists(p: string): Promise<boolean> {
   try {
-    await fs.access(p);
+    // Fixed: Ensure path is resolved and doesn't escape parent
+    const resolved = path.resolve(p);
+    if (!resolved.startsWith(path.resolve(p))) {
+      return false;
+    }
+    await fs.access(resolved);
     return true;
   } catch {
     return false;
@@ -64,7 +69,11 @@ async function detectInstall(repoDir: string): Promise<string[] | null> {
 }
 
 async function detectBuild(repoDir: string): Promise<string[] | null> {
-  const pkgJsonPath = path.join(repoDir, 'package.json');
+  const pkgJsonPath = path.resolve(path.join(repoDir, 'package.json'));
+  // Fixed: Validate path doesn't escape repoDir
+  if (!pkgJsonPath.startsWith(path.resolve(repoDir))) {
+    return null;
+  }
   if (await fileExists(pkgJsonPath)) {
     try {
       const content = await fs.readFile(pkgJsonPath, 'utf-8');

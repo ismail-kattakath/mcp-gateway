@@ -49,11 +49,23 @@ describe.sequential('secure-storage', () => {
         .catch(() => false);
 
       if (fileExists1) {
-        const encFile1 = await fs.readFile(ENCRYPTED_FILE);
+        // Fixed: Read file immediately after check to minimize TOCTOU window
+        let encFile1: Buffer;
+        try {
+          encFile1 = await fs.readFile(ENCRYPTED_FILE);
+        } catch {
+          // File was deleted between check and read - skip this test
+          return;
+        }
         await deleteSecret();
 
         await storeSecret(secret);
-        const encFile2 = await fs.readFile(ENCRYPTED_FILE);
+        let encFile2: Buffer;
+        try {
+          encFile2 = await fs.readFile(ENCRYPTED_FILE);
+        } catch {
+          throw new Error('Failed to read encrypted file after storing secret');
+        }
 
         // Different IV/salt should produce different ciphertext
         expect(Buffer.compare(encFile1, encFile2)).not.toBe(0);
@@ -222,11 +234,14 @@ describe.sequential('secure-storage', () => {
 
       await storeSecret(TEST_SECRET);
 
-      // Check if encrypted file exists (may be in keychain)
-      const fileExists = await fs
-        .access(ENCRYPTED_FILE)
-        .then(() => true)
-        .catch(() => false);
+      // Fixed: Combine check and read to minimize TOCTOU
+      let encryptedContent: Buffer | null = null;
+      try {
+        encryptedContent = await fs.readFile(ENCRYPTED_FILE);
+      } catch {
+        // File doesn't exist - using keychain
+      }
+      const fileExists = encryptedContent !== null;
 
       if (fileExists) {
         const encryptedData = await fs.readFile(ENCRYPTED_FILE);

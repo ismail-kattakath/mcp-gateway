@@ -11,6 +11,7 @@ import 'dotenv/config';
 import express, { Request, Response, NextFunction, Express } from 'express';
 import cors from 'cors';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { Server as HttpServer } from 'http';
 import logger from './logging/logger.js';
@@ -138,7 +139,7 @@ async function initializeServer(): Promise<HttpServer | null> {
     app.get('/sse', async (req: Request, res: Response) => {
       const sessionId =
         (req.query.sessionId as string) ||
-        `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        `session_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
       logger.info('SSE connection established', { ip: req.ip, sessionId });
 
       res.setHeader('Content-Type', 'text/event-stream');

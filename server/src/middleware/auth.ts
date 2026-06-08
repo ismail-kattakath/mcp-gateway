@@ -118,9 +118,8 @@ export function createAuthMiddleware(
   }
 
   if (apiKey.length > 0 && apiKey.length < 16) {
-    logger.warn('API key is shorter than recommended minimum (16 chars)', {
-      length: apiKey.length,
-    });
+    // Fixed: Don't log API key length to avoid leaking information
+    logger.warn('API key is shorter than recommended minimum (16 chars)');
   }
 
   if (enabled) {
@@ -170,9 +169,10 @@ export function createAuthMiddleware(
 
 function extractToken(req: Request): string | null {
   const header = req.get('Authorization') ?? '';
-  const m = header.match(/^Bearer\s+(.+)$/i);
+  // Fixed: Use non-backtracking regex to prevent ReDoS
+  const m = header.match(/^Bearer\s+(\S+)$/i);
   if (m !== null) {
-    return m[1].trim();
+    return m[1];
   }
   // EventSource in browsers can't set headers — accept ?access_token= for /sse only.
   if (req.path === '/sse' && typeof req.query.access_token === 'string') {
