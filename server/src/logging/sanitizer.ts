@@ -76,12 +76,12 @@ export function sanitizeServerName(serverName: unknown): string {
   if (typeof serverName !== 'string') {
     return '[INVALID_SERVER_NAME]';
   }
-  // Sanitize FIRST (remove control chars, truncate)
+  // Sanitize first (remove control chars, truncate)
   const sanitized = serverName.replace(DANGEROUS_CHARS, '').substring(0, 50);
 
-  // THEN validate the sanitized value
-  if (!/^[a-zA-Z0-9_-]+$/.test(sanitized)) {
-    return `[SANITIZED:${sanitized}]`;
+  // Only allow a strict safe identifier for logging; otherwise return constant marker
+  if (!/^[a-zA-Z0-9_-]+$/.test(sanitized) || sanitized.length === 0) {
+    return '[INVALID_SERVER_NAME]';
   }
   return sanitized;
 }
