@@ -39,7 +39,7 @@ Thumbs.db
 *~
 
 # Docker
-docker-compose.override.yml
+# (docker-compose removed from project)
 
 # Registry (use registry.example.json)
 registry.json

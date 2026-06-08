@@ -1,12 +1,19 @@
 # MCP Gateway
 
-Universal aggregator for [Model Context Protocol](https://modelcontextprotocol.io/) servers. Point every AI coding tool (Claude Code, Claude Desktop, Cline, Cursor, …) at **one** gateway URL instead of maintaining N parallel `mcpServers` blocks.
+**Zero-setup aggregator for Model Context Protocol servers** — Just paste config and go.
+
+Universal aggregator for [Model Context Protocol](https://modelcontextprotocol.io/) servers. Point every AI coding tool (Claude Code, Claude Desktop, Cline, Cursor, …) at **one** gateway instead of maintaining N parallel `mcpServers` blocks.
 
 [![Release](https://img.shields.io/github/v/release/ismail-kattakath/mcp-gateway?sort=semver)](https://github.com/ismail-kattakath/mcp-gateway/releases)
-[![Image](https://img.shields.io/badge/ghcr.io-mcp--gateway-blue)](https://github.com/ismail-kattakath/mcp-gateway/pkgs/container/mcp-gateway)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-mcp--gateway-blue)](https://github.com/ismail-kattakath/mcp-gateway/pkgs/container/mcp-gateway)
+[![CI](https://github.com/ismail-kattakath/mcp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/ismail-kattakath/mcp-gateway/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/ismail-kattakath/mcp-gateway/actions/workflows/codeql.yml/badge.svg)](https://github.com/ismail-kattakath/mcp-gateway/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/ismail-kattakath/mcp-gateway/branch/main/graph/badge.svg?token=5571ca48-e22c-4875-bfad-25ae8068ce2e)](https://codecov.io/gh/ismail-kattakath/mcp-gateway)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Why
+## Quick Start
 
+<<<<<<< HEAD
 | Without a gateway | With this gateway |
 |---|---|
 | N copies of the same `mcpServers` block in N tool configs | One `registry.json` |
@@ -67,7 +74,131 @@ The gateway spawns automatically when your MCP client starts. Just paste this co
 ### Option 2: Persistent daemon
 
 For shared access or remote deployment, run once as a daemon:
+=======
+**Zero setup required** — Just paste this config into your MCP client:
+>>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 
+**For Claude Code** (`~/.claude/.mcp.json`):
+```json
+{
+  "mcpServers": {
+    "gateway": {
+<<<<<<< HEAD
+      "url": "http://localhost:3000/sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+=======
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/ismail-kattakath/mcp-gateway"]
+>>>>>>> a4895a8 (chore: remove internal and meta-documentation)
+    }
+  }
+}
+```
+
+<<<<<<< HEAD
+Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authentication](#authentication) section).
+
+For HTTPS or a custom domain, put **Caddy** in front. Templates ship with the repo (`Caddyfile.local`, `Caddyfile.prod`) and the steps are in [`CLAUDE.md`](CLAUDE.md#https--custom-domain).
+=======
+**For Claude Desktop:**
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+That's it! The gateway auto-downloads and starts with example servers.
+
+### Customize (Optional)
+
+**To use your own servers**, add volume mount for custom registry:
+```json
+{
+  "mcpServers": {
+    "gateway": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "${HOME}/.mcp-gateway/registry.json:/app/registry.json:ro",
+        "ghcr.io/ismail-kattakath/mcp-gateway:latest"
+      ],
+      "transport": "stdio"
+    }
+  }
+}
+```
+
+See [schema/registry-v2.schema.json](schema/registry-v2.schema.json) for full registry schema.
+
+## Why Use MCP Gateway?
+
+**Problem:** Managing MCP servers across multiple AI tools is tedious.
+- Same config duplicated in Claude Code, Claude Desktop, Cline, Cursor...
+- Every tool loads all servers upfront → slow, cluttered
+- Secrets duplicated everywhere
+- Server updates require reconfiguring every tool
+
+**Solution:** One gateway, many clients.
+- ✅ **Zero setup** - Just paste config, it works
+- ✅ **One config** - Manage all servers in one place
+- ✅ **Auto-starts** - No manual docker commands
+- ✅ **Secure by default** - Auto-generated keys
+- ✅ **Hot-reload** - Edit servers without restart
+- ✅ **Shared state** - Servers accessible from any client
+
+## Features
+
+**For Users:**
+- 🚀 Zero-setup auto-start mode
+- 🔐 Auto-generated secure keys
+- 🔄 Hot-reload configuration changes
+- 📦 5 server sources (npm, git, docker, remote, local)
+- 🌍 Multi-transport (stdio, SSE, HTTP)
+
+**For Developers:**
+- 📊 React dashboard for monitoring
+- 🧪 96 tests with 77% coverage
+- 📝 TypeScript with strict types
+- 🔍 CodeQL security scanning
+- 🐳 Multi-arch Docker images
+
+See [docs](#documentation) for details.
+
+## Advanced Setup
+
+### Option 1: Auto-Spawn (Recommended)
+
+See [Quick Start](#quick-start) above.
+
+**Pros:**
+- Zero manual setup
+- Gateway starts/stops with Claude
+- No docker commands needed
+- Secure by default
+
+**Cons:**
+- Tied to one client process
+- Restarts on every Claude restart
+
+### Option 2: Persistent Daemon
+
+For shared access or always-on operation:
+
+**1. Start gateway once:**
+```bash
+docker run -d --name mcp-gateway \
+  -p 127.0.0.1:3000:3000 \
+  -v ~/.mcp-gateway/registry.json:/app/registry.json:ro \
+  -v ~/.mcp:/root/.mcp \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+**2. Get API key:**
+```bash
+docker exec mcp-gateway sh -c 'PRINT_API_KEY=true node dist/index.js'
+```
+
+**3. Configure clients:**
 ```json
 {
   "mcpServers": {
@@ -75,16 +206,40 @@ For shared access or remote deployment, run once as a daemon:
       "url": "http://localhost:3000/sse",
       "transport": "sse",
       "headers": {
-        "Authorization": "Bearer YOUR_API_KEY"
+        "Authorization": "Bearer <paste-key-here>"
       }
     }
   }
 }
 ```
 
-Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authentication](#authentication) section).
+**Pros:**
+- Shared across multiple clients
+- Always running (survives client restarts)
+- Remote access possible (with HTTPS)
 
-For HTTPS or a custom domain, put **Caddy** in front. Templates ship with the repo (`Caddyfile.local`, `Caddyfile.prod`) and the steps are in [`CLAUDE.md`](CLAUDE.md#https--custom-domain).
+**Cons:**
+- Manual docker commands
+- Need to retrieve API key
+- More configuration
+
+For HTTPS or remote access, use your preferred reverse proxy (nginx, Apache, Traefik, Cloudflare Tunnel, etc.).
+
+### Option 3: From Source
+
+For development:
+
+```bash
+git clone https://github.com/ismail-kattakath/mcp-gateway.git
+cd mcp-gateway
+
+# Server
+cd server && npm install && npm run dev       # gateway on :3000
+
+# UI (optional)
+cd ../ui && npm install && npm run dev        # dashboard on :5173
+```
+>>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 
 ## Image tags
 
@@ -124,6 +279,7 @@ Full schema: [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json).
 
 ## Authentication
 
+<<<<<<< HEAD
 **Secure by default**: The gateway auto-generates a cryptographic API key on first run (stored in `~/.mcp/gateway-api-key`) and requires it for all SSE/HTTP access. stdio transport (spawned by clients) bypasses auth.
 
 ### Get your API key
@@ -175,19 +331,38 @@ Or in `registry.json`:
 "gateway": {
   ...
   "allowedIPs": ["10.0.0.0/8", "192.168.1.0/24"]
+=======
+The gateway is **secure by default** with auto-generated API keys:
+
+- **Auto-generated keys**: Stored securely in system keychain (macOS Keychain, Linux libsecret, Windows Credential Manager)
+- **Retrieve key**: `docker run --rm ghcr.io/ismail-kattakath/mcp-gateway env PRINT_API_KEY=true node dist/index.js`
+- **Rotate key**: `docker run --rm ghcr.io/ismail-kattakath/mcp-gateway env ROTATE_API_KEY=true node dist/index.js`
+- **Disable auth**: Set `"enableAuth": false` in `registry.json` (not recommended for remote access)
+
+### Configuration
+
+```json
+"gateway": {
+  "enableAuth": true,
+  "allowedIPs": ["10.0.0.0/8"]
+>>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 }
 ```
 
-Constant-time token compare, CIDR-aware allowlist, `/health` always exempt. Pair with `Caddyfile.prod` for defense-in-depth at the edge. Details in [`CLAUDE.md`](CLAUDE.md#authenticated-access).
+- `enableAuth` defaults to **true** (secure by default)
+- `allowedIPs` is optional (CIDR notation, empty = all IPs allowed)
+- Constant-time token compare, `/health` always exempt
+- **stdio transport bypasses auth** (pipe = inherent authentication)
 
 ## `source: "container"` and the host Docker socket
 
-The `container` source needs to talk to a Docker daemon. The default Docker Compose **does not** mount `/var/run/docker.sock` — so `pkg`/`git`/`remote`/`local` work out of the box and `container` is opt-in. There are three trust tiers:
+The `container` source needs to talk to a Docker daemon. By default, the gateway container **does not** mount `/var/run/docker.sock` — so `pkg`/`git`/`remote`/`local` work out of the box and `container` is opt-in. There are three trust tiers:
 
 1. **No socket** *(default)* — `container` returns errors, everything else works
-2. **Filtered socket proxy** (uncomment `docker-proxy` in `docker-compose.yml`) — `container` works, attacker can't escape the container
+2. **Filtered socket proxy** (run a socket proxy container and set `DOCKER_HOST`) — `container` works, attacker can't escape the container
 3. **Rootless Docker on the host** — additional belt-and-suspenders
 
+<<<<<<< HEAD
 Full discussion of trade-offs in [`CLAUDE.md`](CLAUDE.md#three-trust-tiers-for-source-container).
 
 ## Build from source
@@ -203,6 +378,9 @@ cd ../ui && npm install && npm run dev        # dashboard on :5173, proxies /api
 # Or via Docker
 docker-compose up --build
 ```
+=======
+See [docs/architecture/decisions.md](docs/architecture/decisions.md) for security trade-offs.
+>>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 
 ## Project structure
 
@@ -221,8 +399,6 @@ docker-compose up --build
 ├── ui/src/                   # React dashboard (Dashboard / Servers / Logs)
 ├── schema/                   # JSON Schema for registry.json
 ├── types/                    # TypeScript definitions
-├── Caddyfile.local           # HTTPS via mcp.local (Caddy internal CA)
-├── Caddyfile.prod            # HTTPS via Let's Encrypt
 └── .github/workflows/        # release-please + multi-arch ghcr publish
 ```
 
@@ -238,7 +414,7 @@ No manual versioning, no manual tagging, no manual changelog. Setup details in [
 
 ## Documentation
 
-- [**CLAUDE.md**](CLAUDE.md) — full technical reference (schema, HTTPS, Docker tiers, auth model, deployment checklist)
+- [**docs/**](docs/) — full documentation (setup guides, API reference, architecture)
 - [**CONTRIBUTING.md**](CONTRIBUTING.md) — Conventional Commits + release flow + one-time setup
 - [**CHANGELOG.md**](CHANGELOG.md) — auto-generated release notes
 - [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json) — registry JSON Schema (the source of truth)

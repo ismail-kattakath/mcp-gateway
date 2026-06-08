@@ -98,8 +98,14 @@
       "level": "info",
       "format": "json",
       "outputs": ["console", "file"]
+<<<<<<< HEAD
     }
     // "enableAuth": false,  // default: true (secure by default). API key auto-generated.
     // "allowedIPs": []      // optional CIDR-aware IP allowlist
+=======
+    },
+    "enableAuth": false,
+    "allowedIPs": []
+>>>>>>> a4895a8 (chore: remove internal and meta-documentation)
   }
 }
