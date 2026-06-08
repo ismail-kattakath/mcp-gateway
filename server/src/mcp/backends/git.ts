@@ -126,7 +126,9 @@ export class GitServer extends BaseServer {
         await runShell('git', ['checkout', commit], this.repoDir);
       }
     } else {
-      logger.debug(`Repo already exists at ${sanitizeString(this.repoDir)}, skipping clone`);
+      logger.debug('Repo already exists, skipping clone', {
+        serverName: sanitizeServerName(this.serverName),
+      });
     }
 
     const installSteps = this.config.install ?? (await detectInstall(this.repoDir));
