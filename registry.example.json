@@ -1,0 +1,149 @@
+{
+  "version": "2.0",
+  "backends": {
+    "obs": {
+      "name": "OBS Studio Control",
+      "description": "Control OBS via WebSocket",
+      "type": "npx",
+      "install": {
+        "package": "obs-mcp",
+        "version": "latest"
+      },
+      "runtime": {
+        "env": {
+          "OBS_WEBSOCKET_PASSWORD": "${OBS_WEBSOCKET_PASSWORD}"
+        }
+      },
+      "lifecycle": "on-demand",
+      "timeout": 30000,
+      "enabled": true
+    },
+    "kapture": {
+      "name": "Screen Capture",
+      "description": "Capture screenshots and recordings",
+      "type": "npx",
+      "install": {
+        "package": "kapture-mcp",
+        "version": "latest"
+      },
+      "runtime": {
+        "args": ["bridge"]
+      },
+      "lifecycle": "persistent",
+      "enabled": true
+    },
+    "github": {
+      "name": "GitHub API",
+      "description": "Interact with GitHub repositories",
+      "type": "npx",
+      "install": {
+        "package": "@modelcontextprotocol/server-github",
+        "version": "latest"
+      },
+      "runtime": {
+        "env": {
+          "GITHUB_TOKEN": "${GITHUB_ACCESS_TOKEN}"
+        }
+      },
+      "auth": {
+        "type": "oauth",
+        "provider": "github",
+        "scopes": ["repo", "read:org"],
+        "tokenRefresh": true
+      },
+      "lifecycle": "persistent",
+      "enabled": false
+    },
+    "custom-git-mcp": {
+      "name": "Custom Git MCP",
+      "description": "Example of git repo with npm build",
+      "type": "git-npm",
+      "install": {
+        "repository": "https://github.com/username/custom-mcp.git",
+        "branch": "main",
+        "build": {
+          "steps": [
+            "npm install",
+            "npm run build"
+          ],
+          "entrypoint": "dist/index.js"
+        }
+      },
+      "runtime": {
+        "command": "node",
+        "env": {
+          "NODE_ENV": "production"
+        }
+      },
+      "lifecycle": "on-demand",
+      "enabled": false
+    },
+    "docker-mcp": {
+      "name": "Docker MCP Example",
+      "description": "Example of Docker Hub image",
+      "type": "docker",
+      "install": {
+        "image": "ghcr.io/username/mcp-server",
+        "tag": "latest",
+        "pull": "missing"
+      },
+      "runtime": {
+        "volumes": [
+          "${HOME}/.mcp/data:/data"
+        ],
+        "env": {
+          "API_KEY": "${CUSTOM_API_KEY}"
+        }
+      },
+      "lifecycle": "persistent",
+      "healthcheck": {
+        "endpoint": "http://localhost:8080/health",
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3
+      },
+      "enabled": false
+    }
+  },
+  "gateway": {
+    "server": {
+      "port": 3000,
+      "host": "0.0.0.0",
+      "transport": "sse",
+      "cors": {
+        "enabled": true,
+        "origins": ["*"],
+        "credentials": true
+      }
+    },
+    "storage": {
+      "repos": "${HOME}/.mcp/repos",
+      "cache": "${HOME}/.mcp/cache",
+      "logs": "${HOME}/.mcp/logs"
+    },
+    "logging": {
+      "level": "info",
+      "format": "json",
+      "outputs": ["console", "file"]
+    },
+    "oauth": {
+      "providers": {
+        "github": {
+          "clientId": "${GITHUB_CLIENT_ID}",
+          "clientSecret": "${GITHUB_CLIENT_SECRET}",
+          "callbackUrl": "http://localhost:3000/oauth/github/callback"
+        },
+        "smithery": {
+          "clientId": "${SMITHERY_CLIENT_ID}",
+          "clientSecret": "${SMITHERY_CLIENT_SECRET}",
+          "callbackUrl": "http://localhost:3000/oauth/smithery/callback"
+        }
+      }
+    },
+    "security": {
+      "apiKey": "${GATEWAY_API_KEY}",
+      "enableAuth": false,
+      "allowedIPs": []
+    }
+  }
+}
