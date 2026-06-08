@@ -100,6 +100,11 @@ export class GitServer extends BaseServer {
     const reposRoot = getGatewayConfig().storage.repos;
     this.repoDir = path.resolve(reposRoot, this.serverName);
 
+    // Validate repoDir doesn't escape reposRoot (path traversal prevention)
+    if (!this.repoDir.startsWith(path.resolve(reposRoot))) {
+      throw new Error(`Invalid server name: would escape repos directory`);
+    }
+
     if (!(await fileExists(this.repoDir))) {
       await fs.mkdir(path.dirname(this.repoDir), { recursive: true });
       logger.info(`Cloning ${sanitizeUrl(repo)} into ${sanitizePath(this.repoDir)}`, {
