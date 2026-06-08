@@ -255,19 +255,59 @@ cd ui && npm run dev
 
 ### Pointing a client at the gateway
 
-**Claude Code** (`~/.claude/.mcp.json`) or **Claude Desktop**:
+The gateway supports **three transports simultaneously**: stdio, SSE, and HTTP. Choose based on your use case.
+
+#### Auto-spawn mode (stdio transport)
+
+The client spawns the gateway automatically. Zero manual setup:
+
 ```json
 {
   "mcpServers": {
     "gateway": {
-      "url": "http://localhost:3000/sse",
-      "transport": "sse"
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "${HOME}/.mcp:/root/.mcp",
+        "-v", "${HOME}/.mcp-gateway/registry.json:/app/registry.json:ro",
+        "ghcr.io/ismail-kattakath/mcp-gateway:latest"
+      ],
+      "transport": "stdio"
     }
   }
 }
 ```
 
-The same SSE URL works for Cline and Cursor.
+**How it works:**
+- Client spawns `docker run -i` (interactive, attached to stdin/stdout)
+- Gateway detects stdin is a pipe (`!process.stdin.isTTY`) → enables stdio transport
+- JSON-RPC flows over stdin/stdout (one message per line)
+- **No auth required** — pipe ownership is inherent authentication
+- HTTP/SSE endpoints also start on `:3000` (with auth) for other clients
+
+**When stdin closes** (client exits), the gateway shuts down gracefully.
+
+#### Persistent daemon mode (SSE or HTTP transport)
+
+Start the gateway once, all clients connect via network:
+
+```json
+{
+  "mcpServers": {
+    "gateway": {
+      "url": "http://localhost:3000/sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authenticated Access](#authenticated-access)).
+
+Works for Claude Code, Claude Desktop, Cline, Cursor, and any MCP client.
 
 ## HTTPS / Custom Domain
 
@@ -311,22 +351,93 @@ If the box isn't directly internet-routable, front it with **Cloudflare Tunnel**
 
 ## Authenticated Access
 
-The gateway has built-in Bearer-token authentication and an IP allowlist, controlled by `gateway.security`. Both default to **off** (so local development just works), and both can be combined for defense-in-depth.
+**Secure by default**: The gateway auto-generates a cryptographic API key on first run and requires it for all SSE/HTTP access. stdio transport (spawned by clients) bypasses auth.
 
-### Bearer token
+### API Key Storage (Industry Standard)
 
-```json
-"security": {
-  "apiKey": "${GATEWAY_API_KEY}",
-  "enableAuth": true,
-  "allowedIPs": []
+Keys are stored using OS-level secure storage, never cleartext:
+
+**Primary method: System keychain**
+- macOS: Keychain Services
+- Linux: libsecret / GNOME Keyring / Secret Service API
+- Windows: Credential Manager
+
+**Fallback method: Encrypted file** (for headless servers)
+- AES-256-GCM authenticated encryption
+- Key derived from machine ID + salt via PBKDF2 (100k iterations, SHA-512)
+- File: `~/.mcp/.gateway-api-key.enc`
+- Stolen file won't decrypt on another machine
+
+**Migration**: Old cleartext keys (`~/.mcp/gateway-api-key`) are auto-migrated to secure storage on first run.
+
+### Retrieve the API Key
+
+```bash
+docker run --rm -v $HOME/.mcp:/root/.mcp \
+  -e PRINT_API_KEY=true \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+Output:
+```
+GATEWAY_API_KEY=abc123def456...
+
+Copy this key to use in client configurations:
+  "headers": {
+    "Authorization": "Bearer abc123def456..."
+  }
+```
+
+### Rotate the API Key
+
+```bash
+docker run --rm -v $HOME/.mcp:/root/.mcp \
+  -e ROTATE_API_KEY=true \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+⚠️ After rotation, update the key in all client configurations.
+
+### Authentication Control
+
+**Default: enabled** (`enableAuth: true`)
+
+Disable for local-only development:
+
+```bash
+# Via environment variable (takes precedence)
+GATEWAY_ENABLE_AUTH=false
+
+# Or in registry.json
+"gateway": {
+  ...
+  "enableAuth": false
 }
 ```
 
-```bash
-# .env
-GATEWAY_API_KEY=$(openssl rand -hex 32)
+### Transport-Specific Auth
+
+| Transport | Auth Required | Reason |
+|-----------|---------------|--------|
+| **stdio** | No | Pipe ownership is inherent authentication |
+| **SSE** | Yes (if enabled) | Network-accessible |
+| **HTTP** | Yes (if enabled) | Network-accessible |
+
+### IP Allowlist (Optional)
+
+```json
+"gateway": {
+  ...
+  "allowedIPs": ["127.0.0.0/8", "192.168.1.0/24", "10.0.0.5"]
+}
 ```
+
+- CIDR-aware (uses `ipaddr.js`)
+- IPv4-mapped-in-IPv6 normalized
+- Applies to all transports (including stdio)
+- Works independently of `enableAuth`
+
+### Bearer Token Details
 
 When `enableAuth: true`, every request to `/sse`, `/mcp/*`, and `/api/*` must include:
 
@@ -334,35 +445,21 @@ When `enableAuth: true`, every request to `/sse`, `/mcp/*`, and `/api/*` must in
 Authorization: Bearer <apiKey>
 ```
 
-The token comparison uses **constant-time equality** (`crypto.timingSafeEqual`) — no timing oracle. Failed auth returns `401` with a standard `WWW-Authenticate: Bearer realm="mcp-gateway"` header. `/health` is always exempt so uptime monitors can probe it.
+- Constant-time comparison (`crypto.timingSafeEqual`) — no timing oracle
+- Failed auth returns `401` with `WWW-Authenticate: Bearer realm="mcp-gateway"`
+- `/health` always exempt (uptime monitors)
 
-**Fail-closed at startup:** if `enableAuth: true` but `apiKey` is missing/empty, the gateway throws during initialization rather than silently letting everything through. The validator also flags this as a semantic error and warns if the key is shorter than 16 chars.
+**Browser fallback**: `?access_token=<key>` on `/sse` only (EventSource can't set headers). Avoid for other endpoints — tokens in URLs leak to logs.
 
-### IP allowlist
+### Defense-in-Depth with Caddy
 
-```json
-"security": {
-  "allowedIPs": ["127.0.0.0/8", "192.168.1.0/24", "10.0.0.5"]
-}
-```
+`Caddyfile.prod` gates at the edge + gateway also checks internally:
 
-CIDR-aware (uses `ipaddr.js`); bare IPs become `/32` (or `/128` for IPv6). IPv4-mapped-in-IPv6 (e.g. `::ffff:127.0.0.1`) is normalized so you can write plain IPv4 entries. Applies even when `enableAuth: false` — useful if you want IP-gating without a token (e.g. internal LAN).
+- Misconfigured reverse proxy? Gateway still refuses.
+- Accidentally exposed port? Gateway still refuses.
+- Leaked token must pass both layers.
 
-### EventSource browsers limitation
-
-The browser `EventSource` API cannot set custom headers, so a browser-based dashboard cannot send `Authorization: Bearer`. As a fallback the middleware accepts `?access_token=<key>` **on `/sse` only**. Avoid putting tokens in URLs for any other endpoint — they'll end up in access logs.
-
-Real MCP clients (Claude Desktop, Cline, Cursor) all support custom headers and should use `Authorization`.
-
-### Defense-in-depth with Caddy
-
-`Caddyfile.prod` already gates by Bearer at the edge. Enabling `gateway.security.enableAuth` makes the gateway *also* check, so:
-
-- If someone misconfigures Caddy and removes the gate, the gateway still refuses.
-- If the gateway port is accidentally exposed past Caddy (e.g. `host: "0.0.0.0"`), the gateway still refuses.
-- A leaked token has to pass both checks.
-
-Use the same `${GATEWAY_API_KEY}` env var in both layers so there's one secret to rotate.
+Use the same auto-generated key for both (retrieve with `PRINT_API_KEY=true`).
 
 ## Release automation
 

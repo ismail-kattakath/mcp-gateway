@@ -25,28 +25,64 @@ docker pull ghcr.io/ismail-kattakath/mcp-gateway:latest
 # Get a starter registry
 curl -O https://raw.githubusercontent.com/ismail-kattakath/mcp-gateway/main/registry.example.json
 mv registry.example.json registry.json
-echo "GATEWAY_API_KEY=$(openssl rand -hex 32)" > .env
 
 docker run -d --name mcp-gateway \
   -p 127.0.0.1:3000:3000 \
   -v $(pwd)/registry.json:/app/registry.json:ro \
-  -v $(pwd)/.env:/app/.env:ro \
   -v $HOME/.mcp:/root/.mcp \
   ghcr.io/ismail-kattakath/mcp-gateway:latest
 ```
 
-Then point any MCP client at `http://localhost:3000/sse`:
+The gateway auto-generates a secure API key on first run using industry-standard storage:
+- **Primary**: System keychain (macOS Keychain, Linux libsecret, Windows Credential Manager)
+- **Fallback**: AES-256-GCM encrypted file with machine-derived key (for headless servers)
+
+Old cleartext keys are automatically migrated to secure storage on first run.
+
+### Option 1: Auto-spawn (zero setup)
+
+The gateway spawns automatically when your MCP client starts. Just paste this config:
+
+```json
+{
+  "mcpServers": {
+    "gateway": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "${HOME}/.mcp:/root/.mcp",
+        "-v", "${HOME}/.mcp-gateway/registry.json:/app/registry.json:ro",
+        "ghcr.io/ismail-kattakath/mcp-gateway:latest"
+      ],
+      "transport": "stdio"
+    }
+  }
+}
+```
+
+- First client spawns the container
+- Uses stdio transport (no auth needed - pipe is trusted)
+- HTTP/SSE endpoints also available on `:3000` (with auth)
+
+### Option 2: Persistent daemon
+
+For shared access or remote deployment, run once as a daemon:
 
 ```json
 {
   "mcpServers": {
     "gateway": {
       "url": "http://localhost:3000/sse",
-      "transport": "sse"
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
     }
   }
 }
 ```
+
+Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authentication](#authentication) section).
 
 For HTTPS or a custom domain, put **Caddy** in front. Templates ship with the repo (`Caddyfile.local`, `Caddyfile.prod`) and the steps are in [`CLAUDE.md`](CLAUDE.md#https--custom-domain).
 
@@ -80,21 +116,65 @@ Optional fields on every server (all default to sensible values):
   "lifecycle": "on-demand",  // or "persistent"
   "enabled":   true,
   "timeout":   30000,
-  "env": { "MY_TOKEN": "${MY_TOKEN}" }   // ${VAR} resolves from .env or system env
+  "env": { "MY_TOKEN": "${MY_TOKEN}" }   // ${VAR} resolves from system env
 }
 ```
 
 Full schema: [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json). Typed mirror: [`types/registry.d.ts`](types/registry.d.ts).
 
-## Authenticated access
+## Authentication
 
-Defaults are safe for local use (no auth, loopback bind). For remote / shared deployments, the gateway has built-in Bearer token + IP allowlist enforcement:
+**Secure by default**: The gateway auto-generates a cryptographic API key on first run (stored in `~/.mcp/gateway-api-key`) and requires it for all SSE/HTTP access. stdio transport (spawned by clients) bypasses auth.
+
+### Get your API key
+
+```bash
+docker run --rm -v $HOME/.mcp:/root/.mcp \
+  -e PRINT_API_KEY=true \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+Use it in client configs:
 
 ```json
-"security": {
-  "apiKey":     "${GATEWAY_API_KEY}",
-  "enableAuth": true,
-  "allowedIPs": ["10.0.0.0/8"]
+{
+  "headers": {
+    "Authorization": "Bearer YOUR_API_KEY"
+  }
+}
+```
+
+Or for browsers (query param): `http://localhost:3000/sse?access_token=YOUR_API_KEY`
+
+### Rotate the key
+
+```bash
+docker run --rm -v $HOME/.mcp:/root/.mcp \
+  -e ROTATE_API_KEY=true \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+### Disable auth (local dev only)
+
+```bash
+docker run -e GATEWAY_ENABLE_AUTH=false ...
+```
+
+Or in `registry.json`:
+
+```json
+"gateway": {
+  ...
+  "enableAuth": false
+}
+```
+
+### IP allowlist (optional)
+
+```json
+"gateway": {
+  ...
+  "allowedIPs": ["10.0.0.0/8", "192.168.1.0/24"]
 }
 ```
 
@@ -115,7 +195,6 @@ Full discussion of trade-offs in [`CLAUDE.md`](CLAUDE.md#three-trust-tiers-for-s
 ```bash
 git clone https://github.com/ismail-kattakath/mcp-gateway.git
 cd mcp-gateway
-cp .env.example .env                          # add your secrets
 
 # Dev (hot-reload)
 cd server && npm install && npm run dev       # gateway on :3000

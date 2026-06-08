@@ -109,17 +109,14 @@ export interface LoggingConfig {
   outputs: ('console' | 'file')[];
 }
 
-export interface SecurityConfig {
-  apiKey?: string;
-  enableAuth?: boolean;
-  allowedIPs?: string[];
-}
-
 export interface GatewayConfig {
   server: ServerConfig;
   storage: StorageConfig;
   logging: LoggingConfig;
-  security?: SecurityConfig;
+  /** Require Bearer token for SSE/HTTP access. stdio bypasses auth. Default: true. */
+  enableAuth?: boolean;
+  /** CIDR-aware IP allowlist. Empty = no IP filtering. */
+  allowedIPs?: string[];
 }
 
 export interface Registry {

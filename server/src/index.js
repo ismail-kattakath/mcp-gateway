@@ -23,6 +23,8 @@ import {
 } from './mcp/protocol.js';
 import { listAllTools } from './mcp/router.js';
 import { createAuthMiddleware } from './middleware/auth.js';
+import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './security/apikey.js';
+import { startStdioTransport } from './mcp/stdio-transport.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +36,14 @@ async function initializeServer() {
   try {
     logger.info('Starting MCP Gateway Server');
 
+    // Handle utility env vars first (they print and exit)
+    if (process.env.PRINT_API_KEY === 'true') {
+      await printApiKeyAndExit();
+    }
+    if (process.env.ROTATE_API_KEY === 'true') {
+      await rotateApiKeyAndExit();
+    }
+
     const registryPath = process.env.REGISTRY_PATH ||
       path.resolve(__dirname, '../../registry.json');
 
@@ -41,6 +51,9 @@ async function initializeServer() {
     await initRegistry(registryPath);
     const registry = getRegistry();
     const gatewayConfig = getGatewayConfig();
+
+    // Load or generate API key (persisted in ~/.mcp/gateway-api-key)
+    const apiKey = await getOrCreateApiKey();
 
     const app = express();
     // Behind a reverse proxy (Caddy/nginx) on loopback — honor X-Forwarded-* so
@@ -73,12 +86,22 @@ async function initializeServer() {
       next();
     });
 
-    // Auth + IP allowlist. Throws at construction if enableAuth is true but
-    // apiKey is empty — fail-closed at startup, not on first request.
-    app.use(createAuthMiddleware(gatewayConfig.security));
+    // Auth + IP allowlist. Passes auto-generated API key.
+    // Throws at construction if auth is enabled but key generation failed.
+    app.use(createAuthMiddleware(gatewayConfig, apiKey));
 
     const serverManager = getServerManager();
     await serverManager.initialize(registry);
+
+    // Check if stdin is a pipe (docker run -i) → enable stdio transport
+    const isStdinPipe = !process.stdin.isTTY;
+    if (isStdinPipe) {
+      logger.info('Detected stdin pipe, enabling stdio transport');
+      startStdioTransport(serverManager, registry);
+      // stdio mode: skip HTTP server setup, just listen on stdin
+      // The process will exit when stdin closes
+      return null;
+    }
 
     // Active SSE sessions — declared up front so the registry-watch callback
     // below can broadcast tools/list_changed notifications to all of them.

@@ -98,11 +98,8 @@
       "level": "info",
       "format": "json",
       "outputs": ["console", "file"]
-    },
-    "security": {
-      "apiKey": "${GATEWAY_API_KEY}",
-      "enableAuth": false,
-      "allowedIPs": []
     }
+    // "enableAuth": false,  // default: true (secure by default). API key auto-generated.
+    // "allowedIPs": []      // optional CIDR-aware IP allowlist
   }
 }
