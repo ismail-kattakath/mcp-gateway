@@ -27,22 +27,22 @@ describe('registry-validator', () => {
 
     it('should reject missing version field', () => {
       const invalid = { ...minimalValidRegistry, version: undefined };
-      expect(() => validateRegistry(invalid as Registry)).toThrow(/validation failed/i);
+      expect(() => validateRegistry(invalid as unknown as Registry)).toThrow(/validation failed/i);
     });
 
     it('should reject invalid version', () => {
       const invalid = { ...minimalValidRegistry, version: '1.0' };
-      expect(() => validateRegistry(invalid as Registry)).toThrow();
+      expect(() => validateRegistry(invalid as any)).toThrow();
     });
 
     it('should reject missing servers field', () => {
       const invalid = { ...minimalValidRegistry, servers: undefined };
-      expect(() => validateRegistry(invalid as Registry)).toThrow(/validation failed/i);
+      expect(() => validateRegistry(invalid as unknown as Registry)).toThrow(/validation failed/i);
     });
 
     it('should reject missing gateway field', () => {
       const invalid = { ...minimalValidRegistry, gateway: undefined };
-      expect(() => validateRegistry(invalid as Registry)).toThrow(/validation failed/i);
+      expect(() => validateRegistry(invalid as unknown as Registry)).toThrow(/validation failed/i);
     });
 
     it('should reject server with invalid name', () => {
@@ -62,7 +62,7 @@ describe('registry-validator', () => {
           'my-server-name': { source: 'pkg', command: 'npx', args: ['test'] },
         },
       };
-      const result = validateRegistry(valid);
+      const result = validateRegistry(valid as any);
       expect(result.valid).toBe(true);
     });
 

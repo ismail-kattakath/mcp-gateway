@@ -15,7 +15,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import logger from '../../logging/logger.js';
 import { createStdoutHandler, createStderrHandler } from './stdio-handler.js';
-import type { BaseServer as BaseServerConfig } from '../../types/registry.js';
+import type { Server } from '../../types/registry.js';
 
 export type ServerState = 'stopped' | 'starting' | 'running' | 'stopping' | 'failed';
 
@@ -56,7 +56,7 @@ export abstract class BaseServer extends EventEmitter {
 
   constructor(
     protected serverName: string,
-    public config: BaseServerConfig
+    public config: Server
   ) {
     super();
     this.process = null;

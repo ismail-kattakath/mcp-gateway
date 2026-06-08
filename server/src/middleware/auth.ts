@@ -20,11 +20,14 @@ import { createRequire } from 'module';
 import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import logger from '../logging/logger.js';
-import type { IPAddress } from 'ipaddr.js';
 
 const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ipaddr = require('ipaddr.js');
 
-const ipaddr = require('ipaddr.js') as typeof import('ipaddr.js');
+type IPv4 = ReturnType<typeof ipaddr.IPv4.prototype.constructor>;
+type IPv6 = ReturnType<typeof ipaddr.IPv6.prototype.constructor>;
+type IPAddress = IPv4 | IPv6;
 
 const HEALTH_PATH = '/health';
 
@@ -68,8 +71,8 @@ function ipMatches(clientIp: string, cidrs: Array<[IPAddress, number]>): boolean
     let addr = ipaddr.parse(clientIp);
     // Normalise IPv4-mapped-in-IPv6 (::ffff:127.0.0.1) to plain IPv4 so the
     // CIDR list can use familiar v4 notation.
-    if (addr.kind() === 'ipv6' && addr.isIPv4MappedAddress()) {
-      addr = addr.toIPv4Address();
+    if (addr.kind() === 'ipv6' && (addr as IPv6).isIPv4MappedAddress()) {
+      addr = (addr as IPv6).toIPv4Address();
     }
     for (const [net, bits] of cidrs) {
       if (addr.kind() !== net.kind()) {

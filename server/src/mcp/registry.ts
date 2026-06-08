@@ -78,7 +78,7 @@ function resolveEnvVarsRecursive(obj: unknown, context: Record<string, string> =
  */
 function applyDefaults(registry: Registry): Registry {
   for (const server of Object.values(registry.servers || {})) {
-    const s = server as Record<string, unknown>;
+    const s = server as unknown as Record<string, unknown>;
     if (s.lifecycle === undefined) s.lifecycle = DEFAULTS.lifecycle;
     if (s.enabled === undefined) s.enabled = DEFAULTS.enabled;
     if (s.timeout === undefined) s.timeout = DEFAULTS.timeout;
@@ -176,9 +176,10 @@ export function watchRegistry(callback: RegistryWatchCallback): void {
     }
   });
 
-  watcher.on('error', (error: Error) =>
-    logger.error('Registry watcher error', { error: error.message })
-  );
+  watcher.on('error', (error: unknown) => {
+    const err = error as Error;
+    logger.error('Registry watcher error', { error: err.message });
+  });
 }
 
 export async function stopWatching(): Promise<void> {

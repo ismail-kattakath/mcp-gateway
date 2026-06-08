@@ -220,14 +220,14 @@ async function initializeServer(): Promise<HttpServer | null> {
 
         if (sessionId && sseConnections.has(sessionId)) {
           streamMessage(sseConnections.get(sessionId)!, response);
-          res.json({ status: 'streamed' });
+          return res.json({ status: 'streamed' });
         } else {
-          res.json(response);
+          return res.json(response);
         }
       } catch (error) {
         const err = error as Error;
         logger.error('Error handling MCP message', { error: err.message, stack: err.stack });
-        res.status(500).json({
+        return res.status(500).json({
           jsonrpc: '2.0',
           id: (req.body as JsonRpcRequest)?.id || null,
           error: { code: -32603, message: 'Internal error', data: err.message },
@@ -296,11 +296,11 @@ async function initializeServer(): Promise<HttpServer | null> {
         if (!config.enabled)
           return res.status(400).json({ error: `Server is disabled: ${serverName}` });
         await serverManager.startServer(serverName, config);
-        res.json({ success: true, serverName, status: serverManager.getServerStatus(serverName) });
+        return res.json({ success: true, serverName, status: serverManager.getServerStatus(serverName) });
       } catch (error) {
         const err = error as Error;
         logger.error('Failed to start server', { error: err.message });
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
       }
     });
 

@@ -47,7 +47,7 @@ interface ServerManagerEvents {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
-declare interface ServerManager {
+export declare interface ServerManager {
   on<U extends keyof ServerManagerEvents>(event: U, listener: ServerManagerEvents[U]): this;
   emit<U extends keyof ServerManagerEvents>(
     event: U,

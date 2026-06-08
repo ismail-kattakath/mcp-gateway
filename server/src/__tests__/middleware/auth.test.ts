@@ -3,7 +3,7 @@ import { createAuthMiddleware } from '../../middleware/auth.js';
 import type { Request, Response, NextFunction } from 'express';
 
 describe('auth middleware', () => {
-  let mockReq: Partial<Request>;
+  let mockReq: Partial<Request> & { path?: string; ip?: string };
   let mockRes: Partial<Response>;
   let nextFn: NextFunction;
   let statusMock: ReturnType<typeof vi.fn>;
@@ -18,17 +18,17 @@ describe('auth middleware', () => {
     mockReq = {
       path: '/api/test',
       ip: '127.0.0.1',
-      get: vi.fn(),
+      get: vi.fn() as any,
       query: {},
     };
 
     mockRes = {
-      status: statusMock,
-      json: jsonMock,
-      set: setMock,
+      status: statusMock as any,
+      json: jsonMock as any,
+      set: setMock as any,
     };
 
-    nextFn = vi.fn();
+    nextFn = vi.fn() as any;
 
     // Clear environment variable
     delete process.env.GATEWAY_ENABLE_AUTH;

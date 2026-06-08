@@ -5,7 +5,7 @@
  * semantic checks the schema can't express on its own.
  */
 
-import Ajv, { ErrorObject } from 'ajv';
+import Ajv, { ErrorObject, AnySchemaObject } from 'ajv';
 import addFormats from 'ajv-formats';
 import fs from 'fs/promises';
 import path from 'path';
@@ -23,11 +23,11 @@ const ajv = new Ajv({
 });
 addFormats(ajv);
 
-let registrySchema: unknown;
+let registrySchema: AnySchemaObject;
 try {
   const schemaPath = path.resolve(__dirname, '../../../schema/registry-v2.schema.json');
   const schemaContent = await fs.readFile(schemaPath, 'utf-8');
-  registrySchema = JSON.parse(schemaContent);
+  registrySchema = JSON.parse(schemaContent) as AnySchemaObject;
 } catch (error) {
   const err = error as Error;
   throw new Error(`Failed to load registry schema: ${err.message}`);

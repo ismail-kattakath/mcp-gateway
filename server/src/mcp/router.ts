@@ -8,16 +8,11 @@
 import logger from '../logging/logger.js';
 import type { Registry, Server } from '../types/registry.js';
 import type { ServerManager } from './backends/index.js';
+import type { BaseServer } from './backends/base.js';
+import type { RemoteServer } from './backends/remote.js';
 import type { MCPTool } from './protocol.js';
 
-// Server interface shape (matches BaseServer and RemoteServer)
-interface ManagedServer {
-  config: Server;
-  isRunning(): boolean;
-  write(data: string): void;
-  on(event: 'message', listener: (message: JsonRpcMessage) => void): void;
-  removeListener(event: 'message', listener: (message: JsonRpcMessage) => void): void;
-}
+type ManagedServer = BaseServer | RemoteServer;
 
 interface JsonRpcMessage {
   jsonrpc: '2.0';
