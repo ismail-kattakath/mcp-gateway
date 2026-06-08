@@ -112,7 +112,9 @@ export class GitServer extends BaseServer {
 
     if (!(await fileExists(this.repoDir))) {
       await fs.mkdir(path.dirname(this.repoDir), { recursive: true });
-      logger.info(`Cloning ${sanitizeUrl(repo)} into ${sanitizeString(this.repoDir)}`, {
+      logger.info('Cloning repository', {
+        repo: sanitizeUrl(repo),
+        repoDir: sanitizePath(this.repoDir),
         branch: branch ? sanitizeString(branch) : undefined,
         tag: tag ? sanitizeString(tag) : undefined,
         commit: commit ? sanitizeString(commit) : undefined,
