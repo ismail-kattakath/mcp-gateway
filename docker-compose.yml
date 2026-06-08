@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-gateway-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ./server:/app/server
+      - ./ui:/app/ui
+
+      # Mount configuration files
+      - ./registry.json:/app/registry.json
+      - ./.env:/app/.env
+
+      # Mount Docker socket for docker backend type
+      # WARNING: This gives the container access to host Docker daemon
+      # For production, consider rootless Docker or Docker-in-Docker
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Persist MCP data on host for development
+      - ~/.mcp/repos:/root/.mcp/repos
+      - ~/.mcp/cache:/root/.mcp/cache
+      - ~/.mcp/logs:/root/.mcp/logs
+      - ~/.mcp/tokens.enc:/root/.mcp/tokens.enc
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    env_file:
+      - .env
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    command: ["npm", "run", "dev", "--prefix", "/app/server"]
+
+networks:
+  mcp-network:
+    driver: bridge

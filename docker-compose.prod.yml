@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-gateway-prod
+    ports:
+      - "3000:3000"
+    volumes:
+      # Use named volumes for production data persistence
+      - mcp-repos:/root/.mcp/repos
+      - mcp-cache:/root/.mcp/cache
+      - mcp-logs:/root/.mcp/logs
+      - mcp-tokens:/root/.mcp/tokens
+
+      # Mount Docker socket for docker backend type
+      # For production deployment, consider:
+      # 1. Rootless Docker: https://docs.docker.com/engine/security/rootless/
+      # 2. Docker Socket Proxy: https://github.com/Tecnativa/docker-socket-proxy
+      # 3. Separate Docker host with TLS authentication
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Mount registry.json from host (allows live updates without rebuild)
+      - ./registry.json:/app/registry.json:ro
+
+      # Mount .env from host (keep secrets out of image)
+      - ./.env:/app/.env:ro
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+    env_file:
+      - .env
+    networks:
+      - mcp-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  mcp-repos:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOME}/.mcp/repos
+  mcp-cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOME}/.mcp/cache
+  mcp-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOME}/.mcp/logs
+  mcp-tokens:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOME}/.mcp/tokens
+
+networks:
+  mcp-network:
+    driver: bridge
+
+# Production deployment notes:
+#
+# 1. HTTPS/TLS: Add nginx or Caddy reverse proxy
+#    Example nginx config:
+#    server {
+#      listen 443 ssl http2;
+#      server_name mcp-gateway.yourdomain.com;
+#      ssl_certificate /path/to/cert.pem;
+#      ssl_certificate_key /path/to/key.pem;
+#      location / {
+#        proxy_pass http://localhost:3000;
+#        proxy_http_version 1.1;
+#        proxy_set_header Upgrade $http_upgrade;
+#        proxy_set_header Connection "upgrade";
+#        proxy_set_header Host $host;
+#      }
+#    }
+#
+# 2. Authentication: Set ENABLE_AUTH=true and GATEWAY_API_KEY in .env
+#
+# 3. Firewall: Restrict port 3000 to localhost if using reverse proxy
+#    iptables -A INPUT -p tcp --dport 3000 -s 127.0.0.1 -j ACCEPT
+#    iptables -A INPUT -p tcp --dport 3000 -j DROP
+#
+# 4. Backups: Regularly backup volumes (especially mcp-tokens)
+#    docker run --rm -v mcp-tokens:/data -v $(pwd):/backup alpine \
+#      tar czf /backup/tokens-backup.tar.gz -C /data .
+#
+# 5. Updates: Pull latest image and recreate container
+#    docker-compose -f docker-compose.prod.yml pull
+#    docker-compose -f docker-compose.prod.yml up -d
+#
+# 6. Monitoring: Consider adding Prometheus + Grafana for metrics
+#    Or use Docker stats: docker stats mcp-gateway-prod

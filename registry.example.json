@@ -103,6 +103,133 @@
         "retries": 3
       },
       "enabled": false
+    },
+    "uvx-mcp": {
+      "name": "UVX Python Package",
+      "description": "Example of Python package via uvx",
+      "type": "uvx",
+      "install": {
+        "package": "mcp-server-time",
+        "version": "latest"
+      },
+      "runtime": {
+        "args": ["--port", "8080"],
+        "env": {
+          "PYTHONUNBUFFERED": "1"
+        }
+      },
+      "lifecycle": "on-demand",
+      "enabled": false
+    },
+    "pipx-mcp": {
+      "name": "PIPX Python Package",
+      "description": "Example of Python package via pipx",
+      "type": "pipx",
+      "install": {
+        "package": "mcp-server-filesystem",
+        "version": "0.1.0"
+      },
+      "runtime": {
+        "env": {
+          "PYTHONUNBUFFERED": "1"
+        }
+      },
+      "lifecycle": "on-demand",
+      "enabled": false
+    },
+    "git-python-mcp": {
+      "name": "Git Python MCP",
+      "description": "Example of git repo with Python",
+      "type": "git-python",
+      "install": {
+        "repository": "https://github.com/username/python-mcp.git",
+        "branch": "main",
+        "build": {
+          "steps": [
+            "uv venv",
+            "uv pip install -e ."
+          ],
+          "entrypoint": "src/main.py"
+        }
+      },
+      "runtime": {
+        "command": "python",
+        "env": {
+          "PYTHONUNBUFFERED": "1"
+        }
+      },
+      "lifecycle": "persistent",
+      "enabled": false
+    },
+    "local-mcp": {
+      "name": "Local Script MCP",
+      "description": "Example of local script execution",
+      "type": "local",
+      "install": {
+        "path": "${HOME}/.mcp/scripts/custom-mcp.js"
+      },
+      "runtime": {
+        "command": "node",
+        "env": {
+          "NODE_ENV": "production"
+        }
+      },
+      "lifecycle": "on-demand",
+      "enabled": false
+    },
+    "remote-sse-mcp": {
+      "name": "Remote SSE MCP",
+      "description": "Example of remote SSE endpoint",
+      "type": "remote-sse",
+      "install": {
+        "url": "https://smithery.ai/server/username/mcp-server/sse",
+        "postUrl": "https://smithery.ai/server/username/mcp-server/message"
+      },
+      "runtime": {
+        "headers": {
+          "Authorization": "Bearer ${SMITHERY_ACCESS_TOKEN}"
+        }
+      },
+      "auth": {
+        "type": "oauth",
+        "provider": "smithery",
+        "scopes": ["mcp.read", "mcp.write"],
+        "tokenRefresh": true
+      },
+      "lifecycle": "persistent",
+      "enabled": false
+    },
+    "remote-http-mcp": {
+      "name": "Remote HTTP MCP",
+      "description": "Example of remote HTTP endpoint",
+      "type": "remote-http",
+      "install": {
+        "url": "https://api.example.com/mcp"
+      },
+      "runtime": {
+        "headers": {
+          "X-API-Key": "${API_KEY}"
+        }
+      },
+      "lifecycle": "on-demand",
+      "enabled": false
+    },
+    "shell-mcp": {
+      "name": "Shell Script MCP",
+      "description": "Example of shell script wrapper",
+      "type": "shell",
+      "install": {
+        "script": "${HOME}/.mcp/scripts/wrapper.sh",
+        "shell": "/bin/bash"
+      },
+      "runtime": {
+        "args": ["--mode", "production"],
+        "env": {
+          "DEBUG": "false"
+        }
+      },
+      "lifecycle": "on-demand",
+      "enabled": false
     }
   },
   "gateway": {
