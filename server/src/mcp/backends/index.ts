@@ -82,7 +82,9 @@ export class ServerManager extends EventEmitter {
           await this.startServer(name, config);
         } catch (error) {
           const err = error as Error;
-          logger.error(`Failed to start persistent server ${sanitizeServerName(name)}`, { error: err.message });
+          logger.error(`Failed to start persistent server ${sanitizeServerName(name)}`, {
+            error: err.message,
+          });
         }
       } else {
         logger.debug(`Server ${sanitizeServerName(name)} is on-demand, will start when needed`);
@@ -123,7 +125,9 @@ export class ServerManager extends EventEmitter {
         logger.info(`Restarting persistent server: ${sanitizeServerName(serverName)}`);
         setTimeout(() => {
           this.startServer(serverName, config).catch((error: Error) => {
-            logger.error(`Failed to restart server ${sanitizeServerName(serverName)}`, { error: error.message });
+            logger.error(`Failed to restart server ${sanitizeServerName(serverName)}`, {
+              error: error.message,
+            });
           });
         }, 2000);
       }
@@ -196,7 +200,9 @@ export class ServerManager extends EventEmitter {
       if (!last) return;
       const idle = Date.now() - last;
       if (idle >= this.onDemandIdleTime) {
-        logger.info(`Server ${sanitizeServerName(serverName)} idle for ${(idle / 1000).toFixed(0)}s, stopping`);
+        logger.info(
+          `Server ${sanitizeServerName(serverName)} idle for ${(idle / 1000).toFixed(0)}s, stopping`
+        );
         await this.stopServer(serverName);
       } else {
         this.scheduleIdleCheck(serverName, config);
@@ -257,7 +263,9 @@ export class ServerManager extends EventEmitter {
       if (server.isRunning()) {
         stopPromises.push(
           server.kill().catch((error: Error) => {
-            logger.error(`Error stopping server ${sanitizeServerName(name)}`, { error: error.message });
+            logger.error(`Error stopping server ${sanitizeServerName(name)}`, {
+              error: error.message,
+            });
           })
         );
       }
@@ -293,7 +301,9 @@ export class ServerManager extends EventEmitter {
         if (newCfg.lifecycle === 'persistent') {
           logger.info(`Starting server ${sanitizeServerName(name)}`);
           await this.startServer(name, newCfg).catch((error: Error) => {
-            logger.error(`Failed to start server ${sanitizeServerName(name)}`, { error: error.message });
+            logger.error(`Failed to start server ${sanitizeServerName(name)}`, {
+              error: error.message,
+            });
           });
         }
       }

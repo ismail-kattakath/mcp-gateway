@@ -89,7 +89,9 @@ export class RemoteServer extends EventEmitter {
 
     this.parseStream(response.body).catch((error: Error) => {
       if (error.name !== 'AbortError') {
-        logger.error(`SSE stream error for ${sanitizeServerName(this.serverName)}`, { error: error.message });
+        logger.error(`SSE stream error for ${sanitizeServerName(this.serverName)}`, {
+          error: error.message,
+        });
         this.state = 'failed';
         this.emit('exit', null, null);
       }
@@ -163,7 +165,9 @@ export class RemoteServer extends EventEmitter {
     if (!this.isRunning()) throw new Error(`Server ${this.serverName} is not running`);
 
     if (this.config.transport === 'sse') {
-      logger.warn(`Cannot write to SSE remote ${sanitizeServerName(this.serverName)}; SSE is read-only`);
+      logger.warn(
+        `Cannot write to SSE remote ${sanitizeServerName(this.serverName)}; SSE is read-only`
+      );
       return;
     }
 
@@ -183,7 +187,9 @@ export class RemoteServer extends EventEmitter {
       }
     } catch (error) {
       const err = error as Error;
-      logger.error(`HTTP request to ${sanitizeServerName(this.serverName)} failed`, { error: err.message });
+      logger.error(`HTTP request to ${sanitizeServerName(this.serverName)} failed`, {
+        error: err.message,
+      });
       this.emit('error', err);
     }
   }

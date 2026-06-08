@@ -14,7 +14,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
-import logger, { sanitizeServerName, sanitizeUrl, sanitizePath, sanitizeString } from '../../logging/logger.js';
+import logger, {
+  sanitizeServerName,
+  sanitizeUrl,
+  sanitizePath,
+  sanitizeString,
+} from '../../logging/logger.js';
 import { getGatewayConfig } from '../registry.js';
 import { BaseServer, SpawnArgs } from './base.js';
 import type { GitServer as GitServerConfig } from '../../types/registry.js';

@@ -103,7 +103,9 @@ export class ContainerServer extends BaseServer {
       buildArgs.push('--build-arg', `${k}=${v}`);
     }
     buildArgs.push(contextDir);
-    logger.info(`Building image: ${sanitizeString(this.imageRef)}`, { context: sanitizePath(contextDir) });
+    logger.info(`Building image: ${sanitizeString(this.imageRef)}`, {
+      context: sanitizePath(contextDir),
+    });
     await runShell('docker', buildArgs);
   }
 
