@@ -152,9 +152,10 @@ export abstract class BaseServer extends EventEmitter {
               });
             }, 2000 * this.retryCount);
           } else {
-            logger.error(
-              `Server ${sanitizeServerName(this.serverName)} failed after ${this.maxRetries} retries`
-            );
+            logger.error('Server failed after max retries', {
+              serverName: sanitizeServerName(this.serverName),
+              maxRetries: this.maxRetries,
+            });
             this.emit('failed', this.lastError);
           }
         } else {
