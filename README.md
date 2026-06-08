@@ -13,6 +13,9 @@ Universal aggregator for [Model Context Protocol](https://modelcontextprotocol.i
 | Every tool loads every server upfront → context spam | Servers spawn on-demand and idle out after 5 min |
 | Secrets duplicated across tool configs | One `.env` |
 | Same servers re-configured on every machine | Deploy once (local or remote), all machines connect |
+| Restart every client whenever an MCP server is added, removed, or reconfigured | Edit `registry.json` — the gateway hot-reloads in place; no gateway restart, and the next tool listing from each client reflects the change |
+| Each client spawns its own server instance — open sessions, caches, and stateful connections don't cross tools | One server process shared by every connected client — state and history are visible from anywhere |
+| MCP servers cold-start on every reboot and every client restart | Gateway runs as a service (Docker / launchd / systemd); persistent servers stay up across reboots |
 
 ## Quick start (Docker)
 
