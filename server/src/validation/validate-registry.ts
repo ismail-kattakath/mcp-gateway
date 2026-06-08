@@ -94,17 +94,14 @@ async function main(): Promise<void> {
       parseError?: unknown;
     };
     if (err.code === 'ENOENT') {
-       
       console.error(`File not found: ${registryPath}\n`);
     } else if (
       err.validationErrors === undefined &&
       err.semanticErrors === undefined &&
       err.parseError === undefined
     ) {
-       
       console.error(`Unexpected error: ${err.message}\n`);
       if (process.env.DEBUG === 'true') {
-         
         console.error(err.stack);
       }
     }
@@ -113,7 +110,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: Error) => {
-   
   console.error('Fatal error:', error);
   process.exit(1);
 });

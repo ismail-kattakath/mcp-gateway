@@ -58,7 +58,8 @@ async function fileExists(p: string): Promise<boolean> {
 async function detectInstall(repoDir: string): Promise<string[] | null> {
   if (await fileExists(path.join(repoDir, 'package.json'))) return ['npm install'];
   if (await fileExists(path.join(repoDir, 'pyproject.toml'))) return ['uv pip install -e .'];
-  if (await fileExists(path.join(repoDir, 'requirements.txt'))) return ['uv pip install -r requirements.txt'];
+  if (await fileExists(path.join(repoDir, 'requirements.txt')))
+    return ['uv pip install -r requirements.txt'];
   return null;
 }
 
@@ -105,7 +106,7 @@ export class GitServer extends BaseServer {
       logger.debug(`Repo already exists at ${this.repoDir}, skipping clone`);
     }
 
-    const installSteps = this.config.install ?? await detectInstall(this.repoDir);
+    const installSteps = this.config.install ?? (await detectInstall(this.repoDir));
     if (installSteps) {
       logger.info(`Running install steps for ${this.serverName}`, { steps: installSteps });
       for (const step of installSteps) {
@@ -113,7 +114,7 @@ export class GitServer extends BaseServer {
       }
     }
 
-    const buildSteps = this.config.build ?? await detectBuild(this.repoDir);
+    const buildSteps = this.config.build ?? (await detectBuild(this.repoDir));
     if (buildSteps) {
       logger.info(`Running build steps for ${this.serverName}`, { steps: buildSteps });
       for (const step of buildSteps) {
@@ -124,10 +125,12 @@ export class GitServer extends BaseServer {
 
   async getSpawnArgs(): Promise<SpawnArgs> {
     if (!this.repoDir) {
-      throw new Error(`GitServer ${this.serverName}: repoDir not set. prepare() must be called first.`);
+      throw new Error(
+        `GitServer ${this.serverName}: repoDir not set. prepare() must be called first.`
+      );
     }
     const { command, args = [], env = {} } = this.config;
-    const resolvedArgs = args.map(a => a.replace(/\$\{REPO_DIR\}/g, this.repoDir!));
+    const resolvedArgs = args.map((a) => a.replace(/\$\{REPO_DIR\}/g, this.repoDir!));
     return { command, args: resolvedArgs, env, cwd: this.repoDir };
   }
 }

@@ -38,7 +38,9 @@ declare module 'keytar' {
   export function getPassword(service: string, account: string): Promise<string | null>;
   export function deletePassword(service: string, account: string): Promise<boolean>;
   export function findPassword(service: string): Promise<string | null>;
-  export function findCredentials(service: string): Promise<Array<{ account: string; password: string }>>;
+  export function findCredentials(
+    service: string
+  ): Promise<Array<{ account: string; password: string }>>;
 }
 
 declare module 'dockerode' {
@@ -145,10 +147,7 @@ declare module 'dockerode' {
         Status: string;
       }>
     >;
-    pull(
-      image: string,
-      options?: { authconfig?: unknown }
-    ): Promise<Readable>;
+    pull(image: string, options?: { authconfig?: unknown }): Promise<Readable>;
     buildImage(
       file: string | Readable | ImageBuildContext,
       options?: {

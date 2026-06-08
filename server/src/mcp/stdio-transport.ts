@@ -24,7 +24,7 @@ export function startStdioTransport(serverManager: ServerManager, registry: Regi
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    terminal: false // Disable terminal-specific features (no ANSI, no echoing)
+    terminal: false, // Disable terminal-specific features (no ANSI, no echoing)
   });
 
   rl.on('line', async (line: string) => {
@@ -51,13 +51,13 @@ export function startStdioTransport(serverManager: ServerManager, registry: Regi
         errorResponse = {
           jsonrpc: '2.0',
           id: partial.id || null,
-          error: { code: -32603, message: 'Internal error', data: err.message }
+          error: { code: -32603, message: 'Internal error', data: err.message },
         };
       } catch {
         errorResponse = {
           jsonrpc: '2.0',
           id: null,
-          error: { code: -32700, message: 'Parse error', data: err.message }
+          error: { code: -32700, message: 'Parse error', data: err.message },
         };
       }
 

@@ -22,11 +22,16 @@ type ManagedServer = BaseServer | RemoteServer;
 
 function createServerForSource(serverName: string, config: Server): ManagedServer {
   switch (config.source) {
-    case 'pkg':       return createPkgServer(serverName, config);
-    case 'git':       return createGitServer(serverName, config);
-    case 'container': return createContainerServer(serverName, config);
-    case 'remote':    return createRemoteServer(serverName, config);
-    case 'local':     return createLocalServer(serverName, config);
+    case 'pkg':
+      return createPkgServer(serverName, config);
+    case 'git':
+      return createGitServer(serverName, config);
+    case 'container':
+      return createContainerServer(serverName, config);
+    case 'remote':
+      return createRemoteServer(serverName, config);
+    case 'local':
+      return createLocalServer(serverName, config);
     default:
       // TypeScript should ensure this never happens
       throw new Error(`Unknown server source: ${(config as Server).source}`);
@@ -44,7 +49,10 @@ interface ServerManagerEvents {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 declare interface ServerManager {
   on<U extends keyof ServerManagerEvents>(event: U, listener: ServerManagerEvents[U]): this;
-  emit<U extends keyof ServerManagerEvents>(event: U, ...args: Parameters<ServerManagerEvents[U]>): boolean;
+  emit<U extends keyof ServerManagerEvents>(
+    event: U,
+    ...args: Parameters<ServerManagerEvents[U]>
+  ): boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
@@ -83,7 +91,7 @@ export class ServerManager extends EventEmitter {
 
     logger.info('Server manager initialized', {
       running: this.getRunningServers().length,
-      total: enabled.length
+      total: enabled.length,
     });
   }
 
@@ -96,7 +104,10 @@ export class ServerManager extends EventEmitter {
       }
     }
 
-    logger.info(`Starting server: ${serverName}`, { source: config.source, lifecycle: config.lifecycle });
+    logger.info(`Starting server: ${serverName}`, {
+      source: config.source,
+      lifecycle: config.lifecycle,
+    });
 
     const server = createServerForSource(serverName, config);
 
@@ -205,7 +216,7 @@ export class ServerManager extends EventEmitter {
         pid: null,
         uptime: null,
         retryCount: 0,
-        lastError: null
+        lastError: null,
       };
     }
     const status = server.getStatus();

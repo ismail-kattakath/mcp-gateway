@@ -39,7 +39,7 @@ function LogLevel({ level }: LogLevelProps): JSX.Element {
     error: 'text-red-500 bg-red-500/10',
     warn: 'text-yellow-500 bg-yellow-500/10',
     info: 'text-blue-500 bg-blue-500/10',
-    debug: 'text-gray-500 bg-gray-500/10'
+    debug: 'text-gray-500 bg-gray-500/10',
   };
   return (
     <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[level] || colors.debug}`}>
@@ -71,12 +71,12 @@ function LogsViewer(): JSX.Element {
 
   const { data: registry } = useQuery<Registry, Error>({
     queryKey: ['registry'],
-    queryFn: getRegistry
+    queryFn: getRegistry,
   });
   const { data: logsData, isLoading } = useQuery<LogsResponse, Error>({
     queryKey: ['logs', selectedServer],
     queryFn: () => getLogs(selectedServer || null, 200),
-    refetchInterval: 3000
+    refetchInterval: 3000,
   });
 
   const servers = Object.keys(registry?.servers || {});
@@ -84,7 +84,7 @@ function LogsViewer(): JSX.Element {
   // Flatten logs into a single chronological list
   let entries: LogEntryWithServer[] = [];
   if (logsData?.logs) {
-    entries = logsData.logs.map(log => ({ ...log, _server: logsData.serverName }));
+    entries = logsData.logs.map((log) => ({ ...log, _server: logsData.serverName }));
   } else if (logsData?.servers) {
     for (const [name, logs] of Object.entries(logsData.servers)) {
       for (const log of logs) entries.push({ ...log, _server: name });
@@ -93,7 +93,7 @@ function LogsViewer(): JSX.Element {
   }
 
   if (search) {
-    entries = entries.filter(e => (e.message || '').toLowerCase().includes(search.toLowerCase()));
+    entries = entries.filter((e) => (e.message || '').toLowerCase().includes(search.toLowerCase()));
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -133,7 +133,11 @@ function LogsViewer(): JSX.Element {
           className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:outline-none focus:border-primary"
         >
           <option value="">All servers</option>
-          {servers.map(name => <option key={name} value={name}>{name}</option>)}
+          {servers.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
         </select>
       </div>
 

@@ -54,7 +54,10 @@ export class RemoteServer extends EventEmitter {
   async spawn(): Promise<void> {
     if (this.state === 'running' || this.state === 'starting') return;
     this.state = 'starting';
-    this.addLog('info', 'Connecting to remote server', { url: this.config.url, transport: this.config.transport });
+    this.addLog('info', 'Connecting to remote server', {
+      url: this.config.url,
+      transport: this.config.transport,
+    });
 
     try {
       if (this.config.transport === 'sse') {
@@ -78,7 +81,7 @@ export class RemoteServer extends EventEmitter {
     const response = await fetch(this.config.url, {
       method: 'GET',
       headers: { Accept: 'text/event-stream', ...(this.config.headers || {}) },
-      signal: this.abortController.signal
+      signal: this.abortController.signal,
     });
 
     if (!response.ok) throw new Error(`SSE connection failed: ${response.status}`);
@@ -148,7 +151,7 @@ export class RemoteServer extends EventEmitter {
       transport: this.config.transport,
       uptime: this.startTime ? Date.now() - this.startTime : null,
       retryCount: 0,
-      lastError: this.lastError
+      lastError: this.lastError,
     };
   }
 
@@ -169,7 +172,7 @@ export class RemoteServer extends EventEmitter {
       const response = await fetch(this.config.url, {
         method,
         headers: { 'Content-Type': 'application/json', ...(this.config.headers || {}) },
-        body: method === 'POST' ? data : undefined
+        body: method === 'POST' ? data : undefined,
       });
       const text = await response.text();
       try {

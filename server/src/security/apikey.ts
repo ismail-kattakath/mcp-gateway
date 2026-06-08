@@ -10,11 +10,7 @@
 import path from 'path';
 import crypto from 'crypto';
 import logger from '../logging/logger.js';
-import {
-  storeSecret,
-  retrieveSecret,
-  migrateFromCleartext,
-} from './secure-storage.js';
+import { storeSecret, retrieveSecret, migrateFromCleartext } from './secure-storage.js';
 
 const OLD_CLEARTEXT_FILE: string = path.join(
   process.env.HOME ?? process.env.USERPROFILE ?? '/tmp',
@@ -96,7 +92,7 @@ export async function printApiKeyAndExit(): Promise<void> {
     process.exit(0);
   } catch (error) {
     const err = error as Error;
-     
+
     console.error('Failed to retrieve API key:', err.message);
     process.exit(1);
   }
@@ -118,7 +114,7 @@ export async function rotateApiKeyAndExit(): Promise<void> {
     process.exit(0);
   } catch (error) {
     const err = error as Error;
-     
+
     console.error('Failed to rotate API key:', err.message);
     process.exit(1);
   }

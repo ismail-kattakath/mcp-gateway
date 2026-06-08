@@ -42,7 +42,7 @@ function StatusBadge({ state }: StatusBadgeProps): JSX.Element {
     running: { icon: CheckCircle, color: 'text-green-500' },
     stopped: { icon: XCircle, color: 'text-gray-500' },
     not_started: { icon: XCircle, color: 'text-gray-500' },
-    failed: { icon: AlertCircle, color: 'text-red-500' }
+    failed: { icon: AlertCircle, color: 'text-red-500' },
   };
   const { icon: Icon, color } = config[state] || config.stopped;
   return (
@@ -67,7 +67,9 @@ function ServerCard({ name, server, statusEntry, onStart, onStop }: ServerCardPr
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
             <span className="bg-dark-hover px-2 py-1 rounded">source: {server.source}</span>
-            <span className="bg-dark-hover px-2 py-1 rounded">{server.lifecycle || 'on-demand'}</span>
+            <span className="bg-dark-hover px-2 py-1 rounded">
+              {server.lifecycle || 'on-demand'}
+            </span>
             {server.enabled === false && (
               <span className="bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded">disabled</span>
             )}
@@ -76,7 +78,9 @@ function ServerCard({ name, server, statusEntry, onStart, onStop }: ServerCardPr
       </div>
 
       {statusEntry?.lastError && (
-        <div className="mb-4 text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded">{statusEntry.lastError}</div>
+        <div className="mb-4 text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded">
+          {statusEntry.lastError}
+        </div>
       )}
 
       <div className="flex items-center gap-2">
@@ -106,26 +110,33 @@ function ServerCard({ name, server, statusEntry, onStart, onStop }: ServerCardPr
 function ServerConfig(): JSX.Element {
   const queryClient = useQueryClient();
 
-  const { data: registry, isLoading: regLoading, error: regError } = useQuery<Registry, Error>({
+  const {
+    data: registry,
+    isLoading: regLoading,
+    error: regError,
+  } = useQuery<Registry, Error>({
     queryKey: ['registry'],
-    queryFn: getRegistry
+    queryFn: getRegistry,
   });
   const { data: status } = useQuery<StatusResponse, Error>({
     queryKey: ['status'],
     queryFn: getStatus,
-    refetchInterval: 5000
+    refetchInterval: 5000,
   });
 
   const startMutation = useMutation({
     mutationFn: startServer,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
   });
   const stopMutation = useMutation({
     mutationFn: stopServer,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
   });
 
-  if (regLoading) return <div className="flex items-center justify-center h-64 text-gray-400">Loading servers...</div>;
+  if (regLoading)
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400">Loading servers...</div>
+    );
   if (regError) {
     return (
       <div className="bg-red-500/10 border border-red-500 rounded-lg p-4">

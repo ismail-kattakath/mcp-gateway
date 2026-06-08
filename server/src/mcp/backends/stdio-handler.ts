@@ -32,7 +32,10 @@ interface ServerWithLogs {
  * @param serverName - Backend ID for logging
  * @returns Data handler function
  */
-export function createStdoutHandler(server: ServerWithLogs, serverName: string): (data: Buffer) => void {
+export function createStdoutHandler(
+  server: ServerWithLogs,
+  serverName: string
+): (data: Buffer) => void {
   let stdoutBuffer = '';
 
   return (data: Buffer): void => {
@@ -58,7 +61,7 @@ export function createStdoutHandler(server: ServerWithLogs, serverName: string):
             id: message.id,
             method: message.method,
             hasResult: !!message.result,
-            hasError: !!message.error
+            hasError: !!message.error,
           });
         } else {
           // Not JSON-RPC, treat as log
@@ -81,7 +84,10 @@ export function createStdoutHandler(server: ServerWithLogs, serverName: string):
  * @param serverName - Backend ID for logging
  * @returns Data handler function
  */
-export function createStderrHandler(server: ServerWithLogs, serverName: string): (data: Buffer) => void {
+export function createStderrHandler(
+  server: ServerWithLogs,
+  serverName: string
+): (data: Buffer) => void {
   return (data: Buffer): void => {
     const message = data.toString().trim();
     if (message) {
@@ -98,5 +104,5 @@ export function createStderrHandler(server: ServerWithLogs, serverName: string):
 
 export default {
   createStdoutHandler,
-  createStderrHandler
+  createStderrHandler,
 };

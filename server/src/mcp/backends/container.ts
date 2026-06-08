@@ -86,7 +86,7 @@ export class ContainerServer extends BaseServer {
       '-t',
       this.imageRef,
       '-f',
-      path.join(contextDir, build.dockerfile || 'Dockerfile')
+      path.join(contextDir, build.dockerfile || 'Dockerfile'),
     ];
     for (const [k, v] of Object.entries(build.args || {})) {
       buildArgs.push('--build-arg', `${k}=${v}`);
@@ -106,7 +106,9 @@ export class ContainerServer extends BaseServer {
 
   async getSpawnArgs(): Promise<SpawnArgs> {
     if (!this.imageRef) {
-      throw new Error(`ContainerServer ${this.serverName}: imageRef not set. prepare() must be called first.`);
+      throw new Error(
+        `ContainerServer ${this.serverName}: imageRef not set. prepare() must be called first.`
+      );
     }
 
     const { volumes = [], ports = {}, env = {} } = this.config;
@@ -125,7 +127,10 @@ export class ContainerServer extends BaseServer {
   }
 }
 
-export function createContainerServer(serverName: string, config: ContainerServerConfig): ContainerServer {
+export function createContainerServer(
+  serverName: string,
+  config: ContainerServerConfig
+): ContainerServer {
   return new ContainerServer(serverName, config);
 }
 

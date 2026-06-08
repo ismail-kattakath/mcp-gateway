@@ -26,14 +26,17 @@ interface Defaults {
 const DEFAULTS: Defaults = Object.freeze({
   lifecycle: 'on-demand',
   enabled: true,
-  timeout: 30000
+  timeout: 30000,
 });
 
 let currentRegistry: Registry | null = null;
 let registryPath: string | null = null;
 let watcher: FSWatcher | null = null;
 
-export type RegistryWatchCallback = (newRegistry: Registry, oldRegistry: Registry) => void | Promise<void>;
+export type RegistryWatchCallback = (
+  newRegistry: Registry,
+  oldRegistry: Registry
+) => void | Promise<void>;
 
 const watchCallbacks = new Set<RegistryWatchCallback>();
 
@@ -62,7 +65,7 @@ function resolveEnvVars(value: unknown, context: Record<string, string> = {}): u
 
 function resolveEnvVarsRecursive(obj: unknown, context: Record<string, string> = {}): unknown {
   if (obj === null || typeof obj !== 'object') return resolveEnvVars(obj, context);
-  if (Array.isArray(obj)) return obj.map(item => resolveEnvVarsRecursive(item, context));
+  if (Array.isArray(obj)) return obj.map((item) => resolveEnvVarsRecursive(item, context));
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
     out[k] = resolveEnvVarsRecursive(v, context);
@@ -97,7 +100,7 @@ async function loadRegistry(filePath: string): Promise<Registry> {
   logger.info('Registry loaded successfully', {
     version: registry.version,
     serverCount: Object.keys(resolved.servers).length,
-    enabledCount: Object.values(resolved.servers).filter(s => s.enabled).length
+    enabledCount: Object.values(resolved.servers).filter((s) => s.enabled).length,
   });
 
   return resolved;
@@ -149,7 +152,7 @@ export function watchRegistry(callback: RegistryWatchCallback): void {
   watcher = chokidar.watch(registryPath, {
     persistent: true,
     ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 }
+    awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
   });
 
   watcher.on('change', async (changedPath: string) => {
@@ -173,7 +176,9 @@ export function watchRegistry(callback: RegistryWatchCallback): void {
     }
   });
 
-  watcher.on('error', (error: Error) => logger.error('Registry watcher error', { error: error.message }));
+  watcher.on('error', (error: Error) =>
+    logger.error('Registry watcher error', { error: error.message })
+  );
 }
 
 export async function stopWatching(): Promise<void> {
@@ -210,5 +215,5 @@ export default {
   getGatewayConfig,
   watchRegistry,
   stopWatching,
-  reloadRegistry
+  reloadRegistry,
 };

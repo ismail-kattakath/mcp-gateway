@@ -112,7 +112,7 @@ export async function handleMCPRequest(
 ): Promise<JsonRpcResponse> {
   logger.debug('Handling MCP request', {
     id: request.id,
-    method: request.method
+    method: request.method,
   });
 
   // Validate JSON-RPC format
@@ -186,15 +186,10 @@ export async function handleMCPRequest(
     logger.error('Error handling MCP request', {
       method: request.method,
       error: err.message,
-      stack: err.stack
+      stack: err.stack,
     });
 
-    return createErrorResponse(
-      request.id ?? null,
-      -32603,
-      'Internal error',
-      err.message
-    );
+    return createErrorResponse(request.id ?? null, -32603, 'Internal error', err.message);
   }
 }
 
@@ -211,11 +206,11 @@ async function handleToolsList(
   const tools = await listAllTools(serverManager, registry);
 
   return {
-    tools: tools.map(tool => ({
+    tools: tools.map((tool) => ({
       name: tool.name,
       description: tool.description || '',
-      inputSchema: tool.inputSchema || { type: 'object', properties: {} }
-    }))
+      inputSchema: tool.inputSchema || { type: 'object', properties: {} },
+    })),
   };
 }
 
@@ -235,7 +230,7 @@ async function handleToolsCall(
 
   logger.info('Handling tools/call request', {
     toolName: toolParams.name,
-    hasArguments: !!toolParams.arguments
+    hasArguments: !!toolParams.arguments,
   });
 
   const result = await routeToolCall(
@@ -250,9 +245,9 @@ async function handleToolsCall(
     content: [
       {
         type: 'text',
-        text: typeof result === 'string' ? result : JSON.stringify(result, null, 2)
-      }
-    ]
+        text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+      },
+    ],
   };
 }
 
@@ -269,7 +264,7 @@ async function handlePromptsList(
   // TODO: Aggregate prompts from backends
   // For now, return empty array
   return {
-    prompts: []
+    prompts: [],
   };
 }
 
@@ -305,7 +300,7 @@ async function handleResourcesList(
 
   // TODO: Aggregate resources from backends
   return {
-    resources: []
+    resources: [],
   };
 }
 
@@ -344,33 +339,36 @@ async function handleInitialize(
     protocolVersion: '2024-11-05',
     serverInfo: {
       name: 'mcp-gateway',
-      version: registry.version || '2.0'
+      version: registry.version || '2.0',
     },
     capabilities: {
       tools: {
         // Gateway emits notifications/tools/list_changed when registry.json is
         // edited at runtime and the server manager reloads. See index.js.
-        listChanged: true
+        listChanged: true,
       },
       prompts: {
-        listChanged: false
+        listChanged: false,
       },
       resources: {
         listChanged: false,
-        subscribe: false
-      }
-    }
+        subscribe: false,
+      },
+    },
   };
 }
 
 /**
  * Create JSON-RPC success response
  */
-export function createSuccessResponse(id: string | number | null, result: unknown): JsonRpcResponse {
+export function createSuccessResponse(
+  id: string | number | null,
+  result: unknown
+): JsonRpcResponse {
   return {
     jsonrpc: '2.0',
     id,
-    result
+    result,
   };
 }
 
@@ -385,7 +383,7 @@ export function createErrorResponse(
 ): JsonRpcResponse {
   const error: JsonRpcError = {
     code,
-    message
+    message,
   };
 
   if (data !== null) {
@@ -395,7 +393,7 @@ export function createErrorResponse(
   return {
     jsonrpc: '2.0',
     id,
-    error
+    error,
   };
 }
 
@@ -415,7 +413,7 @@ export function parseRequest(requestStr: string): JsonRpcRequest {
     const err = error as Error;
     logger.error('Failed to parse JSON-RPC request', {
       error: err.message,
-      requestStr
+      requestStr,
     });
     throw new Error(`Invalid JSON: ${err.message}`);
   }
@@ -439,7 +437,10 @@ export function createSSEMessage(response: JsonRpcResponse | JsonRpcNotification
 /**
  * Stream MCP message over SSE connection
  */
-export function streamMessage(res: Response, message: string | JsonRpcResponse | JsonRpcNotification): void {
+export function streamMessage(
+  res: Response,
+  message: string | JsonRpcResponse | JsonRpcNotification
+): void {
   try {
     if (typeof message === 'string') {
       res.write(`data: ${message}\n\n`);
@@ -459,7 +460,7 @@ export function sendNotification(res: Response, method: string, params?: unknown
   const notification: JsonRpcNotification = {
     jsonrpc: '2.0',
     method,
-    params
+    params,
   };
 
   streamMessage(res, notification);
@@ -486,22 +487,17 @@ export async function handleAndStreamRequest(
 
     logger.debug('MCP request handled and streamed', {
       method: request.method,
-      id: request.id
+      id: request.id,
     });
   } catch (error) {
     const err = error as Error;
     logger.error('Error handling and streaming request', {
       error: err.message,
-      stack: err.stack
+      stack: err.stack,
     });
 
     // Send error response
-    const errorResponse = createErrorResponse(
-      null,
-      -32700,
-      'Parse error',
-      err.message
-    );
+    const errorResponse = createErrorResponse(null, -32700, 'Parse error', err.message);
     streamMessage(res, errorResponse);
   }
 }
@@ -515,5 +511,5 @@ export default {
   formatResponse,
   createSSEMessage,
   streamMessage,
-  sendNotification
+  sendNotification,
 };

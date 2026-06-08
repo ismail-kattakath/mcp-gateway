@@ -11,7 +11,9 @@ function UnauthorizedHelp(): JSX.Element {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Authentication Required</h1>
-              <p className="text-gray-400 mt-1">You need an API key to access the MCP Gateway dashboard</p>
+              <p className="text-gray-400 mt-1">
+                You need an API key to access the MCP Gateway dashboard
+              </p>
             </div>
           </div>
 
@@ -37,7 +39,9 @@ function UnauthorizedHelp(): JSX.Element {
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-3">
-                💡 The key is stored in <code className="bg-dark-bg px-1.5 py-0.5 rounded">~/.mcp/gateway-api-key</code> and persists across restarts
+                💡 The key is stored in{' '}
+                <code className="bg-dark-bg px-1.5 py-0.5 rounded">~/.mcp/gateway-api-key</code> and
+                persists across restarts
               </p>
             </div>
 
@@ -53,7 +57,9 @@ function UnauthorizedHelp(): JSX.Element {
 
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm text-gray-400 mb-2">For HTTP requests (curl, API clients):</p>
+                  <p className="text-sm text-gray-400 mb-2">
+                    For HTTP requests (curl, API clients):
+                  </p>
                   <div className="bg-dark-surface rounded border border-dark-border p-3 font-mono text-xs text-gray-300 overflow-x-auto">
                     Authorization: Bearer YOUR_API_KEY
                   </div>
@@ -74,9 +80,7 @@ function UnauthorizedHelp(): JSX.Element {
                 <RotateCcw className="text-primary" size={20} />
                 <h2 className="text-lg font-semibold text-white">Rotate Your Key</h2>
               </div>
-              <p className="text-gray-400 mb-4">
-                To generate a new key (e.g., after a leak):
-              </p>
+              <p className="text-gray-400 mb-4">To generate a new key (e.g., after a leak):</p>
               <div className="bg-dark-surface rounded border border-dark-border p-4 font-mono text-sm text-gray-300 overflow-x-auto">
                 <div className="flex items-start gap-2">
                   <Terminal className="text-gray-500 flex-shrink-0 mt-0.5" size={16} />

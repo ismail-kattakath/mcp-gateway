@@ -49,7 +49,7 @@ describe('registry-validator', () => {
       const invalid = {
         ...minimalValidRegistry,
         servers: {
-          'Invalid_Name': { source: 'pkg', command: 'npx', args: [] },
+          Invalid_Name: { source: 'pkg', command: 'npx', args: [] },
         },
       };
       expect(() => validateRegistry(invalid as Registry)).toThrow();
@@ -70,7 +70,7 @@ describe('registry-validator', () => {
       const invalid = {
         ...minimalValidRegistry,
         servers: {
-          'MyServer': { source: 'pkg', command: 'npx', args: [] },
+          MyServer: { source: 'pkg', command: 'npx', args: [] },
         },
       };
       expect(() => validateRegistry(invalid as Registry)).toThrow();

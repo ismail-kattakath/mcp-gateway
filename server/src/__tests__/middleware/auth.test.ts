@@ -199,10 +199,7 @@ describe('auth middleware', () => {
 
   describe('IP allowlist', () => {
     it('should allow requests from allowed IPs', () => {
-      const middleware = createAuthMiddleware(
-        { enableAuth: false, allowedIPs: ['127.0.0.1'] },
-        ''
-      );
+      const middleware = createAuthMiddleware({ enableAuth: false, allowedIPs: ['127.0.0.1'] }, '');
       mockReq.ip = '127.0.0.1';
 
       middleware(mockReq as Request, mockRes as Response, nextFn);
@@ -236,10 +233,7 @@ describe('auth middleware', () => {
     });
 
     it('should handle single IP without CIDR', () => {
-      const middleware = createAuthMiddleware(
-        { enableAuth: false, allowedIPs: ['10.0.0.5'] },
-        ''
-      );
+      const middleware = createAuthMiddleware({ enableAuth: false, allowedIPs: ['10.0.0.5'] }, '');
       mockReq.ip = '10.0.0.5';
 
       middleware(mockReq as Request, mockRes as Response, nextFn);
@@ -248,10 +242,7 @@ describe('auth middleware', () => {
     });
 
     it('should normalize IPv4-mapped-IPv6 addresses', () => {
-      const middleware = createAuthMiddleware(
-        { enableAuth: false, allowedIPs: ['127.0.0.1'] },
-        ''
-      );
+      const middleware = createAuthMiddleware({ enableAuth: false, allowedIPs: ['127.0.0.1'] }, '');
       mockReq.ip = '::ffff:127.0.0.1';
 
       middleware(mockReq as Request, mockRes as Response, nextFn);

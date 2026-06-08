@@ -110,7 +110,7 @@ export abstract class BaseServer extends EventEmitter {
         env: env,
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: false
+        shell: false,
       });
 
       this.startTime = Date.now();
@@ -126,7 +126,9 @@ export abstract class BaseServer extends EventEmitter {
         const uptime = Date.now() - (this.startTime || Date.now());
         this.addLog('info', 'Server process exited', { code, signal, uptime });
         logger.info(`Server ${this.serverName} exited`, {
-          code, signal, uptime: `${(uptime / 1000).toFixed(2)}s`
+          code,
+          signal,
+          uptime: `${(uptime / 1000).toFixed(2)}s`,
         });
 
         if (code !== 0 && code !== null) {
@@ -134,7 +136,9 @@ export abstract class BaseServer extends EventEmitter {
           this.lastError = `Process exited with code ${code}`;
           if (this.retryCount < this.maxRetries) {
             this.retryCount++;
-            logger.warn(`Server ${this.serverName} failed, retrying ${this.retryCount}/${this.maxRetries}`);
+            logger.warn(
+              `Server ${this.serverName} failed, retrying ${this.retryCount}/${this.maxRetries}`
+            );
             setTimeout(() => {
               this.spawn().catch((err: Error) => {
                 logger.error(`Retry spawn failed for ${this.serverName}`, { error: err.message });
@@ -166,7 +170,10 @@ export abstract class BaseServer extends EventEmitter {
       this.state = 'failed';
       this.lastError = err.message;
       this.addLog('error', 'Failed to spawn server', { error: err.message });
-      logger.error(`Failed to spawn server ${this.serverName}`, { error: err.message, stack: err.stack });
+      logger.error(`Failed to spawn server ${this.serverName}`, {
+        error: err.message,
+        stack: err.stack,
+      });
       this.emit('error', err);
       throw err;
     }
@@ -212,7 +219,7 @@ export abstract class BaseServer extends EventEmitter {
       pid: this.process?.pid ?? null,
       uptime: this.startTime ? Date.now() - this.startTime : null,
       retryCount: this.retryCount,
-      lastError: this.lastError
+      lastError: this.lastError,
     };
   }
 

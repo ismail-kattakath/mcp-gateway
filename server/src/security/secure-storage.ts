@@ -64,13 +64,7 @@ const PBKDF2_DIGEST = 'sha512';
  */
 function deriveEncryptionKey(salt: Buffer): Buffer {
   const machineIdValue: string = machineId.machineIdSync({ original: true });
-  return crypto.pbkdf2Sync(
-    machineIdValue,
-    salt,
-    PBKDF2_ITERATIONS,
-    KEY_LENGTH,
-    PBKDF2_DIGEST
-  );
+  return crypto.pbkdf2Sync(machineIdValue, salt, PBKDF2_ITERATIONS, KEY_LENGTH, PBKDF2_DIGEST);
 }
 
 /**

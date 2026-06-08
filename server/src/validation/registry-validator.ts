@@ -110,23 +110,19 @@ function formatValidationErrors(errors: ErrorObject[]): ValidationError[] {
 }
 
 function printValidationErrors(errors: ValidationError[]): void {
-   
   console.error('\nRegistry validation failed:\n');
   for (const e of errors) {
-     
     console.error(`  ${e.location}: ${e.message}`);
     if (e.suggestion !== undefined) {
-       
       console.error(`    -> ${e.suggestion}`);
     }
     if (e.value !== undefined && e.value !== null) {
       const valueStr = typeof e.value === 'object' ? JSON.stringify(e.value) : String(e.value);
       if (valueStr.length < 100) {
-         
         console.error(`    current: ${valueStr}`);
       }
     }
-     
+
     console.error('');
   }
 }
@@ -155,9 +151,7 @@ function validateSemantics(registry: Registry): {
 
     // container: exactly one of image or build
     if (server.source === 'container') {
-      const has = ['image', 'build'].filter(
-        (k) => server[k as keyof typeof server] !== undefined
-      );
+      const has = ['image', 'build'].filter((k) => server[k as keyof typeof server] !== undefined);
       if (has.length !== 1) {
         errors.push({
           server: name,
@@ -218,13 +212,10 @@ export function validateRegistry(registry: Registry): ValidationResult {
 
   const { warnings, errors } = validateSemantics(registry);
   if (errors.length > 0) {
-     
     console.error('\nRegistry semantic validation failed:\n');
     for (const e of errors) {
-       
       console.error(`  Server "${e.server}": ${e.message}`);
       if (e.suggestion !== undefined) {
-         
         console.error(`    -> ${e.suggestion}`);
       }
     }
@@ -236,13 +227,10 @@ export function validateRegistry(registry: Registry): ValidationResult {
   }
 
   if (warnings.length > 0) {
-     
     console.warn('\nRegistry validation warnings:\n');
     for (const w of warnings) {
-       
       console.warn(`  Server "${w.server}": ${w.message}`);
       if (w.suggestion !== undefined) {
-         
         console.warn(`    -> ${w.suggestion}`);
       }
     }
@@ -266,7 +254,6 @@ export async function validateRegistryFile(filePath: string): Promise<Validation
       throw error;
     }
     if (error instanceof SyntaxError) {
-       
       console.error(`\nRegistry JSON parsing failed: ${error.message}\n`);
       const parseError = new Error('Invalid JSON syntax') as Error & {
         parseError: SyntaxError;
@@ -304,8 +291,7 @@ export function validateServer(
     };
     return {
       valid: false,
-      errors:
-        err.validationErrors ?? err.semanticErrors ?? [{ message: (error as Error).message }],
+      errors: err.validationErrors ?? err.semanticErrors ?? [{ message: (error as Error).message }],
     };
   }
 }

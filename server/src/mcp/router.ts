@@ -74,7 +74,9 @@ export async function routeToolCall(
 
   const { serverName, toolName: actualToolName, isNamespaced } = parseToolName(toolName);
   if (!isNamespaced || !serverName) {
-    throw new Error(`Tool name must be namespaced as "<server-name>/<tool-name>". Received: ${toolName}`);
+    throw new Error(
+      `Tool name must be namespaced as "<server-name>/<tool-name>". Received: ${toolName}`
+    );
   }
 
   const config = validateServer(serverName, registry);
@@ -98,7 +100,7 @@ async function callToolOnServer(
       jsonrpc: '2.0' as const,
       id: requestId,
       method: 'tools/call',
-      params: { name: toolName, arguments: args || {} }
+      params: { name: toolName, arguments: args || {} },
     };
 
     const timeoutHandle = setTimeout(() => {
@@ -130,7 +132,10 @@ async function callToolOnServer(
   });
 }
 
-export async function listAllTools(serverManager: ServerManager, registry: Registry): Promise<MCPTool[]> {
+export async function listAllTools(
+  serverManager: ServerManager,
+  registry: Registry
+): Promise<MCPTool[]> {
   logger.debug('Listing tools from all enabled servers');
 
   const allTools: MCPTool[] = [];
@@ -144,11 +149,11 @@ export async function listAllTools(serverManager: ServerManager, registry: Regis
         continue;
       }
       const tools = await listToolsOnServer(server);
-      const namespacedTools = tools.map(tool => ({
+      const namespacedTools = tools.map((tool) => ({
         ...tool,
         name: `${serverName}/${tool.name}`,
         _server: serverName,
-        _originalName: tool.name
+        _originalName: tool.name,
       }));
       allTools.push(...namespacedTools);
     } catch (error) {

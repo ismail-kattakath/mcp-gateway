@@ -10,7 +10,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
 
   if (token && !options.headers) {
     options.headers = {
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
     };
   } else if (token && options.headers) {
     const headers = new Headers(options.headers);

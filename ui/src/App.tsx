@@ -36,7 +36,7 @@ function App(): JSX.Element {
   const navigation: NavigationItem[] = [
     { name: 'Dashboard', path: '/', icon: Home },
     { name: 'Servers', path: '/servers', icon: Server },
-    { name: 'Logs', path: '/logs', icon: Activity }
+    { name: 'Logs', path: '/logs', icon: Activity },
   ];
 
   return (
@@ -56,7 +56,9 @@ function App(): JSX.Element {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive ? 'bg-primary text-white' : 'text-gray-300 hover:bg-dark-hover hover:text-white'
+                  isActive
+                    ? 'bg-primary text-white'
+                    : 'text-gray-300 hover:bg-dark-hover hover:text-white'
                 }`}
               >
                 <Icon size={20} />

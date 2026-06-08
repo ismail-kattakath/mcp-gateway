@@ -20,7 +20,7 @@ import {
   streamMessage,
   sendNotification,
   createSuccessResponse,
-  handleMCPRequest
+  handleMCPRequest,
 } from './mcp/protocol.js';
 import { listAllTools } from './mcp/router.js';
 import { createAuthMiddleware } from './middleware/auth.js';
@@ -47,8 +47,8 @@ async function initializeServer(): Promise<HttpServer | null> {
       await rotateApiKeyAndExit();
     }
 
-    const registryPath = process.env.REGISTRY_PATH ||
-      path.resolve(__dirname, '../../registry.json');
+    const registryPath =
+      process.env.REGISTRY_PATH || path.resolve(__dirname, '../../registry.json');
 
     logger.info(`Loading registry from: ${registryPath}`);
     await initRegistry(registryPath);
@@ -69,7 +69,7 @@ async function initializeServer(): Promise<HttpServer | null> {
         origin: gatewayConfig.server.cors.origins || '*',
         credentials: gatewayConfig.server.cors.credentials || false,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization']
+        allowedHeaders: ['Content-Type', 'Authorization'],
       };
       app.use(cors(corsOptions));
       logger.info('CORS enabled', { origins: corsOptions.origin });
@@ -83,7 +83,7 @@ async function initializeServer(): Promise<HttpServer | null> {
           path: req.path,
           status: res.statusCode,
           duration: `${Date.now() - start}ms`,
-          ip: req.ip
+          ip: req.ip,
         });
       });
       next();
@@ -133,7 +133,9 @@ async function initializeServer(): Promise<HttpServer | null> {
 
     // ===== SSE endpoint (MCP transport) =====
     app.get('/sse', async (req: Request, res: Response) => {
-      const sessionId = (req.query.sessionId as string) || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const sessionId =
+        (req.query.sessionId as string) ||
+        `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       logger.info('SSE connection established', { ip: req.ip, sessionId });
 
       res.setHeader('Content-Type', 'text/event-stream');
@@ -148,18 +150,21 @@ async function initializeServer(): Promise<HttpServer | null> {
         message: 'Connected to MCP Gateway',
         version: registry.version,
         timestamp: new Date().toISOString(),
-        capabilities: { tools: true, prompts: false, resources: false }
+        capabilities: { tools: true, prompts: false, resources: false },
       });
 
       try {
         const tools = await listAllTools(serverManager, registry);
-        streamMessage(res, createSuccessResponse('init_tools', {
-          tools: tools.map(tool => ({
-            name: tool.name,
-            description: tool.description || '',
-            inputSchema: tool.inputSchema || { type: 'object', properties: {} }
-          }))
-        }));
+        streamMessage(
+          res,
+          createSuccessResponse('init_tools', {
+            tools: tools.map((tool) => ({
+              name: tool.name,
+              description: tool.description || '',
+              inputSchema: tool.inputSchema || { type: 'object', properties: {} },
+            })),
+          })
+        );
         logger.info(`Sent ${tools.length} tools to client`);
       } catch (error) {
         const err = error as Error;
@@ -176,8 +181,12 @@ async function initializeServer(): Promise<HttpServer | null> {
       const statusHandler = (serverName: string, status: Record<string, unknown>): void => {
         sendNotification(res, 'server/status', { serverName, status });
       };
-      serverManager.on('server:started', (serverName: string, pid: number | null) => statusHandler(serverName, { state: 'running', pid }));
-      serverManager.on('server:exit', (serverName: string) => statusHandler(serverName, { state: 'stopped' }));
+      serverManager.on('server:started', (serverName: string, pid: number | null) =>
+        statusHandler(serverName, { state: 'running', pid })
+      );
+      serverManager.on('server:exit', (serverName: string) =>
+        statusHandler(serverName, { state: 'stopped' })
+      );
 
       req.on('close', () => {
         clearInterval(keepAlive);
@@ -196,11 +205,16 @@ async function initializeServer(): Promise<HttpServer | null> {
         if (!request || !request.jsonrpc || !request.method) {
           return res.status(400).json({
             error: 'Invalid JSON-RPC request',
-            details: 'Request must contain jsonrpc and method fields'
+            details: 'Request must contain jsonrpc and method fields',
           });
         }
 
-        logger.info('MCP message received', { method: request.method, id: request.id, sessionId, ip: req.ip });
+        logger.info('MCP message received', {
+          method: request.method,
+          id: request.id,
+          sessionId,
+          ip: req.ip,
+        });
 
         const response = await handleMCPRequest(request, serverManager, registry);
 
@@ -216,7 +230,7 @@ async function initializeServer(): Promise<HttpServer | null> {
         res.status(500).json({
           jsonrpc: '2.0',
           id: (req.body as JsonRpcRequest)?.id || null,
-          error: { code: -32603, message: 'Internal error', data: err.message }
+          error: { code: -32603, message: 'Internal error', data: err.message },
         });
       }
     });
@@ -230,11 +244,11 @@ async function initializeServer(): Promise<HttpServer | null> {
         version: registry.version,
         servers: {
           total: Object.keys(registry.servers).length,
-          enabled: Object.values(registry.servers).filter(s => s.enabled).length,
+          enabled: Object.values(registry.servers).filter((s) => s.enabled).length,
           running: running.length,
-          list: running
+          list: running,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     });
 
@@ -247,9 +261,9 @@ async function initializeServer(): Promise<HttpServer | null> {
           version: registry.version,
           pid: process.pid,
           memory: process.memoryUsage(),
-          nodeVersion: process.version
+          nodeVersion: process.version,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     });
 
@@ -279,7 +293,8 @@ async function initializeServer(): Promise<HttpServer | null> {
         const { serverName } = req.params;
         const config = registry.servers[serverName];
         if (!config) return res.status(404).json({ error: `Server not found: ${serverName}` });
-        if (!config.enabled) return res.status(400).json({ error: `Server is disabled: ${serverName}` });
+        if (!config.enabled)
+          return res.status(400).json({ error: `Server is disabled: ${serverName}` });
         await serverManager.startServer(serverName, config);
         res.json({ success: true, serverName, status: serverManager.getServerStatus(serverName) });
       } catch (error) {
@@ -307,7 +322,9 @@ async function initializeServer(): Promise<HttpServer | null> {
 
     app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
       logger.error('Express error', { error: err.message, stack: err.stack, path: req.path });
-      res.status((err as any).status || 500).json({ error: err.message || 'Internal server error', path: req.path });
+      res
+        .status((err as any).status || 500)
+        .json({ error: err.message || 'Internal server error', path: req.path });
     });
 
     const port = parseInt(process.env.GATEWAY_PORT || '') || gatewayConfig.server.port || 3000;
@@ -321,7 +338,10 @@ async function initializeServer(): Promise<HttpServer | null> {
           return;
         }
         logger.info(`MCP Gateway Server listening on http://${host}:${port}`, {
-          port, host, env: process.env.NODE_ENV || 'development', pid: process.pid
+          port,
+          host,
+          env: process.env.NODE_ENV || 'development',
+          pid: process.pid,
         });
         logger.info('Available endpoints:', {
           sse: `/sse`,
@@ -329,7 +349,7 @@ async function initializeServer(): Promise<HttpServer | null> {
           status: `/api/status`,
           config: `/api/config`,
           logs: `/api/logs/:serverName?`,
-          control: `/api/servers/:serverName/(start|stop)`
+          control: `/api/servers/:serverName/(start|stop)`,
         });
         resolve(server);
       });
@@ -348,7 +368,7 @@ async function shutdown(signal: string): Promise<void> {
 
   try {
     if (server) {
-      await new Promise<void>(resolve => server!.close(() => resolve()));
+      await new Promise<void>((resolve) => server!.close(() => resolve()));
       logger.info('HTTP server closed');
     }
     const serverManager = getServerManager();
