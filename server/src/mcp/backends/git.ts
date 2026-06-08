@@ -17,7 +17,6 @@ import { spawn } from 'child_process';
 import logger, {
   sanitizeServerName,
   sanitizeUrl,
-  sanitizePath,
   sanitizeString,
 } from '../../logging/logger.js';
 import { getGatewayConfig } from '../registry.js';
