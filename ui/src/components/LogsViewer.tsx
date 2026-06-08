@@ -3,8 +3,39 @@ import { useQuery } from '@tanstack/react-query';
 import { Activity, Search } from 'lucide-react';
 import { getLogs, getRegistry } from '../api/client';
 
-function LogLevel({ level }) {
-  const colors = {
+type LogLevelType = 'error' | 'warn' | 'info' | 'debug';
+
+interface LogLevelProps {
+  level: LogLevelType;
+}
+
+interface LogMessage {
+  timestamp: string;
+  level: LogLevelType;
+  message: string;
+}
+
+interface LogEntryWithServer extends LogMessage {
+  _server?: string;
+}
+
+interface LogEntryProps {
+  log: LogEntryWithServer;
+  serverName?: string;
+}
+
+interface LogsResponse {
+  logs?: LogMessage[];
+  serverName?: string;
+  servers?: Record<string, LogMessage[]>;
+}
+
+interface Registry {
+  servers: Record<string, any>;
+}
+
+function LogLevel({ level }: LogLevelProps): JSX.Element {
+  const colors: Record<LogLevelType, string> = {
     error: 'text-red-500 bg-red-500/10',
     warn: 'text-yellow-500 bg-yellow-500/10',
     info: 'text-blue-500 bg-blue-500/10',
@@ -17,7 +48,7 @@ function LogLevel({ level }) {
   );
 }
 
-function LogEntry({ log, serverName }) {
+function LogEntry({ log, serverName }: LogEntryProps): JSX.Element {
   return (
     <div className="flex gap-3 py-2 px-3 hover:bg-dark-hover transition-colors border-b border-dark-border/50">
       <div className="text-xs text-gray-500 font-mono w-24 shrink-0">
@@ -34,12 +65,15 @@ function LogEntry({ log, serverName }) {
   );
 }
 
-function LogsViewer() {
-  const [search, setSearch] = useState('');
-  const [selectedServer, setSelectedServer] = useState('');
+function LogsViewer(): JSX.Element {
+  const [search, setSearch] = useState<string>('');
+  const [selectedServer, setSelectedServer] = useState<string>('');
 
-  const { data: registry } = useQuery({ queryKey: ['registry'], queryFn: getRegistry });
-  const { data: logsData, isLoading } = useQuery({
+  const { data: registry } = useQuery<Registry, Error>({
+    queryKey: ['registry'],
+    queryFn: getRegistry
+  });
+  const { data: logsData, isLoading } = useQuery<LogsResponse, Error>({
     queryKey: ['logs', selectedServer],
     queryFn: () => getLogs(selectedServer || null, 200),
     refetchInterval: 3000
@@ -48,19 +82,27 @@ function LogsViewer() {
   const servers = Object.keys(registry?.servers || {});
 
   // Flatten logs into a single chronological list
-  let entries = [];
+  let entries: LogEntryWithServer[] = [];
   if (logsData?.logs) {
     entries = logsData.logs.map(log => ({ ...log, _server: logsData.serverName }));
   } else if (logsData?.servers) {
     for (const [name, logs] of Object.entries(logsData.servers)) {
       for (const log of logs) entries.push({ ...log, _server: name });
     }
-    entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   if (search) {
     entries = entries.filter(e => (e.message || '').toLowerCase().includes(search.toLowerCase()));
   }
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setSearch(e.target.value);
+  };
+
+  const handleServerChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
+    setSelectedServer(e.target.value);
+  };
 
   return (
     <div className="space-y-6">
@@ -81,13 +123,13 @@ function LogsViewer() {
             type="text"
             placeholder="Filter messages..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={handleSearchChange}
             className="w-full pl-9 pr-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:outline-none focus:border-primary"
           />
         </div>
         <select
           value={selectedServer}
-          onChange={(e) => setSelectedServer(e.target.value)}
+          onChange={handleServerChange}
           className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:outline-none focus:border-primary"
         >
           <option value="">All servers</option>

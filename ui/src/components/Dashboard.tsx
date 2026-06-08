@@ -1,9 +1,29 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Server, Activity, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Server, Activity, CheckCircle, XCircle, AlertCircle, LucideIcon } from 'lucide-react';
 import { getStatus } from '../api/client';
 
-function StatusCard({ title, value, icon: Icon, color }) {
+interface StatusCardProps {
+  title: string;
+  value: number;
+  icon: LucideIcon;
+  color: string;
+}
+
+interface ServerStatus {
+  state: 'running' | 'stopped' | 'failed' | 'not_started';
+  source: string;
+  lastError?: string;
+}
+
+interface GatewayStatus {
+  gateway?: {
+    uptime: number;
+  };
+  servers: Record<string, ServerStatus>;
+}
+
+function StatusCard({ title, value, icon: Icon, color }: StatusCardProps): JSX.Element {
   return (
     <div className="bg-dark-surface border border-dark-border rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -15,8 +35,12 @@ function StatusCard({ title, value, icon: Icon, color }) {
   );
 }
 
-function ServerStatusBadge({ state }) {
-  const config = {
+interface ServerStatusBadgeProps {
+  state: string;
+}
+
+function ServerStatusBadge({ state }: ServerStatusBadgeProps): JSX.Element {
+  const config: Record<string, { icon: LucideIcon; color: string; bg: string }> = {
     running: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10' },
     stopped: { icon: XCircle, color: 'text-gray-500', bg: 'bg-gray-500/10' },
     failed: { icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10' }
@@ -30,8 +54,8 @@ function ServerStatusBadge({ state }) {
   );
 }
 
-function Dashboard() {
-  const { data: status, isLoading, error } = useQuery({
+function Dashboard(): JSX.Element {
+  const { data: status, isLoading, error } = useQuery<GatewayStatus, Error>({
     queryKey: ['status'],
     queryFn: getStatus,
     refetchInterval: 5000

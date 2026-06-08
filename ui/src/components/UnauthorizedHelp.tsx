@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertCircle, Key, Terminal, RotateCcw } from 'lucide-react';
 
-function UnauthorizedHelp() {
+function UnauthorizedHelp(): JSX.Element {
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center p-6">
       <div className="max-w-3xl w-full">

@@ -1,25 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Server, Activity } from 'lucide-react';
+import { Home, Server, Activity, LucideIcon } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import ServerConfig from './components/BackendConfig';
 import LogsViewer from './components/LogsViewer';
 import UnauthorizedHelp from './components/UnauthorizedHelp';
 import { setAuthErrorCallback } from './utils/authInterceptor';
 
-function App() {
+interface NavigationItem {
+  name: string;
+  path: string;
+  icon: LucideIcon;
+}
+
+function App(): JSX.Element {
   const location = useLocation();
-  const [showUnauthorized, setShowUnauthorized] = useState(false);
+  const [showUnauthorized, setShowUnauthorized] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check for access_token in URL and store it
     const params = new URLSearchParams(window.location.search);
     const token = params.get('access_token');
     if (token) {
       localStorage.setItem('gateway_api_key', token);
     }
 
-    // Set up global auth error handler
     setAuthErrorCallback(() => {
       setShowUnauthorized(true);
     });
@@ -29,7 +33,7 @@ function App() {
     return <UnauthorizedHelp />;
   }
 
-  const navigation = [
+  const navigation: NavigationItem[] = [
     { name: 'Dashboard', path: '/', icon: Home },
     { name: 'Servers', path: '/servers', icon: Server },
     { name: 'Logs', path: '/logs', icon: Activity }

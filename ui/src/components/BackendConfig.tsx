@@ -1,14 +1,45 @@
 /**
  * Server Configuration page.
- * (Kept filename BackendConfig.jsx for import compatibility; exports as ServerConfig.)
+ * (Kept filename BackendConfig.tsx for import compatibility; exports as ServerConfig.)
  */
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Server, Play, Square, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Server, Play, Square, CheckCircle, XCircle, AlertCircle, LucideIcon } from 'lucide-react';
 import { getRegistry, getStatus, startServer, stopServer } from '../api/client';
 
-function StatusBadge({ state }) {
-  const config = {
+interface StatusBadgeProps {
+  state: string;
+}
+
+interface ServerConfig {
+  source: string;
+  lifecycle?: string;
+  enabled?: boolean;
+}
+
+interface StatusEntry {
+  state: 'running' | 'stopped' | 'not_started' | 'failed';
+  lastError?: string;
+}
+
+interface ServerCardProps {
+  name: string;
+  server: ServerConfig;
+  statusEntry?: StatusEntry;
+  onStart: (name: string) => void;
+  onStop: (name: string) => void;
+}
+
+interface Registry {
+  servers: Record<string, ServerConfig>;
+}
+
+interface StatusResponse {
+  servers: Record<string, StatusEntry>;
+}
+
+function StatusBadge({ state }: StatusBadgeProps): JSX.Element {
+  const config: Record<string, { icon: LucideIcon; color: string }> = {
     running: { icon: CheckCircle, color: 'text-green-500' },
     stopped: { icon: XCircle, color: 'text-gray-500' },
     not_started: { icon: XCircle, color: 'text-gray-500' },
@@ -23,7 +54,7 @@ function StatusBadge({ state }) {
   );
 }
 
-function ServerCard({ name, server, statusEntry, onStart, onStop }) {
+function ServerCard({ name, server, statusEntry, onStart, onStop }: ServerCardProps): JSX.Element {
   const state = statusEntry?.state || 'not_started';
   const isRunning = state === 'running';
 
@@ -73,14 +104,14 @@ function ServerCard({ name, server, statusEntry, onStart, onStop }) {
   );
 }
 
-function ServerConfig() {
+function ServerConfig(): JSX.Element {
   const queryClient = useQueryClient();
 
-  const { data: registry, isLoading: regLoading, error: regError } = useQuery({
+  const { data: registry, isLoading: regLoading, error: regError } = useQuery<Registry, Error>({
     queryKey: ['registry'],
     queryFn: getRegistry
   });
-  const { data: status } = useQuery({
+  const { data: status } = useQuery<StatusResponse, Error>({
     queryKey: ['status'],
     queryFn: getStatus,
     refetchInterval: 5000
@@ -88,11 +119,11 @@ function ServerConfig() {
 
   const startMutation = useMutation({
     mutationFn: startServer,
-    onSuccess: () => queryClient.invalidateQueries(['status'])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] })
   });
   const stopMutation = useMutation({
     mutationFn: stopServer,
-    onSuccess: () => queryClient.invalidateQueries(['status'])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] })
   });
 
   if (regLoading) return <div className="flex items-center justify-center h-64 text-gray-400">Loading servers...</div>;
