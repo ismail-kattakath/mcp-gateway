@@ -2,14 +2,18 @@
 # Multi-stage build for MCP Gateway Platform.
 
 # =====================================
-# Stage 1: server prod dependencies
+# Stage 1: build server (TypeScript -> JavaScript)
 FROM node:20-alpine AS server-builder
 WORKDIR /app/server
 
 COPY server/package*.json ./
-RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm ci --no-audit --no-fund
 
 COPY server/ ./
+RUN npm run build
+
+# Install production dependencies only
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # =====================================
 # Stage 2: build the UI bundle
@@ -36,16 +40,17 @@ WORKDIR /app
 RUN apk add --no-cache git docker-cli python3 py3-pip curl bash && \
     pip3 install --no-cache-dir --break-system-packages uv
 
-# Copy server runtime
-COPY --from=server-builder /app/server/src           ./server/src
+# Copy compiled server code and runtime dependencies
+COPY --from=server-builder /app/server/dist          ./server/dist
 COPY --from=server-builder /app/server/node_modules  ./server/node_modules
 COPY --from=server-builder /app/server/package*.json ./server/
 
 # Copy built UI assets
 COPY --from=ui-builder /app/ui/dist ./ui/dist
 
-# Copy the JSON Schema so the validator can resolve it at startup.
+# Copy the JSON Schema and type definitions
 COPY schema/ ./schema/
+COPY types/ ./types/
 
 # Default registry — overridden by a host bind mount in real deployments.
 COPY registry.example.json ./registry.json
@@ -66,4 +71,4 @@ LABEL org.opencontainers.image.source="https://github.com/ismail-kattakath/mcp-g
 LABEL org.opencontainers.image.description="MCP Gateway — universal aggregator for Model Context Protocol servers"
 LABEL org.opencontainers.image.licenses="MIT"
 
-CMD ["node", "server/src/index.js"]
+CMD ["node", "server/dist/index.js"]
