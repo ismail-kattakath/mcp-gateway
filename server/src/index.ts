@@ -296,7 +296,11 @@ async function initializeServer(): Promise<HttpServer | null> {
         if (!config.enabled)
           return res.status(400).json({ error: `Server is disabled: ${serverName}` });
         await serverManager.startServer(serverName, config);
-        return res.json({ success: true, serverName, status: serverManager.getServerStatus(serverName) });
+        return res.json({
+          success: true,
+          serverName,
+          status: serverManager.getServerStatus(serverName),
+        });
       } catch (error) {
         const err = error as Error;
         logger.error('Failed to start server', { error: err.message });
