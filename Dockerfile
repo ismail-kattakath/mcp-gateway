@@ -7,9 +7,7 @@ FROM node:20-alpine AS server-builder
 WORKDIR /app/server
 
 COPY server/package*.json ./
-# No package-lock.json committed yet — use `npm install --omit=dev` instead of
-# `npm ci`. Generate and commit lockfiles to switch back to `npm ci` later.
-RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 COPY server/ ./
 
@@ -19,8 +17,7 @@ FROM node:20-alpine AS ui-builder
 WORKDIR /app/ui
 
 COPY ui/package*.json ./
-# See server stage for npm ci -> npm install rationale.
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 COPY ui/ ./
 RUN npm run build
