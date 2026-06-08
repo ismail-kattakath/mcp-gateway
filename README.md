@@ -1,161 +1,28 @@
-# MCP Gateway Platform
+# MCP Gateway
 
-Universal aggregator and manager for Model Context Protocol (MCP) servers. Connect all your AI coding tools (Claude Code, Claude Desktop, Cline, Cursor) to a single gateway endpoint.
+Universal aggregator for [Model Context Protocol](https://modelcontextprotocol.io/) servers. Point every AI coding tool (Claude Code, Claude Desktop, Cline, Cursor, …) at **one** gateway URL instead of maintaining N parallel `mcpServers` blocks.
 
-## Why MCP Gateway?
+[![Release](https://img.shields.io/github/v/release/ismail-kattakath/mcp-gateway?sort=semver)](https://github.com/ismail-kattakath/mcp-gateway/releases)
+[![Image](https://img.shields.io/badge/ghcr.io-mcp--gateway-blue)](https://github.com/ismail-kattakath/mcp-gateway/pkgs/container/mcp-gateway)
 
-**The Problem:** Managing MCP servers across multiple AI tools is painful:
-- Duplicate configurations in every tool
-- Loading all tools upfront (context spam)
-- Complex secret management
-- Can't use the same backend from different machines
+## Why
 
-**The Solution:** MCP Gateway provides:
-- ✨ **Single Source of Truth** - One `registry.json` for all backends
-- 🔄 **Universal Transport** - SSE/HTTPS compatible with all clients
-- ⚡ **Lazy Loading** - Backends spawn on-demand
-- 🐳 **11 Backend Types** - NPX, Docker, Git repos, Python, local scripts, remote servers
-- 🔐 **OAuth Integration** - Auto-manage GitHub, Smithery tokens
-- 📊 **Web Dashboard** - Visual config editor, logs, metrics
-- 🌍 **Deploy Anywhere** - Local or remote, one URL for all machines
+| Without a gateway | With this gateway |
+|---|---|
+| N copies of the same `mcpServers` block in N tool configs | One `registry.json` |
+| Every tool loads every server upfront → context spam | Servers spawn on-demand and idle out after 5 min |
+| Secrets duplicated across tool configs | One `.env` |
+| Same servers re-configured on every machine | Deploy once (local or remote), all machines connect |
 
-## Quick Start
-
-### Prerequisites
-
-- Node.js >= 18.0.0
-- npm or yarn
-
-Optional (depending on backend types):
-- Docker (for Docker-based backends)
-- Python 3.8+ with uv/pipx (for Python backends)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/mcp-gateway.git
-cd mcp-gateway
-
-# Run automated setup
-./scripts/setup.sh
-```
-
-The setup script will:
-- Create required directories
-- Copy configuration templates
-- Generate encryption keys
-- Install dependencies
-
-### Configuration
-
-1. **Edit `.env` file** with your secrets:
-
-```bash
-# Required for OBS backend (if using)
-OBS_WEBSOCKET_PASSWORD=your-obs-password
-
-# Optional: OAuth credentials (if using GitHub/Smithery backends)
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
-```
-
-2. **Edit `registry.json`** to enable/disable backends:
-
-```json
-{
-  "backends": {
-    "obs": {
-      "enabled": true  // Set to true to enable
-    },
-    "kapture": {
-      "enabled": true
-    },
-    "github": {
-      "enabled": false  // Enable if you have OAuth configured
-    }
-  }
-}
-```
-
-### Running Locally
-
-```bash
-# Development mode (with hot-reload)
-./scripts/start.sh
-
-# Production mode (with Docker)
-./scripts/start-prod.sh
-```
-
-The gateway will start on `http://localhost:3000`
-
-### Configure Your AI Tools
-
-Point your AI tool to the gateway endpoint:
-
-**Claude Code** (`~/.claude/.mcp.json`):
-```json
-{
-  "mcpServers": {
-    "gateway": {
-      "url": "http://localhost:3000/sse",
-      "transport": "sse"
-    }
-  }
-}
-```
-
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-```json
-{
-  "mcpServers": {
-    "gateway": {
-      "url": "http://localhost:3000/sse",
-      "transport": "sse"
-    }
-  }
-}
-```
-
-**Cline, Cursor, etc:** Use the same SSE URL in their MCP configuration.
-
-## Features
-
-### 5 Server Sources
-
-Each server entry declares a `source` — where the server comes from. Five values cover everything:
-
-| `source` | Use case | Required fields |
-|----------|----------|-----------------|
-| **pkg** | Package managers (npx, uvx, pipx) | `command`, `args` |
-| **git** | Clone a repo, auto-detect install/build | `repo`, `command`, `args` |
-| **container** | Docker container (pull image or build locally) | `image` **or** `build` |
-| **remote** | Already-running MCP server (HTTP/SSE) | `url`, `transport` |
-| **local** | Pre-existing script/binary on disk | `command` |
-
-### Tool Namespacing
-
-All tools are automatically namespaced to avoid conflicts:
-- Server `obs` exposes `start_recording` → Client sees `obs/start_recording`
-- Server `kapture` exposes `screenshot` → Client sees `kapture/screenshot`
-
-### Lifecycle Management
-
-**On-demand servers** (default): spawn on first tool call; idle for 5 minutes → auto-killed. Good for infrequently used tools.
-
-**Persistent servers**: spawn at gateway startup; auto-restart on crash. Good for frequently used tools.
-
-### Environment Variables
-
-Server configs reference secrets via `${VAR}` syntax. Values resolve from the local `.env` file or system environment — paste/rotate tokens manually like with any other MCP client. No auto-managed tokens.
-
-## Run via Docker
-
-Pre-built multi-arch images on ghcr:
+## Quick start (Docker)
 
 ```bash
 docker pull ghcr.io/ismail-kattakath/mcp-gateway:latest
+
+# Get a starter registry
+curl -O https://raw.githubusercontent.com/ismail-kattakath/mcp-gateway/main/registry.example.json
+mv registry.example.json registry.json
+echo "GATEWAY_API_KEY=$(openssl rand -hex 32)" > .env
 
 docker run -d --name mcp-gateway \
   -p 127.0.0.1:3000:3000 \
@@ -165,406 +32,135 @@ docker run -d --name mcp-gateway \
   ghcr.io/ismail-kattakath/mcp-gateway:latest
 ```
 
-Default deployment does NOT mount the Docker socket — `pkg`/`git`/`remote`/`local` server sources work out of the box, and `source: "container"` is opt-in via a filtered socket proxy (uncomment the `docker-proxy` block in `docker-compose.yml`). See `CLAUDE.md → Run via Docker` for the three trust tiers and trade-offs.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│   AI Coding Tools                       │
-│   (Claude Code, Desktop, Cline, Cursor) │
-└──────────────┬──────────────────────────┘
-               │ SSE/HTTPS
-               ↓
-┌─────────────────────────────────────────┐
-│   MCP Gateway Server                    │
-│   - Protocol translation                │
-│   - Tool routing & namespacing          │
-│   - Server lifecycle management         │
-└──────────────┬──────────────────────────┘
-               │
-   ┌──────┬────┴────┬─────────┬────────┐
-   ↓      ↓         ↓         ↓        ↓
-  pkg    git    container   remote   local
-```
-
-## Testing
-
-```bash
-# Run all tests
-./scripts/test.sh
-
-# Run specific test suites
-cd server && npm test                  # Unit tests
-node tests/integration.test.js         # Integration tests
-cd .. && ./scripts/e2e-test.sh        # E2E tests
-```
-
-## Deployment Options
-
-### Local Development
-
-```bash
-./scripts/start.sh
-```
-
-Access at `http://localhost:3000`
-
-### Docker (Local)
-
-```bash
-docker-compose up
-```
-
-### Remote VPS/Cloud
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for complete instructions:
-- Remote VPS deployment with systemd
-- Nginx reverse proxy setup
-- SSL/TLS configuration
-- Security best practices
-- Monitoring setup
-
-### Quick Remote Setup
-
-```bash
-# On your server
-git clone https://github.com/yourusername/mcp-gateway.git
-cd mcp-gateway
-./scripts/setup.sh
-
-# Edit .env with your secrets
-nano .env
-
-# Set GATEWAY_HOST to accept external connections
-# GATEWAY_HOST=0.0.0.0
-
-# Start with systemd or Docker
-# See DEPLOYMENT.md for full instructions
-```
-
-Then configure clients:
+Then point any MCP client at `http://localhost:3000/sse`:
 
 ```json
 {
   "mcpServers": {
     "gateway": {
-      "url": "https://mcp-gateway.yourdomain.com/sse",
-      "transport": "sse",
-      "headers": {
-        "Authorization": "Bearer your-gateway-api-key"
-      }
+      "url": "http://localhost:3000/sse",
+      "transport": "sse"
     }
   }
 }
 ```
 
-## Project Structure
+For HTTPS or a custom domain, put **Caddy** in front. Templates ship with the repo (`Caddyfile.local`, `Caddyfile.prod`) and the steps are in [`CLAUDE.md`](CLAUDE.md#https--custom-domain).
 
-```
-mcp-gateway/
-├── server/              # Backend (Node.js)
-│   ├── src/
-│   │   ├── index.js    # Main entry point
-│   │   ├── mcp/        # MCP protocol & backends
-│   │   ├── oauth/      # OAuth flows
-│   │   ├── api/        # REST API
-│   │   └── logging/    # Winston logger
-│   └── tests/          # Tests
-├── ui/                  # Frontend (React)
-│   └── src/
-│       └── components/ # Dashboard, config editor, logs
-├── scripts/            # Deployment scripts
-│   ├── setup.sh       # Initial setup
-│   ├── start.sh       # Start dev server
-│   ├── start-prod.sh  # Start with Docker
-│   ├── test.sh        # Run all tests
-│   └── e2e-test.sh    # E2E tests
-├── schema/             # JSON schemas
-├── registry.json       # Backend definitions
-├── .env               # Environment secrets (gitignored)
-├── Dockerfile         # Docker image
-├── docker-compose.yml # Docker Compose config
-├── CLAUDE.md          # Technical documentation
-├── DEPLOYMENT.md      # Deployment guide
-└── README.md          # This file
-```
+## Image tags
 
-## Configuration
+| Tag | Source | Use |
+|---|---|---|
+| `latest` | latest tagged release | most users |
+| `1.0.0`, `1.0`, `1` | specific release | version pinning |
+| `edge` | every push to `main` | bleeding edge |
+| `sha-<short>` | every build | fully reproducible pin |
 
-### Registry Structure
+Multi-arch: `linux/amd64`, `linux/arm64`. SLSA provenance + SBOM attached.
 
-Each backend in `registry.json` has:
+## The registry
 
-```json
+`registry.json` is the single source of truth. Each entry is keyed by a **server name** (the namespace prefix used in tool calls: `obs/start_recording`) and declares a `source` — one of five values.
+
+| `source` | Use case | Example |
+|---|---|---|
+| **`pkg`** | Package-manager-installed servers (npx, uvx, pipx, …) | `{"source": "pkg", "command": "npx", "args": ["-y", "obs-mcp"]}` |
+| **`git`** | Clone a repo, auto-detect install/build | `{"source": "git", "repo": "https://...", "command": "node", "args": ["${REPO_DIR}/dist/index.js"]}` |
+| **`container`** | Docker container (pull image **or** build locally) | `{"source": "container", "image": "ghcr.io/.../img:tag"}` |
+| **`remote`** | Connect to an already-running MCP server (SSE or HTTP) | `{"source": "remote", "transport": "sse", "url": "https://..."}` |
+| **`local`** | Run an existing script/binary on disk | `{"source": "local", "command": "python3", "args": ["${HOME}/scripts/mcp.py"]}` |
+
+Optional fields on every server (all default to sensible values):
+
+```jsonc
 {
-  "backend-id": {
-    "name": "Human-readable name",
-    "description": "What this backend does",
-    "type": "npx|docker|git-npm|...",
-    "install": {
-      // Type-specific installation config
-    },
-    "runtime": {
-      "command": "node|python|...",
-      "args": [],
-      "env": {
-        "VAR_NAME": "${ENV_VAR}"  // References .env
-      }
-    },
-    "lifecycle": "on-demand|persistent",
-    "timeout": 30000,
-    "enabled": true
-  }
+  "lifecycle": "on-demand",  // or "persistent"
+  "enabled":   true,
+  "timeout":   30000,
+  "env": { "MY_TOKEN": "${MY_TOKEN}" }   // ${VAR} resolves from .env or system env
 }
 ```
 
-### Environment Variables
+Full schema: [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json). Typed mirror: [`types/registry.d.ts`](types/registry.d.ts).
 
-Variables use `${VAR_NAME}` syntax in `registry.json` and resolve from:
-1. `.env` file (gitignored)
-2. OAuth token store (auto-managed)
-3. System environment
+## Authenticated access
 
-Special variables:
-- `${HOME}` - User home directory
-- `${REPO_DIR}` - Backend's git repo directory
-- `${GATEWAY_DIR}` - Gateway installation directory
-- `${GITHUB_ACCESS_TOKEN}` - Auto-managed by OAuth
-- `${SMITHERY_ACCESS_TOKEN}` - Auto-managed by OAuth
+Defaults are safe for local use (no auth, loopback bind). For remote / shared deployments, the gateway has built-in Bearer token + IP allowlist enforcement:
 
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/sse` | GET | SSE connection for MCP |
-| `/message` | POST | MCP JSON-RPC messages |
-| `/api/status` | GET | Backend status |
-| `/api/config` | GET | Registry config |
-| `/api/logs` | GET | Log streaming |
-| `/oauth/github/connect` | GET | Start GitHub OAuth |
-| `/oauth/smithery/connect` | GET | Start Smithery OAuth |
-| `/oauth/status` | GET | OAuth connection status |
-
-## Web UI
-
-Access the dashboard at `http://localhost:3000` (when running locally).
-
-Features:
-- **Dashboard:** Backend status, active connections, metrics
-- **Backend Config:** Visual registry editor
-- **Environment:** Manage `.env` variables
-- **OAuth:** One-click connect for GitHub/Smithery
-- **Logs:** Live streaming logs with filtering
-
-## Security
-
-### Local Development
-
-Default configuration is secure for local-only use.
-
-### Remote Deployment
-
-**Enable authentication** for production:
-
-In `registry.json`:
 ```json
-{
-  "gateway": {
-    "security": {
-      "enableAuth": true,
-      "apiKey": "${GATEWAY_API_KEY}"
-    }
-  }
+"security": {
+  "apiKey":     "${GATEWAY_API_KEY}",
+  "enableAuth": true,
+  "allowedIPs": ["10.0.0.0/8"]
 }
 ```
 
-Clients must include API key:
-```json
-{
-  "headers": {
-    "Authorization": "Bearer your-gateway-api-key"
-  }
-}
-```
+Constant-time token compare, CIDR-aware allowlist, `/health` always exempt. Pair with `Caddyfile.prod` for defense-in-depth at the edge. Details in [`CLAUDE.md`](CLAUDE.md#authenticated-access).
 
-### Security Checklist
+## `source: "container"` and the host Docker socket
 
-- ✅ Generate strong `TOKEN_ENCRYPTION_KEY` (auto-generated by setup)
-- ✅ Generate strong `GATEWAY_API_KEY` (auto-generated by setup)
-- ✅ Never commit `.env` to Git (already in `.gitignore`)
-- ✅ Use HTTPS for remote access (see DEPLOYMENT.md)
-- ✅ Set `ENABLE_AUTH=true` for production
-- ✅ Restrict CORS origins (not `*`)
-- ✅ Keep Node.js and dependencies updated
-- ✅ Back up `~/.mcp/tokens.enc` regularly
+The `container` source needs to talk to a Docker daemon. The default Docker Compose **does not** mount `/var/run/docker.sock` — so `pkg`/`git`/`remote`/`local` work out of the box and `container` is opt-in. There are three trust tiers:
 
-## Troubleshooting
+1. **No socket** *(default)* — `container` returns errors, everything else works
+2. **Filtered socket proxy** (uncomment `docker-proxy` in `docker-compose.yml`) — `container` works, attacker can't escape the container
+3. **Rootless Docker on the host** — additional belt-and-suspenders
 
-### Server Won't Start
+Full discussion of trade-offs in [`CLAUDE.md`](CLAUDE.md#three-trust-tiers-for-source-container).
+
+## Build from source
 
 ```bash
-# Check Node.js version
-node --version  # Must be >= 18.0.0
+git clone https://github.com/ismail-kattakath/mcp-gateway.git
+cd mcp-gateway
+cp .env.example .env                          # add your secrets
 
-# Check for port conflicts
-lsof -i :3000
+# Dev (hot-reload)
+cd server && npm install && npm run dev       # gateway on :3000
+cd ../ui && npm install && npm run dev        # dashboard on :5173, proxies /api → 3000
 
-# Validate registry
-cd server && npm run validate
-
-# View detailed logs
-LOG_LEVEL=debug npm run dev
+# Or via Docker
+docker-compose up --build
 ```
 
-### Backend Won't Spawn
+## Project structure
 
-```bash
-# Ensure backend is enabled in registry.json
-cat registry.json | grep -A 5 '"backend-name"'
-
-# Check environment variables
-cat .env
-
-# View backend logs
-cat ~/.mcp/logs/gateway.log | grep backend-name
+```
+.
+├── server/src/
+│   ├── index.js              # HTTP + SSE entrypoint
+│   ├── mcp/
+│   │   ├── protocol.js       # MCP JSON-RPC handler
+│   │   ├── registry.js       # Load/validate/watch registry.json
+│   │   ├── router.js         # Parse <server>/<tool>, route to manager
+│   │   └── backends/         # ServerManager + 5 source adapters (pkg/git/container/remote/local)
+│   ├── middleware/auth.js    # Bearer + IP allowlist
+│   ├── validation/           # AJV schema validator + semantic checks
+│   └── logging/
+├── ui/src/                   # React dashboard (Dashboard / Servers / Logs)
+├── schema/                   # JSON Schema for registry.json
+├── types/                    # TypeScript definitions
+├── Caddyfile.local           # HTTPS via mcp.local (Caddy internal CA)
+├── Caddyfile.prod            # HTTPS via Let's Encrypt
+└── .github/workflows/        # release-please + multi-arch ghcr publish
 ```
 
-### SSE Connection Fails
+## Releases
 
-```bash
-# Test SSE endpoint
-curl -N -H "Accept: text/event-stream" http://localhost:3000/sse
+Releases are fully automated:
 
-# Check CORS in registry.json
-# "cors": { "enabled": true, "origins": ["*"] }
-```
+1. Open a PR with a [Conventional Commits](https://www.conventionalcommits.org/) title (`feat:`, `fix:`, `chore:`, `feat!:`, …) — a linter blocks PRs with malformed titles.
+2. Squash-merge to `main`. [release-please](https://github.com/googleapis/release-please) opens (or updates) a release PR.
+3. Merge the release PR → a `vX.Y.Z` tag is pushed → the Docker workflow publishes the multi-arch image.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for complete troubleshooting guide.
+No manual versioning, no manual tagging, no manual changelog. Setup details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Documentation
 
-- **[CLAUDE.md](CLAUDE.md)** - Complete technical documentation for Claude Code
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deployment guide (local, Docker, VPS, cloud)
-- **[OAUTH_IMPLEMENTATION.md](OAUTH_IMPLEMENTATION.md)** - OAuth flow details
-- **[schema/registry-v2.schema.json](schema/registry-v2.schema.json)** - Registry JSON schema
-
-## Examples
-
-### NPX Package Backend
-
-```json
-"obs": {
-  "type": "npx",
-  "install": { "package": "obs-mcp", "version": "latest" },
-  "runtime": { "env": { "OBS_WEBSOCKET_PASSWORD": "${OBS_WEBSOCKET_PASSWORD}" } },
-  "lifecycle": "on-demand",
-  "enabled": true
-}
-```
-
-### Docker Image Backend
-
-```json
-"comfyui": {
-  "type": "docker",
-  "install": { "image": "ghcr.io/user/comfyui-mcp", "tag": "latest" },
-  "runtime": {
-    "volumes": ["${HOME}/.mcp/comfyui:/data"],
-    "env": { "COMFYUI_URL": "${COMFYUI_URL}" }
-  },
-  "lifecycle": "persistent",
-  "enabled": true
-}
-```
-
-### Git Repo with NPM Build
-
-```json
-"custom-mcp": {
-  "type": "git-npm",
-  "install": {
-    "repository": "https://github.com/user/custom-mcp.git",
-    "branch": "main",
-    "build": {
-      "steps": ["npm install", "npm run build"],
-      "entrypoint": "dist/index.js"
-    }
-  },
-  "runtime": { "command": "node" },
-  "lifecycle": "persistent",
-  "enabled": true
-}
-```
-
-### Remote SSE with OAuth
-
-```json
-"github": {
-  "type": "npx",
-  "install": { "package": "@modelcontextprotocol/server-github" },
-  "runtime": { "env": { "GITHUB_TOKEN": "${GITHUB_ACCESS_TOKEN}" } },
-  "auth": {
-    "type": "oauth",
-    "provider": "github",
-    "scopes": ["repo", "read:org"],
-    "tokenRefresh": true
-  },
-  "lifecycle": "persistent",
-  "enabled": false
-}
-```
-
-## Contributing
-
-This is a personal project but contributions are welcome!
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## Roadmap
-
-Potential future enhancements:
-- [ ] Health check dashboard with uptime metrics
-- [ ] Backend version management and auto-updates
-- [ ] Prometheus metrics export
-- [ ] Multi-user support with per-user registries
-- [ ] Backend marketplace/discovery
-- [ ] Backup/restore for registry + secrets
-- [ ] Rate limiting per backend
-- [ ] Request caching for idempotent operations
+- [**CLAUDE.md**](CLAUDE.md) — full technical reference (schema, HTTPS, Docker tiers, auth model, deployment checklist)
+- [**CONTRIBUTING.md**](CONTRIBUTING.md) — Conventional Commits + release flow + one-time setup
+- [**CHANGELOG.md**](CHANGELOG.md) — auto-generated release notes
+- [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json) — registry JSON Schema (the source of truth)
 
 ## License
 
 MIT
-
-## Support
-
-- **Issues:** Report bugs on GitHub Issues
-- **Documentation:** See `CLAUDE.md` for technical details
-- **Deployment:** See `DEPLOYMENT.md` for deployment guides
-- **Schemas:** See `schema/registry-v2.schema.json` for registry format
-
-## Acknowledgments
-
-Built with:
-- [Express](https://expressjs.com/) - Web framework
-- [Winston](https://github.com/winstonjs/winston) - Logging
-- [Dockerode](https://github.com/apocas/dockerode) - Docker integration
-- [Chokidar](https://github.com/paulmillr/chokidar) - File watching
-- [Model Context Protocol](https://modelcontextprotocol.io/) - MCP specification
-
----
-
-**Made with ❤️ for the AI coding community**
-
-Get started now:
-```bash
-git clone https://github.com/yourusername/mcp-gateway.git
-cd mcp-gateway
-./scripts/setup.sh && ./scripts/start.sh
-```
