@@ -1,0 +1,9 @@
+{
+  "$schema": "https://github.com/modelcontextprotocol/servers/raw/main/schemas/mcp.schema.json",
+  "mcpServers": {
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    }
+  }
+}

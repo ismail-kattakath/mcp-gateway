@@ -3,13 +3,20 @@
   "version": "1.1.0",
   "description": "MCP Gateway Server - Universal aggregator for Model Context Protocol servers",
   "type": "module",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "test": "node --test tests/**/*.test.js",
+    "start": "node dist/index.js",
+    "dev": "tsx --watch src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "type-check": "tsc --noEmit",
     "validate": "node src/validation/validate-registry.js",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "keywords": [
     "mcp",
@@ -36,8 +43,19 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
-    "eslint": "^9.18.0",
-    "eventsource": "^4.1.0"
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.56.0",
+    "eventsource": "^4.1.0",
+    "prettier": "^3.2.0",
+    "supertest": "^6.3.4",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0"
   },
   "engines": {
     "node": ">=18.0.0"

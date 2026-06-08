@@ -113,9 +113,9 @@ export interface GatewayConfig {
   server: ServerConfig;
   storage: StorageConfig;
   logging: LoggingConfig;
-  /** Require Bearer token for SSE/HTTP access. stdio bypasses auth. Default: true. */
+  /** Enable Bearer token authentication. Default true (secure by default). API key is auto-generated. */
   enableAuth?: boolean;
-  /** CIDR-aware IP allowlist. Empty = no IP filtering. */
+  /** IP allowlist (CIDR notation). Empty = all IPs allowed. stdio bypasses auth. */
   allowedIPs?: string[];
 }
 
@@ -130,6 +130,4 @@ export interface Registry {
 export function isSource<T extends Source>(
   server: Server,
   source: T
-): server is Extract<Server, { source: T }> {
-  return server.source === source;
-}
+): server is Extract<Server, { source: T }>;

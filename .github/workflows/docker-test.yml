@@ -1,0 +1,86 @@
+name: Docker Build Test
+
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'server/**'
+      - 'ui/**'
+
+jobs:
+  docker-build:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: mcp-gateway:test
+
+      - name: Test container starts
+        run: |
+          docker build -t mcp-gateway:test .
+          docker run -d --name test-gateway \
+            -e GATEWAY_ENABLE_AUTH=false \
+            -e GATEWAY_TRANSPORT=http \
+            -v $(pwd)/registry.example.json:/app/registry.json:ro \
+            mcp-gateway:test
+          sleep 5
+          docker logs test-gateway
+
+          # Check if container is still running
+          if ! docker ps | grep test-gateway; then
+            echo "❌ Container failed to start or exited"
+            docker logs test-gateway
+            exit 1
+          fi
+
+          echo "✅ Container started successfully"
+          docker stop test-gateway
+          docker rm test-gateway
+
+      - name: Test health endpoint
+        run: |
+          docker run -d --name test-gateway-health \
+            -p 3000:3000 \
+            -e GATEWAY_ENABLE_AUTH=false \
+            -e GATEWAY_TRANSPORT=http \
+            -v $(pwd)/registry.example.json:/app/registry.json:ro \
+            mcp-gateway:test
+
+          # Wait for server to be ready
+          sleep 10
+
+          # Check container is still running
+          docker ps | grep test-gateway-health || (docker logs test-gateway-health && exit 1)
+
+          # Test health endpoint with retries
+          for i in {1..3}; do
+            if curl -f http://localhost:3000/health; then
+              echo "✅ Health endpoint responded"
+              break
+            fi
+            if [ $i -eq 3 ]; then
+              echo "❌ Health endpoint failed after 3 attempts"
+              docker logs test-gateway-health
+              exit 1
+            fi
+            echo "Retry $i failed, waiting..."
+            sleep 3
+          done
+
+          docker stop test-gateway-health
+          docker rm test-gateway-health

@@ -4,576 +4,306 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MCP Gateway Platform** is a universal aggregator and manager for Model Context Protocol (MCP) servers. It solves the problem of maintaining multiple MCP configurations across different AI coding tools (Claude Code, Claude Desktop, Cline, Cursor, etc.) by providing a single gateway that all clients connect to via SSE/HTTPS transport.
+**MCP Gateway** is a universal aggregator for Model Context Protocol (MCP) servers. It allows AI coding tools to connect to a single gateway instead of managing multiple MCP server configurations. The gateway routes namespaced tool calls (`<server-name>/<tool-name>`) to the appropriate backend server.
 
-### Key Problems Solved
-- **Config duplication**: one registry instead of N tool-specific configs
-- **Context spam**: lazy-load servers on-demand instead of loading all tools upfront
-- **Mixed runtimes**: support package managers, git repos, containers, local scripts, and remote endpoints from one schema
-- **Multi-machine access**: deploy once (local or remote), use from anywhere
+**Key Architecture:**
+- **Monorepo**: `server/` (Node.js TypeScript gateway) + `ui/` (React dashboard)
+- **Transport modes**: stdio (spawned clients), SSE, HTTP
+- **Five server sources**: `pkg` (npm/uvx/pipx), `git` (clone+build), `container` (Docker), `remote` (HTTP/SSE), `local` (existing scripts)
+- **Lifecycle modes**: `persistent` (always running) or `on-demand` (lazy-loaded, reaped after 5min idle)
+- **Security**: Auto-generated API keys stored in system keychain, optional IP allowlist
 
-### Architecture
+## Development Commands
 
-```
-Client Tools (Claude Code/Desktop/Cline/Cursor)
-              ↓ (SSE/HTTPS)
-         MCP Gateway Server
-              ↓
-      Server Manager (registry.json)
-              ↓
-   ┌──────┬──────┬─────────┬────────┬───────┐
-   ↓      ↓      ↓         ↓        ↓       ↓
-  pkg    git  container  remote   local
-```
-
-The gateway acts as a proxy/router:
-1. Client connects via SSE and requests tools.
-2. Gateway reads `registry.json` for enabled servers.
-3. Servers are spawned on-demand (lazy) or kept persistent.
-4. Tool calls are namespaced (`<server-name>/<tool-name>`) and routed to the correct server.
-5. All MCP communication is proxied through the gateway.
-
-## Registry Schema
-
-The system is configured by `registry.json`, validated against `schema/registry-v2.schema.json`. There are **5 server sources** — each one captures *where the server comes from*.
-
-### The 5 sources
-
-| `source` | Use case | Required fields |
-|----------|----------|-----------------|
-| `pkg`    | Package-manager-installed servers (npx, uvx, pipx, …) | `command`, `args` |
-| `git`    | Cloned from a git repo, auto-detected install/build | `repo`, `command`, `args` |
-| `container` | Docker container (pull image or build locally) | `image` **OR** `build` |
-| `remote` | Already-running remote MCP server (HTTP/SSE) | `url`, `transport` |
-| `local`  | Pre-existing script/binary on disk | `command` |
-
-### Top-level structure
-
-```json
-{
-  "version": "2.0",
-  "servers": {
-    "<server-name>": { "source": "...", ... }
-  },
-  "gateway": { ... }
-}
-```
-
-- The **server name** is the object key (e.g. `"obs"`). Regex `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (lowercase, hyphens, 2+ chars).
-- The server name doubles as the **namespace prefix** for tool calls: `obs/start_recording`.
-- There is no separate `name` or `description` field — keep entries minimal.
-
-### BaseServer fields (all optional, defaults applied by loader)
-
-| Field | Default | Notes |
-|-------|---------|-------|
-| `lifecycle` | `"on-demand"` | `"on-demand"` or `"persistent"` |
-| `enabled` | `true` | Set `false` to keep an entry but skip it |
-| `timeout` | `30000` (ms) | Spawn/request timeout, 1000–300000 |
-| `env` | — | UPPER_SNAKE_CASE keys only; values support `${VAR}` |
-
-### Per-source schemas
-
-#### `pkg`
-```json
-"obs": {
-  "source": "pkg",
-  "command": "npx",
-  "args": ["-y", "obs-mcp@latest"],
-  "env": { "OBS_WEBSOCKET_PASSWORD": "${OBS_WEBSOCKET_PASSWORD}" }
-}
-```
-- Version is embedded inline in args (`pkg@1.2.3`), matching standard MCP client config.
-- `command` is the package manager binary; `args` is everything passed to it.
-
-#### `git`
-```json
-"custom-mcp": {
-  "source": "git",
-  "repo": "https://github.com/user/custom-mcp.git",
-  "branch": "main",
-  "command": "node",
-  "args": ["${REPO_DIR}/dist/index.js"],
-  "env": { "NODE_ENV": "production" }
-}
-```
-- Exactly **one** of `branch`, `tag`, or `commit` is allowed (mutually exclusive). Omitting all three clones at remote HEAD — `git clone` handles whatever the default branch is (main/master/etc.).
-- Install/build are auto-detected from repo contents:
-  - `package.json` → `npm install` (+ `npm run build` if scripts.build exists)
-  - `pyproject.toml` → `uv pip install -e .`
-  - `requirements.txt` → `uv pip install -r requirements.txt`
-- Override with `install: ["..."]` and/or `build: ["..."]` arrays in config (escape hatch for pnpm, custom scripts, etc.).
-- `${REPO_DIR}` in args resolves to the clone location.
-
-#### `container`
-Pull from a registry:
-```json
-"comfyui": {
-  "source": "container",
-  "image": "ghcr.io/user/comfyui-mcp:latest",
-  "volumes": ["${HOME}/.mcp/comfyui:/data"],
-  "ports": { "8188": 8189 },
-  "env": { "COMFYUI_URL": "${COMFYUI_URL}" }
-}
-```
-Or build locally (with or without cloning a git repo first):
-```json
-"built-locally": {
-  "source": "container",
-  "build": {
-    "repo": "https://github.com/user/mcp.git",
-    "dockerfile": "Dockerfile",
-    "context": ".",
-    "args": { "FOO": "bar" }
-  },
-  "ports": { "3000": 3001 }
-}
-```
-- **Exactly one** of `image` or `build` must be provided.
-- `pull` policy: `always` | `missing` | `never` (default `missing`, only meaningful with `image`).
-- `ports` keys are container ports (strings of digits), values are host ports.
-
-#### `remote`
-```json
-"smithery-tool": {
-  "source": "remote",
-  "transport": "sse",
-  "url": "https://server.smithery.ai/some-tool/sse",
-  "headers": { "Authorization": "Bearer ${SMITHERY_TOKEN}" }
-}
-```
-- `transport: "sse"` opens an EventSource-style stream.
-- `transport: "http"` POSTs each request and reads the JSON response. `method` defaults to `"POST"`.
-- Nothing executes locally.
-
-#### `local`
-```json
-"my-script": {
-  "source": "local",
-  "command": "python3",
-  "args": ["${HOME}/scripts/my-mcp.py"]
-}
-```
-- Subsumes the old `shell` type: just use `command: "bash"` and `args: ["script.sh"]`.
-
-### Environment variable resolution
-
-`${VAR}` substitutions are resolved at load time from:
-1. The provided context (e.g. `${REPO_DIR}` is injected by the git source manager)
-2. `.env` file (gitignored — loaded via dotenv)
-3. System environment
-4. Built-ins: `${HOME}`, `${GATEWAY_DIR}`
-
-There are no auto-managed tokens. Users paste/rotate tokens manually in `.env` (uniform with how every other MCP client handles it).
-
-### Gateway block
-
-```json
-"gateway": {
-  "server":   { "port": 3000, "host": "0.0.0.0", "transport": "sse", "cors": { ... } },
-  "storage":  { "repos": "${HOME}/.mcp/repos", "cache": "${HOME}/.mcp/cache", "logs": "${HOME}/.mcp/logs" },
-  "logging":  { "level": "info", "format": "json", "outputs": ["console", "file"] },
-  "security": { "apiKey": "${GATEWAY_API_KEY}", "enableAuth": false, "allowedIPs": [] }
-}
-```
-
-- `gateway.server`, `gateway.storage`, and `gateway.logging` are required.
-- `gateway.security` is optional and controls remote API access to the gateway itself (unrelated to per-server auth).
-
-## Project Structure
-
-```
-/
-├── server/
-│   ├── src/
-│   │   ├── index.js          # HTTP + SSE entrypoint
-│   │   ├── mcp/
-│   │   │   ├── protocol.js   # MCP JSON-RPC handler
-│   │   │   ├── registry.js   # Load/validate/watch registry.json + apply defaults
-│   │   │   ├── router.js     # Parse <server>/<tool>, route to manager
-│   │   │   └── backends/
-│   │   │       ├── base.js          # Shared spawn-process logic
-│   │   │       ├── index.js         # ServerManager + source dispatch
-│   │   │       ├── pkg.js           # source: "pkg"
-│   │   │       ├── git.js           # source: "git" (clone + auto-detect install/build)
-│   │   │       ├── container.js     # source: "container" (image OR build)
-│   │   │       ├── remote.js        # source: "remote" (sse/http)
-│   │   │       ├── local.js         # source: "local"
-│   │   │       └── stdio-handler.js # JSON-RPC over stdio parser
-│   │   ├── validation/       # AJV schema validator + semantic checks
-│   │   └── logging/          # Logger
-│   └── package.json
-├── ui/                       # React dashboard (Dashboard, Servers, Logs)
-├── registry.json             # Active server configuration
-├── registry.example.json     # One example per source
-├── schema/registry-v2.schema.json
-├── types/registry.d.ts       # TypeScript types mirroring the schema
-└── docker-compose*.yml
-```
-
-(The `backends/` directory name is preserved for filesystem stability; the code inside is source-based — `ServerManager`, source files named after the 5 sources. Treat "backend" and "server" as synonymous in legacy paths.)
-
-## Tool Namespacing
-
-To avoid conflicts, all tools are namespaced by server name:
-- Server `obs` exposes a tool `start_recording` → clients see `obs/start_recording`
-- Server `kapture` exposes `screenshot` → clients see `kapture/screenshot`
-
-The router parses the namespace at `/` and routes to the correct server process.
-
-## Server Lifecycle
-
-- **`on-demand`** (default): spawned on first tool call, killed after 5 min idle. Good for infrequently-used or heavy servers.
-- **`persistent`**: spawned at gateway startup, restarted on crash, killed at gateway shutdown. Good for frequently-used servers.
-
-Restarts are exponentially backed off (2s, 4s, 6s) up to 3 retries before the server is marked failed.
-
-## Adding a New Source
-
-To add a brand-new source type beyond the 5:
-
-1. Add the variant in `schema/registry-v2.schema.json` under `definitions/` and the top-level `servers` `oneOf`.
-2. Create `server/src/mcp/backends/<name>.js` extending `BaseServer` (or implementing the same shape as `RemoteServer` for non-spawn sources). Implement `getSpawnArgs()` and optionally `prepare()`.
-3. Register in `server/src/mcp/backends/index.js` `createServerForSource()`.
-4. Add the TypeScript type to `types/registry.d.ts`.
-5. Add an example to `registry.example.json`.
-
-## Development Workflow
+### Server (Node.js/TypeScript)
 
 ```bash
-# install deps
-cd server && npm install
-cd ui && npm install
+cd server
 
-# copy env template
-cp .env.example .env  # edit secrets
+# Development (with hot reload)
+npm run dev                  # Start on :3000
 
-# run gateway (port 3000) and UI dev server (port 5173, proxies /api → 3000)
-cd server && npm run dev
-cd ui && npm run dev
+# Build & Production
+npm run build                # Compile TypeScript → dist/
+npm start                    # Run compiled dist/index.js
+
+# Testing
+npm test                     # Run all tests (Vitest)
+npm run test:watch           # Watch mode
+npm run test:coverage        # Generate coverage report
+
+# Code Quality
+npm run lint                 # ESLint check
+npm run lint:fix             # Auto-fix ESLint issues
+npm run format               # Prettier format
+npm run format:check         # Prettier check (CI)
+npm run type-check           # TypeScript type check without emit
+
+# Validation
+npm run validate             # Validate registry.json schema
 ```
 
-### Pointing a client at the gateway
-
-The gateway supports **three transports simultaneously**: stdio, SSE, and HTTP. Choose based on your use case.
-
-#### Auto-spawn mode (stdio transport)
-
-The client spawns the gateway automatically. Zero manual setup:
-
-```json
-{
-  "mcpServers": {
-    "gateway": {
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-v", "${HOME}/.mcp:/root/.mcp",
-        "-v", "${HOME}/.mcp-gateway/registry.json:/app/registry.json:ro",
-        "ghcr.io/ismail-kattakath/mcp-gateway:latest"
-      ],
-      "transport": "stdio"
-    }
-  }
-}
-```
-
-**How it works:**
-- Client spawns `docker run -i` (interactive, attached to stdin/stdout)
-- Gateway detects stdin is a pipe (`!process.stdin.isTTY`) → enables stdio transport
-- JSON-RPC flows over stdin/stdout (one message per line)
-- **No auth required** — pipe ownership is inherent authentication
-- HTTP/SSE endpoints also start on `:3000` (with auth) for other clients
-
-**When stdin closes** (client exits), the gateway shuts down gracefully.
-
-#### Persistent daemon mode (SSE or HTTP transport)
-
-Start the gateway once, all clients connect via network:
-
-```json
-{
-  "mcpServers": {
-    "gateway": {
-      "url": "http://localhost:3000/sse",
-      "transport": "sse",
-      "headers": {
-        "Authorization": "Bearer YOUR_API_KEY"
-      }
-    }
-  }
-}
-```
-
-Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authenticated Access](#authenticated-access)).
-
-Works for Claude Code, Claude Desktop, Cline, Cursor, and any MCP client.
-
-## HTTPS / Custom Domain
-
-The gateway listens **plain HTTP on `127.0.0.1` by default** (loopback only) — never expose it directly. For HTTPS or remote access, put **Caddy** in front. Two Caddyfile templates ship in the repo:
-
-### Local HTTPS (`Caddyfile.local`)
-
-Serves `https://mcp.local/sse` (or `https://localhost/sse`) using Caddy's internal CA — no Let's Encrypt, no public DNS.
+### UI (React/Vite)
 
 ```bash
-# one-time
-echo "127.0.0.1   mcp.local" | sudo tee -a /etc/hosts
-brew install caddy
-caddy trust                                          # install Caddy's local root CA
+cd ui
 
-# run
-caddy run --config Caddyfile.local
+# Development
+npm run dev                  # Start on :5173
+
+# Build & Production
+npm run build                # Compile TypeScript + Vite build
+npm run preview              # Preview production build
+
+# Testing
+npm test                     # Run all tests (Vitest)
+npm run test:watch           # Watch mode
+npm run test:coverage        # Generate coverage report
+
+# Code Quality
+npm run lint                 # ESLint check
+npm run lint:fix             # Auto-fix ESLint issues
+npm run format               # Prettier format
+npm run format:check         # Prettier check (CI)
+npm run type-check           # TypeScript type check without emit
 ```
 
-For other devices on your LAN (phone, second laptop), copy Caddy's root cert from `~/Library/Application Support/Caddy/pki/authorities/local/root.crt` and trust it on each.
-
-### Public domain (`Caddyfile.prod`)
-
-Auto-provisions a Let's Encrypt cert for `${DOMAIN}` and gates `/api`, `/sse`, `/mcp` behind a `Bearer` token.
+### Root (Monorepo)
 
 ```bash
-# .env or shell
-export DOMAIN=mcp.yourdomain.com
-export GATEWAY_API_KEY=$(openssl rand -hex 32)
+# Git hooks
+npm run prepare              # Install husky git hooks
 
-caddy run --config Caddyfile.prod
+# Pre-commit hook runs automatically via lint-staged:
+# - ESLint fix
+# - Prettier format
+# - TypeScript type-check
 ```
 
-Pair with `gateway.security.enableAuth: true` and `gateway.security.apiKey: "${GATEWAY_API_KEY}"` so the gateway itself also validates the token (defense in depth — Caddy's check + the gateway's check).
+## Architecture
 
-If the box isn't directly internet-routable, front it with **Cloudflare Tunnel** or **Tailscale Funnel** and point Caddy at the tunnel endpoint instead of binding to `0.0.0.0`.
+### Core Request Flow
 
-### Why `trust proxy` is set
+```
+Client (Claude Code, etc.)
+  ↓ MCP JSON-RPC request
+server/src/index.ts (HTTP/SSE entrypoint)
+  ↓
+server/src/mcp/protocol.ts (MCP handler)
+  ↓ tools/list or tools/call
+server/src/mcp/router.ts (parse <server>/<tool>)
+  ↓
+server/src/mcp/backends/index.ts (ServerManager)
+  ↓ dispatch on config.source
+server/src/mcp/backends/{pkg,git,container,remote,local}.ts
+  ↓ spawn/connect to actual MCP server
+MCP Server (obs-mcp, filesystem, etc.)
+  ↓ result
+← response bubbles back up
+```
 
-`server/src/index.js` calls `app.set('trust proxy', 'loopback')` so when Caddy forwards a request, Express's `req.ip` shows the real client IP (via `X-Forwarded-For`) and `req.protocol` shows `https`. This is essential for the access logs to be meaningful and for `gateway.security.allowedIPs` to match against the real client.
+### Key Components
 
-## Authenticated Access
+**`server/src/mcp/backends/`** — Server lifecycle management
+- `index.ts` — `ServerManager` class: initializes persistent servers, lazy-loads on-demand servers, handles auto-restart and idle reaping
+- `base.ts` — `BaseServer` abstract class: state machine (stopped/starting/running/stopping/failed), retry logic, stdio parsing, event emitter for logs/exit/error
+- `{pkg,git,container,local}.ts` — Concrete adapters extending `BaseServer`, each implements `prepare()` (setup work) and `getSpawnArgs()` (command/args/env)
+- `remote.ts` — `RemoteServer` class: non-spawn adapter for SSE/HTTP remotes, implements same surface (isRunning, write, events) for uniform router interface
+- `stdio-handler.ts` — JSON-RPC message parser for stdout/stderr streams
 
-**Secure by default**: The gateway auto-generates a cryptographic API key on first run and requires it for all SSE/HTTP access. stdio transport (spawned by clients) bypasses auth.
+**`server/src/mcp/`** — MCP protocol layer
+- `protocol.ts` — JSON-RPC 2.0 handlers: `tools/list`, `tools/call`, SSE streaming (`streamMessage`, `sendNotification`)
+- `router.ts` — Parse `<server>/<tool>`, validate server exists/enabled, dispatch to `ServerManager.getServer()`
+- `registry.ts` — Load/validate/watch `registry.json`, hot-reload on file change, apply defaults, validate schema + semantic checks
 
-### API Key Storage (Industry Standard)
+**`server/src/validation/`** — Registry validation
+- `registry-validator.ts` — AJV schema validator + semantic checks (e.g., detect duplicate env keys, validate git repo URLs)
+- `validate-registry.ts` — CLI tool for standalone validation
 
-Keys are stored using OS-level secure storage, never cleartext:
+**`server/src/middleware/auth.ts`** — Bearer token + IP allowlist middleware (skips stdio transport, always allows `/health`)
 
-**Primary method: System keychain**
-- macOS: Keychain Services
-- Linux: libsecret / GNOME Keyring / Secret Service API
-- Windows: Credential Manager
+**`server/src/security/`** — API key management
+- `apikey.ts` — Generate/retrieve/rotate keys using crypto.randomBytes(32)
+- `secure-storage.ts` — Wrapper for `keytar` (system keychain: macOS Keychain, Linux libsecret, Windows Credential Manager)
 
-**Fallback method: Encrypted file** (for headless servers)
-- AES-256-GCM authenticated encryption
-- Key derived from machine ID + salt via PBKDF2 (100k iterations, SHA-512)
-- File: `~/.mcp/.gateway-api-key.enc`
-- Stolen file won't decrypt on another machine
+**`server/src/logging/`** — Winston-based logging
+- `logger.ts` — Console + file transport, custom format with automatic sanitization
+- `sanitizer.ts` — Sanitize user-controlled values (serverName, URL, path, args) before logging to prevent log injection (CRLF, control chars, credential leakage)
 
-**Migration**: Old cleartext keys (`~/.mcp/gateway-api-key`) are auto-migrated to secure storage on first run.
+**`schema/registry-v2.schema.json`** — Source of truth for registry.json structure. TypeScript mirror at `server/src/types/registry.d.ts`.
 
-### Retrieve the API Key
+## Registry Configuration
+
+The `registry.json` file is the single source of truth for server configuration. Each server is keyed by a **server name** (lowercase, alphanumeric + hyphens) and declares a `source` field:
+
+| Source | Use Case |
+|--------|----------|
+| `pkg` | Package manager (npx, uvx, pipx) |
+| `git` | Clone repo, auto-detect install/build, spawn |
+| `container` | Docker image (pull or build) |
+| `remote` | Already-running MCP server over SSE/HTTP |
+| `local` | Existing script/binary on disk |
+
+**Common fields** (all optional with defaults):
+- `lifecycle`: `"on-demand"` (lazy-loaded) or `"persistent"` (always running)
+- `enabled`: `true` | `false`
+- `timeout`: milliseconds (default 30000)
+- `env`: Object with `${VAR}` substitution from system env
+
+**Schema validation:**
+- Run `cd server && npm run validate` to validate registry.json
+- AJV validates against `schema/registry-v2.schema.json`
+- Semantic checks enforce server name format, env key format, etc.
+
+## Security Requirements
+
+**This project is enterprise-ready and must maintain production-grade security.**
+
+1. **Log Injection Prevention**
+   - All user-controlled values MUST be sanitized before logging
+   - Use `sanitizeServerName()`, `sanitizeUrl()`, `sanitizePath()`, `sanitizeString()`, `sanitizeArgs()` from `server/src/logging/sanitizer.ts`
+   - Even though Winston format pipeline auto-sanitizes, CodeQL requires explicit call-site sanitization for static analysis
+   - Pattern: `logger.info(\`Starting ${sanitizeServerName(name)}\`)` not `logger.info(\`Starting ${name}\`)`
+
+2. **Path Traversal Prevention**
+   - Validate all user-controlled paths with `path.resolve()` and check they don't escape intended parent directory
+   - Example: `if (!repoDir.startsWith(path.resolve(reposRoot))) throw new Error(...)`
+
+3. **Command Injection Prevention**
+   - Always use `spawn(command, args, {shell: false})` — never construct command strings
+   - Validate URL protocols before passing to `git clone` or similar
+
+4. **Cryptographic Security**
+   - Use `crypto.randomBytes()` for API key generation, never `Math.random()`
+   - API keys are 32-byte base64url-encoded strings stored in system keychain
+
+5. **Authentication**
+   - Bearer token required for SSE/HTTP transports (default enabled)
+   - stdio transport bypasses auth (pipe = inherent authentication)
+   - `/health` endpoint always exempt from auth
+   - Constant-time token comparison
+
+**CodeQL scanning runs on every PR.** All high-severity findings must be resolved before merge.
+
+## Testing
+
+**Server:** 124+ tests with Vitest, including:
+- Unit tests for sanitizers (32 tests)
+- Auth middleware tests (Bearer token, IP allowlist)
+- Registry validation tests
+- Security tests (API key generation, secure storage)
+
+**Coverage target:** 77%+
+
+**Running tests:**
+```bash
+cd server && npm test                # Run once
+cd server && npm run test:watch      # Watch mode
+cd server && npm run test:coverage   # With coverage report
+```
+
+## Release Process
+
+**Fully automated via GitHub Actions + release-please:**
+
+1. **Open a PR with Conventional Commits title:**
+   - `feat:` → minor bump (0.1.0 → 0.2.0)
+   - `fix:` → patch bump (0.1.0 → 0.1.1)
+   - `feat!:` or `fix!:` → major bump (0.1.0 → 1.0.0)
+   - `docs:`, `chore:`, `refactor:`, `test:` → no bump
+
+2. **Title validation:** `.github/workflows/pr-title.yml` blocks PRs with malformed titles
+
+3. **Squash-merge to main:** PR title becomes commit message, triggers release-please
+
+4. **Release PR auto-created:** `chore(main): release X.Y.Z` updates `CHANGELOG.md`, `package.json`, `.release-please-manifest.json`
+
+5. **Merge release PR:** Creates GitHub Release + git tag `vX.Y.Z`, triggers Docker build
+
+6. **Docker workflow:** Builds multi-arch image (`linux/amd64`, `linux/arm64`), pushes to `ghcr.io/ismail-kattakath/mcp-gateway` with tags `:latest`, `:X.Y.Z`, `:X.Y`, `:X`, `:edge`, `:sha-<short>`
+
+**Never manually:**
+- Bump versions in package.json
+- Edit CHANGELOG.md
+- Create git tags
+- Build/push Docker images
+
+See `CONTRIBUTING.md` for full release-please setup details.
+
+## Commit Hygiene
+
+**Use Conventional Commits for all PR titles:**
+
+✅ Good:
+- `feat: add support for container build.repo`
+- `fix: prevent on-demand server reaping during active tool call`
+- `chore: bump express to 4.21.3`
+- `feat!: rename backends to servers`
+
+❌ Bad:
+- `Add new feature` — missing type prefix
+- `feat: Add new feature` — subject must start lowercase
+- `Feat: add new feature` — type must be lowercase
+
+**Git hooks:**
+- Pre-commit: runs lint-staged (ESLint fix, Prettier format, TypeScript check on staged files)
+- Commit message validation happens in CI via `pr-title.yml`, not locally
+
+## Docker
+
+**Container sources** (`source: "container"`) require Docker socket access. By default, the gateway container **does not** mount `/var/run/docker.sock` for security. To enable:
 
 ```bash
-docker run --rm -v $HOME/.mcp:/root/.mcp \
-  -e PRINT_API_KEY=true \
-  ghcr.io/ismail-kattakath/mcp-gateway:latest
+docker run -i --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  ghcr.io/ismail-kattakath/mcp-gateway
 ```
 
-Output:
+**Alternative:** Use a Docker socket proxy (e.g., `tecnativa/docker-socket-proxy`) and set `DOCKER_HOST` env var.
+
+## Environment Variables
+
+**Gateway behavior:**
+- `GATEWAY_ENABLE_AUTH` — Override `gateway.enableAuth` in registry.json
+- `GATEWAY_PORT` — Override HTTP port (default 3000)
+- `PRINT_API_KEY=true` — Print API key and exit (for daemon mode setup)
+- `ROTATE_API_KEY=true` — Generate new API key and exit
+
+**Server env substitution:**
+- Registry `env` fields support `${VAR}` substitution from system env
+- Example: `"env": {"API_KEY": "${MY_API_KEY}"}` resolves `MY_API_KEY` from process.env
+
+## Common Pitfalls
+
+1. **Don't sanitize-then-validate-then-return-original:** CodeQL's sanitizer.ts refactor (June 2026) moved from "validate-then-use" to "sanitize-then-validate-then-return-sanitized". Always return the sanitized value, even if validation fails.
+
+2. **Don't skip CodeQL warnings:** All high-severity findings are blocking. If CodeQL flags log injection, add explicit sanitization even if Winston format pipeline already sanitizes at runtime.
+
+3. **Don't use `shell: true` in spawn():** Always pass args array to `spawn(command, args, {shell: false})` to prevent command injection.
+
+4. **Don't commit without Conventional Commits title:** CI will fail. Prefix PR titles with `feat:`, `fix:`, `chore:`, etc.
+
+5. **Don't manually version:** Let release-please handle version bumps and changelogs.
+
+## Validation Skills
+
+This project includes custom validation skills in `.claude/skills/`:
+
+- **`/validate-all`** — Master orchestrator that runs all validations in parallel (tests, Docker, pre-commit hooks) and provides consolidated report. Use before pushing changes.
+- **`/validate-tests`** — Run full test suite (server + UI) 3 times to detect flaky tests. Validates 124+ tests pass with 77%+ coverage.
+- **`/validate-docker`** — Build Docker image and test runtime in both stdio and HTTP modes. Validates health endpoint and checks logs.
+- **`/validate-precommit`** — Test git hooks with clean and broken code to ensure ESLint, Prettier, and TypeScript checks work correctly.
+
+**Recommended workflow before pushing:**
 ```
-GATEWAY_API_KEY=abc123def456...
-
-Copy this key to use in client configurations:
-  "headers": {
-    "Authorization": "Bearer abc123def456..."
-  }
+/validate-all
 ```
+This spawns 3 parallel validation agents and reports consolidated results in ~2-3 minutes.
 
-### Rotate the API Key
+## Documentation
 
-```bash
-docker run --rm -v $HOME/.mcp:/root/.mcp \
-  -e ROTATE_API_KEY=true \
-  ghcr.io/ismail-kattakath/mcp-gateway:latest
-```
-
-⚠️ After rotation, update the key in all client configurations.
-
-### Authentication Control
-
-**Default: enabled** (`enableAuth: true`)
-
-Disable for local-only development:
-
-```bash
-# Via environment variable (takes precedence)
-GATEWAY_ENABLE_AUTH=false
-
-# Or in registry.json
-"gateway": {
-  ...
-  "enableAuth": false
-}
-```
-
-### Transport-Specific Auth
-
-| Transport | Auth Required | Reason |
-|-----------|---------------|--------|
-| **stdio** | No | Pipe ownership is inherent authentication |
-| **SSE** | Yes (if enabled) | Network-accessible |
-| **HTTP** | Yes (if enabled) | Network-accessible |
-
-### IP Allowlist (Optional)
-
-```json
-"gateway": {
-  ...
-  "allowedIPs": ["127.0.0.0/8", "192.168.1.0/24", "10.0.0.5"]
-}
-```
-
-- CIDR-aware (uses `ipaddr.js`)
-- IPv4-mapped-in-IPv6 normalized
-- Applies to all transports (including stdio)
-- Works independently of `enableAuth`
-
-### Bearer Token Details
-
-When `enableAuth: true`, every request to `/sse`, `/mcp/*`, and `/api/*` must include:
-
-```
-Authorization: Bearer <apiKey>
-```
-
-- Constant-time comparison (`crypto.timingSafeEqual`) — no timing oracle
-- Failed auth returns `401` with `WWW-Authenticate: Bearer realm="mcp-gateway"`
-- `/health` always exempt (uptime monitors)
-
-**Browser fallback**: `?access_token=<key>` on `/sse` only (EventSource can't set headers). Avoid for other endpoints — tokens in URLs leak to logs.
-
-### Defense-in-Depth with Caddy
-
-`Caddyfile.prod` gates at the edge + gateway also checks internally:
-
-- Misconfigured reverse proxy? Gateway still refuses.
-- Accidentally exposed port? Gateway still refuses.
-- Leaked token must pass both layers.
-
-Use the same auto-generated key for both (retrieve with `PRINT_API_KEY=true`).
-
-## Release automation
-
-The repo is wired for hands-off releases — write Conventional Commits, merge PRs, merge the release PR when ready, image appears on ghcr.
-
-```
-PR with Conventional title  →  release-please opens release PR
-                            →  you merge release PR
-                            →  release-please creates v* tag
-                            →  release.yml builds + pushes ghcr image
-```
-
-Workflows:
-- `pr-title.yml` — validates every PR title is a valid Conventional Commit
-- `release-please.yml` — runs on every push to `main`; opens/updates release PR; creates v* tag on merge
-- `release.yml` — listens for v* tags; pushes multi-arch image to ghcr
-
-**One-time human setup:** create a fine-grained PAT and store it as `RELEASE_PLEASE_TOKEN`. Without it, the v* tag created by release-please won't trigger the Docker workflow (GitHub's loop-prevention rule). See `CONTRIBUTING.md` → "One-time setup" for the exact PAT permissions.
-
-Config files: `release-please-config.json` (manifest mode, linked versions across server + ui) and `.release-please-manifest.json` (current version tracking).
-
-Bootstrap version: `0.1.0`. Linked versions mean server and ui bump together as a single product.
-
-## Run via Docker
-
-Pre-built multi-arch images (amd64, arm64) are published on every push to `main` and on `v*.*.*` tags:
-
-```bash
-docker pull ghcr.io/ismail-kattakath/mcp-gateway:latest
-```
-
-Tags:
-
-| Tag | Source | Use |
-|---|---|---|
-| `latest` | latest tagged release | recommended for most users |
-| `v1.2.3` / `v1.2` / `v1` | tagged release | pin to a specific version |
-| `edge` | every push to `main` | bleeding edge |
-| `sha-abc1234` | every build | fully reproducible pin |
-
-### Quick start
-
-```bash
-# 1. Get a starting registry + env
-curl -O https://raw.githubusercontent.com/ismail-kattakath/mcp-gateway/main/registry.example.json
-mv registry.example.json registry.json
-echo "GATEWAY_API_KEY=$(openssl rand -hex 32)" > .env
-
-# 2. Run
-docker run -d --name mcp-gateway \
-  -p 127.0.0.1:3000:3000 \
-  -v $(pwd)/registry.json:/app/registry.json:ro \
-  -v $(pwd)/.env:/app/.env:ro \
-  -v $HOME/.mcp:/root/.mcp \
-  ghcr.io/ismail-kattakath/mcp-gateway:latest
-```
-
-Or via compose: `docker-compose up -d` (uses the published image by default).
-
-### Three trust tiers for `source: "container"`
-
-The gateway's `container` server source needs to spawn Docker containers. The choice of how it talks to a Docker daemon determines your blast radius if a malicious server makes it into the registry.
-
-| Tier | What you do | What works | Blast radius if compromised |
-|---|---|---|---|
-| **1 — no socket** *(default)* | Don't mount anything | `pkg`, `git`, `remote`, `local`. `container` returns errors. | Gateway is contained — no Docker access at all. |
-| **2 — socket proxy** | Uncomment `docker-proxy` in compose; set `DOCKER_HOST=tcp://docker-proxy:2375` | All sources including `container` | Attacker can spawn containers and pull images, but cannot mount arbitrary host paths, use `--privileged`, or escape via volume tricks. The proxy (`tecnativa/docker-socket-proxy`) whitelists only `containers/*`, `images/*`, `build/*`. |
-| **3 — rootless Docker on the host** | Set up [rootless Docker](https://docs.docker.com/engine/security/rootless/) on the host *before* running the gateway; combine with Tier 2 for belt-and-suspenders | All sources | Container root = your unprivileged user account, not host root. **Still has access to your home dir, SSH keys, dotfiles** — only worth the setup if you also keep secrets out of the user account that runs the daemon. |
-
-#### Why mounting `/var/run/docker.sock` is not a casual decision
-
-The Docker daemon socket is the daemon's control plane. Anything that can write to it can ask the daemon to:
-- Start a new container that mounts host `/` → read `/etc/shadow`, install cron persistence
-- Use `--privileged` → load kernel modules, escape into host PID namespace
-- Mount a different volume into a different container → read that container's secrets
-
-Inside our container the gateway is "just" running as root-in-container, which Docker isolates from the host. The socket bypasses that isolation by proxying through the host daemon. So **container root + raw Docker socket ≈ host root**.
-
-If you write the registry yourself and trust everything in it, Tier 2 is overkill and you can mount the raw socket. If anyone else can edit the registry (multi-tenant, public deployment, automated CI adding entries), use Tier 2 at minimum.
-
-### Production checklist
-
-1. Front the gateway with `Caddyfile.prod` (HTTPS + Bearer gate at the edge).
-2. Set `gateway.security.enableAuth: true` and `apiKey: "${GATEWAY_API_KEY}"` so the gateway *also* enforces auth (defense in depth).
-3. Pick a trust tier for `container` source (above).
-4. Keep the gateway bound to `127.0.0.1` — never `0.0.0.0` unless you've reviewed exactly who can reach it.
-5. Pin to a `sha-*` or `v*.*.*` tag in production, not `latest`.
-
-### Building from source
-
-```bash
-docker-compose up --build               # local
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-(In the compose files, comment out the `image:` line and uncomment `build:` to use a local build.)
-
-## API Surface
-
-The gateway exposes:
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /sse` | MCP transport (clients connect here) |
-| `POST /mcp/message` | JSON-RPC request endpoint for SSE clients |
-| `GET /health` | Health check + server counts |
-| `GET /api/status` | Per-server status + gateway info |
-| `GET /api/config` | Full registry |
-| `GET /api/logs/:serverName?` | Server logs (omit serverName for all) |
-| `POST /api/servers/:serverName/start` | Start a server |
-| `POST /api/servers/:serverName/stop` | Stop a server |
-
-## Web UI Features
-
-- **Dashboard**: status counts and per-server state
-- **Servers**: list of registry entries with start/stop controls
-- **Logs**: live tail with per-server filter
+- **`README.md`** — User-facing quick start, features, setup modes
+- **`CONTRIBUTING.md`** — Release-please workflow, Conventional Commits guide
+- **`schema/registry-v2.schema.json`** — Canonical registry schema
+- **`docs/`** — Architecture decisions, API reference (if present)
+- **`.claude/skills/`** — Validation skills for pre-push verification

@@ -81,7 +81,7 @@
   "gateway": {
     "server": {
       "port": 3000,
-      "host": "127.0.0.1",
+      "host": "0.0.0.0",
       "transport": "sse",
       "cors": {
         "enabled": true,
@@ -98,8 +98,8 @@
       "level": "info",
       "format": "json",
       "outputs": ["console", "file"]
-    }
-    // "enableAuth": false,  // default: true (secure by default). API key auto-generated.
-    // "allowedIPs": []      // optional CIDR-aware IP allowlist
+    },
+    "enableAuth": false,
+    "allowedIPs": []
   }
 }

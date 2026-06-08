@@ -39,7 +39,7 @@ Thumbs.db
 *~
 
 # Docker
-docker-compose.override.yml
+# (docker-compose removed from project)
 
 # Registry (use registry.example.json)
 registry.json
@@ -47,3 +47,8 @@ registry.json
 # Testing
 coverage/
 .nyc_output/
+
+# Claude Code local settings and worktrees
+.claude/settings.local.json
+*.local.md
+.claude/worktrees/
