@@ -43,37 +43,31 @@ describe.sequential('secure-storage', () => {
       const secret = 'same-secret-test';
 
       await storeSecret(secret);
-      const fileExists1 = await fs
-        .access(ENCRYPTED_FILE)
-        .then(() => true)
-        .catch(() => false);
 
-      if (fileExists1) {
-        // Fixed: Read file immediately after check to minimize TOCTOU window
-        let encFile1: Buffer;
-        try {
-          encFile1 = await fs.readFile(ENCRYPTED_FILE);
-        } catch {
-          // File was deleted between check and read - skip this test
-          return;
-        }
-        await deleteSecret();
-
-        await storeSecret(secret);
-        let encFile2: Buffer;
-        try {
-          encFile2 = await fs.readFile(ENCRYPTED_FILE);
-        } catch {
-          throw new Error('Failed to read encrypted file after storing secret');
-        }
-
-        // Different IV/salt should produce different ciphertext
-        expect(Buffer.compare(encFile1, encFile2)).not.toBe(0);
-      } else {
-        // Using keychain - just verify storage and retrieval works
+      // Fixed: Eliminate TOCTOU by reading directly without separate existence check
+      let encFile1: Buffer;
+      try {
+        encFile1 = await fs.readFile(ENCRYPTED_FILE);
+      } catch {
+        // File doesn't exist - using keychain instead, skip ciphertext comparison
         const retrieved = await retrieveSecret();
         expect(retrieved).toBe(secret);
+        return;
       }
+
+      // File exists - test ciphertext uniqueness
+      await deleteSecret();
+      await storeSecret(secret);
+
+      let encFile2: Buffer;
+      try {
+        encFile2 = await fs.readFile(ENCRYPTED_FILE);
+      } catch {
+        throw new Error('Failed to read encrypted file after storing secret');
+      }
+
+      // Different IV/salt should produce different ciphertext
+      expect(Buffer.compare(encFile1, encFile2)).not.toBe(0);
     });
 
     it('should return null for non-existent secret', async () => {
@@ -234,19 +228,17 @@ describe.sequential('secure-storage', () => {
 
       await storeSecret(TEST_SECRET);
 
-      // Fixed: Combine check and read to minimize TOCTOU
+      // Fixed: Combine check and read to eliminate TOCTOU
       let encryptedContent: Buffer | null = null;
       try {
         encryptedContent = await fs.readFile(ENCRYPTED_FILE);
       } catch {
         // File doesn't exist - using keychain
       }
-      const fileExists = encryptedContent !== null;
 
-      if (fileExists) {
-        const encryptedData = await fs.readFile(ENCRYPTED_FILE);
+      if (encryptedContent !== null) {
         // Encrypted file should contain more data than the plaintext (salt 32 + IV 16 + tag 16 = 64 bytes overhead minimum)
-        expect(encryptedData.length).toBeGreaterThanOrEqual(TEST_SECRET.length + 64);
+        expect(encryptedContent.length).toBeGreaterThanOrEqual(TEST_SECRET.length + 64);
       } else {
         // Stored in keychain - test that retrieval works
         const retrieved = await retrieveSecret();
