@@ -1,5 +1,0 @@
-#!/bin/sh
-
-# Run full test suite before push
-cd server && npm test
-cd ../ui && npm test
