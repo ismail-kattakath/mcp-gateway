@@ -1,0 +1,48 @@
+# Public HTTPS for mcp-gateway via Caddy.
+#
+# Usage:
+#   1. Point an A/AAAA record at this machine for ${YOUR_DOMAIN}.
+#      (If the box isn't directly routable, front it with Cloudflare Tunnel,
+#       Tailscale Funnel, or similar.)
+#   2. Set GATEWAY_API_KEY in the environment so the @auth matcher can read it.
+#   3. caddy run --config Caddyfile.prod --envfile .env
+#   4. Point clients at https://${YOUR_DOMAIN}/sse with the matching Bearer token.
+#
+# Caddy auto-provisions and renews Let's Encrypt certs for the domain.
+# Gateway must be bound to 127.0.0.1:3000 so this is the only ingress.
+
+{$DOMAIN:mcp.example.com} {
+  # Lock down /api, /sse, /mcp behind a Bearer token.
+  # All other paths return 401.
+  @auth header Authorization "Bearer {$GATEWAY_API_KEY}"
+  handle @auth {
+    reverse_proxy 127.0.0.1:3000 {
+      flush_interval -1
+      header_up Host {host}
+      header_up X-Real-IP {remote_host}
+    }
+  }
+
+  # Public health probe (no auth) — useful for uptime monitors.
+  handle /health {
+    reverse_proxy 127.0.0.1:3000
+  }
+
+  handle {
+    respond "Unauthorized" 401
+  }
+
+  # Hardening headers
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options    "nosniff"
+    X-Frame-Options           "DENY"
+    Referrer-Policy           "no-referrer"
+  }
+
+  # Access log (rotates by default).
+  log {
+    output file /var/log/caddy/mcp-gateway.log
+    format json
+  }
+}

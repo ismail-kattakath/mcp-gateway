@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "changelog-path": "CHANGELOG.md",
+  "pull-request-title-pattern": "chore(${branch}): release ${version}",
+  "separate-pull-requests": false,
+  "plugins": [
+    {
+      "type": "linked-versions",
+      "groupName": "mcp-gateway",
+      "components": ["server", "ui"]
+    }
+  ],
+  "packages": {
+    "server": {
+      "package-name": "mcp-gateway-server",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "ui": {
+      "package-name": "mcp-gateway-ui",
+      "skip-github-release": true
+    }
+  }
+}

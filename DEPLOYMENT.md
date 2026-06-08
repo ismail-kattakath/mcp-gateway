@@ -1,5 +1,7 @@
 # MCP Gateway Deployment Guide
 
+> **⚠️ Out of date.** Registry examples here use the legacy 11-type schema and OAuth subsystem (both removed). Current schema: 5 sources (`pkg`/`git`/`container`/`remote`/`local`), no OAuth. Trust `CLAUDE.md`, `README.md`, and `schema/registry-v2.schema.json` over examples here. Deployment mechanics (docker, nginx, env vars) are still broadly correct.
+
 Complete guide for deploying the MCP Gateway in different environments.
 
 ## Table of Contents

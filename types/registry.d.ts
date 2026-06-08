@@ -1,228 +1,90 @@
 /**
  * MCP Gateway Registry Type Definitions
- * Auto-generated from registry-v2.schema.json
+ * Mirrors schema/registry-v2.schema.json
  */
 
 export type Lifecycle = 'on-demand' | 'persistent';
 
-export type BackendType =
-  | 'npx'
-  | 'uvx'
-  | 'pipx'
-  | 'docker'
-  | 'git-npm'
-  | 'git-python'
-  | 'git-docker'
-  | 'local'
-  | 'remote-sse'
-  | 'remote-http'
-  | 'shell';
+export type Source = 'pkg' | 'git' | 'container' | 'remote' | 'local';
 
-export interface BaseBackend {
-  name: string;
-  description: string;
-  type: BackendType;
-  lifecycle: Lifecycle;
+export interface BaseServer {
+  /** Optional. Default: 'on-demand'. Applied by the loader. */
+  lifecycle?: Lifecycle;
+  /** Optional. Default: true. Applied by the loader. */
+  enabled?: boolean;
+  /** Optional. Default: 30000 (ms). Range 1000–300000. */
   timeout?: number;
-  enabled: boolean;
 }
 
-export interface NpxBackend extends BaseBackend {
-  type: 'npx';
-  install: {
-    package: string;
-    version?: string;
-  };
-  runtime?: {
-    args?: string[];
-    env?: Record<string, string>;
-  };
-  auth?: OAuthAuth;
+export interface PkgServer extends BaseServer {
+  source: 'pkg';
+  /** Package manager binary, e.g. 'npx', 'uvx', 'pipx'. */
+  command: string;
+  /** Args including the package name. Version embedded inline: 'obs-mcp@1.2.3'. */
+  args: string[];
+  env?: Record<string, string>;
 }
 
-export interface UvxBackend extends BaseBackend {
-  type: 'uvx';
-  install: {
-    package: string;
-    version?: string;
-  };
-  runtime?: {
-    args?: string[];
-    env?: Record<string, string>;
-  };
-  auth?: OAuthAuth;
+export interface GitServer extends BaseServer {
+  source: 'git';
+  /** Git URL (https or ssh, must end .git). */
+  repo: string;
+  /** At most one of branch/tag/commit. Default: remote HEAD. */
+  branch?: string;
+  tag?: string;
+  commit?: string;
+  /** Optional override for auto-detected install steps. */
+  install?: string[];
+  /** Optional override for auto-detected build steps. */
+  build?: string[];
+  /** Command to run the built artifact, e.g. 'node', 'python3'. */
+  command: string;
+  /** Args. Use ${REPO_DIR} to reference the clone location. */
+  args: string[];
+  env?: Record<string, string>;
 }
 
-export interface PipxBackend extends BaseBackend {
-  type: 'pipx';
-  install: {
-    package: string;
-    version?: string;
-  };
-  runtime?: {
-    args?: string[];
-    env?: Record<string, string>;
-  };
-  auth?: OAuthAuth;
-}
-
-export interface DockerBackend extends BaseBackend {
-  type: 'docker';
-  install: {
-    image: string;
-    tag?: string;
-    pull?: 'always' | 'missing' | 'never';
-  };
-  runtime?: {
-    volumes?: string[];
-    ports?: Record<string, number>;
-    env?: Record<string, string>;
-    network?: string;
-  };
-  healthcheck?: {
-    endpoint: string;
-    interval?: number;
-    timeout?: number;
-    retries?: number;
-  };
-  auth?: OAuthAuth;
-}
-
-export interface GitBuildConfig {
-  steps: string[];
-  entrypoint: string;
-}
-
-export interface GitNpmBackend extends BaseBackend {
-  type: 'git-npm';
-  install: {
-    repository: string;
-    branch?: string;
-    commit?: string;
-    build: GitBuildConfig;
-  };
-  runtime: {
-    command: 'node' | 'bun' | 'deno';
-    args?: string[];
-    env?: Record<string, string>;
-  };
-  auth?: OAuthAuth;
-}
-
-export interface GitPythonBackend extends BaseBackend {
-  type: 'git-python';
-  install: {
-    repository: string;
-    branch?: string;
-    commit?: string;
-    build: GitBuildConfig;
-  };
-  runtime: {
-    command: 'python' | 'python3' | 'uv';
-    args?: string[];
-    env?: Record<string, string>;
-  };
-  auth?: OAuthAuth;
-}
-
-export interface GitDockerBuildConfig {
+export interface ContainerBuild {
+  /** Optional. If present, clone first then build. */
+  repo?: string;
+  /** Path to Dockerfile, relative to context. Default: 'Dockerfile'. */
   dockerfile?: string;
+  /** Build context. Default: '.'. */
   context?: string;
+  /** docker --build-arg key=value pairs. */
   args?: Record<string, string>;
 }
 
-export interface GitDockerBackend extends BaseBackend {
-  type: 'git-docker';
-  install: {
-    repository: string;
-    branch?: string;
-    commit?: string;
-    build: GitDockerBuildConfig;
-  };
-  runtime?: {
-    volumes?: string[];
-    ports?: Record<string, number>;
-    env?: Record<string, string>;
-  };
-  healthcheck?: {
-    endpoint: string;
-    interval?: number;
-    timeout?: number;
-    retries?: number;
-  };
-  auth?: OAuthAuth;
+export interface ContainerServer extends BaseServer {
+  source: 'container';
+  /** Exactly one of image or build. */
+  image?: string;
+  build?: ContainerBuild;
+  /** When to pull (only meaningful with `image`). Default: 'missing'. */
+  pull?: 'always' | 'missing' | 'never';
+  volumes?: string[];
+  /** containerPort -> hostPort */
+  ports?: Record<string, number>;
+  env?: Record<string, string>;
 }
 
-export interface LocalBackend extends BaseBackend {
-  type: 'local';
-  install: {
-    path: string;
-  };
-  runtime: {
-    command: string;
-    args?: string[];
-    env?: Record<string, string>;
-  };
-  auth?: OAuthAuth;
+export interface RemoteServer extends BaseServer {
+  source: 'remote';
+  transport: 'sse' | 'http';
+  url: string;
+  /** Only meaningful for HTTP transport. Default: 'POST'. */
+  method?: 'GET' | 'POST';
+  headers?: Record<string, string>;
 }
 
-export interface RemoteSSEBackend extends BaseBackend {
-  type: 'remote-sse';
-  install: {
-    url: string;
-  };
-  runtime?: {
-    headers?: Record<string, string>;
-    timeout?: number;
-  };
-  auth?: OAuthAuth;
+export interface LocalServer extends BaseServer {
+  source: 'local';
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
 }
 
-export interface RemoteHTTPBackend extends BaseBackend {
-  type: 'remote-http';
-  install: {
-    url: string;
-  };
-  runtime?: {
-    headers?: Record<string, string>;
-    method?: 'GET' | 'POST';
-    timeout?: number;
-  };
-  auth?: OAuthAuth;
-}
-
-export interface ShellBackend extends BaseBackend {
-  type: 'shell';
-  install: {
-    script: string;
-  };
-  runtime?: {
-    shell?: 'bash' | 'zsh' | 'sh';
-    args?: string[];
-    env?: Record<string, string>;
-  };
-  auth?: OAuthAuth;
-}
-
-export type Backend =
-  | NpxBackend
-  | UvxBackend
-  | PipxBackend
-  | DockerBackend
-  | GitNpmBackend
-  | GitPythonBackend
-  | GitDockerBackend
-  | LocalBackend
-  | RemoteSSEBackend
-  | RemoteHTTPBackend
-  | ShellBackend;
-
-export interface OAuthAuth {
-  type: 'oauth';
-  provider: 'github' | 'smithery';
-  scopes?: string[];
-  tokenRefresh?: boolean;
-}
+export type Server = PkgServer | GitServer | ContainerServer | RemoteServer | LocalServer;
 
 export interface ServerConfig {
   port: number;
@@ -247,19 +109,6 @@ export interface LoggingConfig {
   outputs: ('console' | 'file')[];
 }
 
-export interface OAuthProviderConfig {
-  clientId: string;
-  clientSecret: string;
-  callbackUrl: string;
-}
-
-export interface OAuthConfig {
-  providers?: {
-    github?: OAuthProviderConfig;
-    smithery?: OAuthProviderConfig;
-  };
-}
-
 export interface SecurityConfig {
   apiKey?: string;
   enableAuth?: boolean;
@@ -270,56 +119,20 @@ export interface GatewayConfig {
   server: ServerConfig;
   storage: StorageConfig;
   logging: LoggingConfig;
-  oauth?: OAuthConfig;
   security?: SecurityConfig;
 }
 
 export interface Registry {
   version: '2.0';
-  backends: Record<string, Backend>;
+  /** Server entries keyed by server name (lowercase, hyphens allowed). */
+  servers: Record<string, Server>;
   gateway: GatewayConfig;
 }
 
-/**
- * Type guard to check if a backend is of a specific type
- */
-export function isBackendType<T extends Backend['type']>(
-  backend: Backend,
-  type: T
-): backend is Extract<Backend, { type: T }> {
-  return backend.type === type;
-}
-
-/**
- * Type guard to check if a backend requires OAuth
- */
-export function hasOAuth(backend: Backend): backend is Backend & { auth: OAuthAuth } {
-  return 'auth' in backend && backend.auth?.type === 'oauth';
-}
-
-/**
- * Type guard to check if a backend has git installation
- */
-export function isGitBackend(
-  backend: Backend
-): backend is GitNpmBackend | GitPythonBackend | GitDockerBackend {
-  return backend.type === 'git-npm' || backend.type === 'git-python' || backend.type === 'git-docker';
-}
-
-/**
- * Type guard to check if a backend uses Docker runtime
- */
-export function isDockerRuntime(
-  backend: Backend
-): backend is DockerBackend | GitDockerBackend {
-  return backend.type === 'docker' || backend.type === 'git-docker';
-}
-
-/**
- * Type guard to check if a backend is remote
- */
-export function isRemoteBackend(
-  backend: Backend
-): backend is RemoteSSEBackend | RemoteHTTPBackend {
-  return backend.type === 'remote-sse' || backend.type === 'remote-http';
+/** Narrow a Server to a specific source variant. */
+export function isSource<T extends Source>(
+  server: Server,
+  source: T
+): server is Extract<Server, { source: T }> {
+  return server.source === source;
 }

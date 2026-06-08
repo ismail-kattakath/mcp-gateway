@@ -7,11 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **MCP Gateway Platform** is a universal aggregator and manager for Model Context Protocol (MCP) servers. It solves the problem of maintaining multiple MCP configurations across different AI coding tools (Claude Code, Claude Desktop, Cline, Cursor, etc.) by providing a single gateway that all clients connect to via SSE/HTTPS transport.
 
 ### Key Problems Solved
-- **Config Duplication**: One registry instead of N tool-specific configs
-- **Context Spam**: Lazy-load backends on-demand instead of loading all tools upfront
-- **Mixed Transports**: Support npx, Docker, git repos, local scripts, and remote SSE servers
-- **Secret Management**: Centralized environment variables and OAuth token management
-- **Multi-Machine Access**: Deploy once (local or remote), use from anywhere
+- **Config duplication**: one registry instead of N tool-specific configs
+- **Context spam**: lazy-load servers on-demand instead of loading all tools upfront
+- **Mixed runtimes**: support package managers, git repos, containers, local scripts, and remote endpoints from one schema
+- **Multi-machine access**: deploy once (local or remote), use from anywhere
 
 ### Architecture
 
@@ -20,336 +19,243 @@ Client Tools (Claude Code/Desktop/Cline/Cursor)
               ↓ (SSE/HTTPS)
          MCP Gateway Server
               ↓
-    Backend Registry Manager
+      Server Manager (registry.json)
               ↓
-    ┌─────────┼─────────┐
-    ↓         ↓         ↓
-  NPX     Docker    Git Repo
- Backend  Backend   Backend
+   ┌──────┬──────┬─────────┬────────┬───────┐
+   ↓      ↓      ↓         ↓        ↓       ↓
+  pkg    git  container  remote   local
 ```
 
 The gateway acts as a proxy/router:
-1. Client connects via SSE and requests tools
-2. Gateway queries registry for enabled backends
-3. Backend spawned on-demand (lazy loading)
-4. Tool calls namespaced (e.g., `obs/start_recording`) and routed to correct backend
-5. All MCP communication proxied through gateway
+1. Client connects via SSE and requests tools.
+2. Gateway reads `registry.json` for enabled servers.
+3. Servers are spawned on-demand (lazy) or kept persistent.
+4. Tool calls are namespaced (`<server-name>/<tool-name>`) and routed to the correct server.
+5. All MCP communication is proxied through the gateway.
 
 ## Registry Schema
 
-The core of the system is `registry.json` which defines all backend MCP servers. The schema supports 11 backend types:
+The system is configured by `registry.json`, validated against `schema/registry-v2.schema.json`. There are **5 server sources** — each one captures *where the server comes from*.
 
-### Backend Types
+### The 5 sources
 
-| Type | Use Case | Installation Method |
-|------|----------|---------------------|
-| `npx` | NPM packages | `npx -y package@version` |
-| `uvx`/`pipx` | Python packages | `uvx package` or `pipx run package` |
-| `docker` | Docker Hub images | Pull from registry |
-| `git-npm` | Git repo + npm build | Clone → `npm install` → `npm run build` |
-| `git-python` | Git repo + Python | Clone → `uv venv` → `uv pip install` |
-| `git-docker` | Git repo + Docker | Clone → `docker build` |
-| `local` | Pre-built local path | Direct execution from path |
-| `remote-sse` | SSE endpoints (Smithery) | HTTP SSE connection |
-| `remote-http` | HTTP/HTTPS endpoints | HTTP requests |
-| `shell` | Shell script wrappers | Execute bash/zsh script |
+| `source` | Use case | Required fields |
+|----------|----------|-----------------|
+| `pkg`    | Package-manager-installed servers (npx, uvx, pipx, …) | `command`, `args` |
+| `git`    | Cloned from a git repo, auto-detected install/build | `repo`, `command`, `args` |
+| `container` | Docker container (pull image or build locally) | `image` **OR** `build` |
+| `remote` | Already-running remote MCP server (HTTP/SSE) | `url`, `transport` |
+| `local`  | Pre-existing script/binary on disk | `command` |
 
-### Registry Structure
-
-Each backend entry contains:
+### Top-level structure
 
 ```json
 {
-  "backend-id": {
-    "name": "Human-readable name",
-    "description": "What this backend does",
-    "type": "npx|uvx|docker|git-npm|git-python|git-docker|local|remote-sse|remote-http|shell",
-    "install": {
-      // Type-specific installation config
-      // For npx: { "package": "name", "version": "1.0.0" }
-      // For git-*: { "repository": "url", "branch": "main", "build": {...} }
-      // For docker: { "image": "name", "tag": "latest" }
-      // For remote: { "url": "https://..." }
-    },
-    "runtime": {
-      "command": "node|python|uv|etc",  // for local execution
-      "args": [],
-      "env": {
-        "VAR_NAME": "${ENV_VAR}"  // references .env file
-      },
-      "volumes": [],  // for docker
-      "ports": {},    // for docker
-      "headers": {}   // for remote
-    },
-    "auth": {
-      "type": "oauth",  // optional OAuth config
-      "provider": "github|smithery",
-      "scopes": [],
-      "tokenRefresh": true
-    },
-    "lifecycle": "on-demand|persistent",  // spawn behavior
-    "timeout": 30000,
-    "healthcheck": {  // optional for docker
-      "endpoint": "http://...",
-      "interval": 30
-    },
-    "enabled": true
-  }
+  "version": "2.0",
+  "servers": {
+    "<server-name>": { "source": "...", ... }
+  },
+  "gateway": { ... }
 }
 ```
 
-### Environment Variable Resolution
+- The **server name** is the object key (e.g. `"obs"`). Regex `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (lowercase, hyphens, 2+ chars).
+- The server name doubles as the **namespace prefix** for tool calls: `obs/start_recording`.
+- There is no separate `name` or `description` field — keep entries minimal.
 
-Variables use `${VAR_NAME}` syntax and are resolved from:
-1. `.env` file (gitignored)
-2. OAuth token store (for auto-managed tokens)
+### BaseServer fields (all optional, defaults applied by loader)
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `lifecycle` | `"on-demand"` | `"on-demand"` or `"persistent"` |
+| `enabled` | `true` | Set `false` to keep an entry but skip it |
+| `timeout` | `30000` (ms) | Spawn/request timeout, 1000–300000 |
+| `env` | — | UPPER_SNAKE_CASE keys only; values support `${VAR}` |
+
+### Per-source schemas
+
+#### `pkg`
+```json
+"obs": {
+  "source": "pkg",
+  "command": "npx",
+  "args": ["-y", "obs-mcp@latest"],
+  "env": { "OBS_WEBSOCKET_PASSWORD": "${OBS_WEBSOCKET_PASSWORD}" }
+}
+```
+- Version is embedded inline in args (`pkg@1.2.3`), matching standard MCP client config.
+- `command` is the package manager binary; `args` is everything passed to it.
+
+#### `git`
+```json
+"custom-mcp": {
+  "source": "git",
+  "repo": "https://github.com/user/custom-mcp.git",
+  "branch": "main",
+  "command": "node",
+  "args": ["${REPO_DIR}/dist/index.js"],
+  "env": { "NODE_ENV": "production" }
+}
+```
+- Exactly **one** of `branch`, `tag`, or `commit` is allowed (mutually exclusive). Omitting all three clones at remote HEAD — `git clone` handles whatever the default branch is (main/master/etc.).
+- Install/build are auto-detected from repo contents:
+  - `package.json` → `npm install` (+ `npm run build` if scripts.build exists)
+  - `pyproject.toml` → `uv pip install -e .`
+  - `requirements.txt` → `uv pip install -r requirements.txt`
+- Override with `install: ["..."]` and/or `build: ["..."]` arrays in config (escape hatch for pnpm, custom scripts, etc.).
+- `${REPO_DIR}` in args resolves to the clone location.
+
+#### `container`
+Pull from a registry:
+```json
+"comfyui": {
+  "source": "container",
+  "image": "ghcr.io/user/comfyui-mcp:latest",
+  "volumes": ["${HOME}/.mcp/comfyui:/data"],
+  "ports": { "8188": 8189 },
+  "env": { "COMFYUI_URL": "${COMFYUI_URL}" }
+}
+```
+Or build locally (with or without cloning a git repo first):
+```json
+"built-locally": {
+  "source": "container",
+  "build": {
+    "repo": "https://github.com/user/mcp.git",
+    "dockerfile": "Dockerfile",
+    "context": ".",
+    "args": { "FOO": "bar" }
+  },
+  "ports": { "3000": 3001 }
+}
+```
+- **Exactly one** of `image` or `build` must be provided.
+- `pull` policy: `always` | `missing` | `never` (default `missing`, only meaningful with `image`).
+- `ports` keys are container ports (strings of digits), values are host ports.
+
+#### `remote`
+```json
+"smithery-tool": {
+  "source": "remote",
+  "transport": "sse",
+  "url": "https://server.smithery.ai/some-tool/sse",
+  "headers": { "Authorization": "Bearer ${SMITHERY_TOKEN}" }
+}
+```
+- `transport: "sse"` opens an EventSource-style stream.
+- `transport: "http"` POSTs each request and reads the JSON response. `method` defaults to `"POST"`.
+- Nothing executes locally.
+
+#### `local`
+```json
+"my-script": {
+  "source": "local",
+  "command": "python3",
+  "args": ["${HOME}/scripts/my-mcp.py"]
+}
+```
+- Subsumes the old `shell` type: just use `command: "bash"` and `args: ["script.sh"]`.
+
+### Environment variable resolution
+
+`${VAR}` substitutions are resolved at load time from:
+1. The provided context (e.g. `${REPO_DIR}` is injected by the git source manager)
+2. `.env` file (gitignored — loaded via dotenv)
 3. System environment
+4. Built-ins: `${HOME}`, `${GATEWAY_DIR}`
 
-Special variables:
-- `${HOME}` - User home directory
-- `${REPO_DIR}` - Backend's git repo directory (for git-* types)
-- `${GATEWAY_DIR}` - Gateway installation directory
-- `${GITHUB_ACCESS_TOKEN}` - Auto-managed by OAuth flow
-- `${SMITHERY_ACCESS_TOKEN}` - Auto-managed by OAuth flow
+There are no auto-managed tokens. Users paste/rotate tokens manually in `.env` (uniform with how every other MCP client handles it).
+
+### Gateway block
+
+```json
+"gateway": {
+  "server":   { "port": 3000, "host": "0.0.0.0", "transport": "sse", "cors": { ... } },
+  "storage":  { "repos": "${HOME}/.mcp/repos", "cache": "${HOME}/.mcp/cache", "logs": "${HOME}/.mcp/logs" },
+  "logging":  { "level": "info", "format": "json", "outputs": ["console", "file"] },
+  "security": { "apiKey": "${GATEWAY_API_KEY}", "enableAuth": false, "allowedIPs": [] }
+}
+```
+
+- `gateway.server`, `gateway.storage`, and `gateway.logging` are required.
+- `gateway.security` is optional and controls remote API access to the gateway itself (unrelated to per-server auth).
 
 ## Project Structure
 
 ```
 /
-├── server/                    # Backend (Node.js/Bun)
+├── server/
 │   ├── src/
-│   │   ├── index.js          # Main entry, HTTP + SSE server
+│   │   ├── index.js          # HTTP + SSE entrypoint
 │   │   ├── mcp/
-│   │   │   ├── protocol.js   # MCP protocol implementation (SSE)
-│   │   │   ├── registry.js   # Load/parse/watch registry.json
-│   │   │   ├── router.js     # Route tool calls to backends
+│   │   │   ├── protocol.js   # MCP JSON-RPC handler
+│   │   │   ├── registry.js   # Load/validate/watch registry.json + apply defaults
+│   │   │   ├── router.js     # Parse <server>/<tool>, route to manager
 │   │   │   └── backends/
-│   │   │       ├── npx.js    # Spawn npx processes
-│   │   │       ├── docker.js # Manage Docker containers
-│   │   │       ├── git.js    # Clone + build git repos
-│   │   │       ├── local.js  # Execute local scripts
-│   │   │       └── remote.js # Proxy to remote SSE/HTTP
-│   │   ├── oauth/
-│   │   │   ├── github.js     # GitHub OAuth flow
-│   │   │   ├── smithery.js   # Smithery OAuth flow
-│   │   │   └── tokenStore.js # Encrypted token storage
-│   │   ├── api/
-│   │   │   ├── status.js     # GET /api/status - backend health
-│   │   │   ├── config.js     # GET/POST /api/config - registry CRUD
-│   │   │   └── logs.js       # GET /api/logs - log streaming
-│   │   └── logging/
-│   │       └── logger.js     # Winston/Pino logger
-│   ├── package.json
-│   └── tests/
-├── ui/                        # Frontend (React/Vue)
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── components/
-│   │   │   ├── Dashboard.jsx      # Status overview
-│   │   │   ├── BackendConfig.jsx  # Registry editor
-│   │   │   ├── EnvEditor.jsx      # .env management
-│   │   │   ├── OAuthPanel.jsx     # OAuth connect buttons
-│   │   │   └── LogsViewer.jsx     # Live log viewer
-│   │   └── api/client.js
-│   ├── package.json
-│   └── vite.config.js
-├── registry.json              # Backend MCP definitions
-├── .env.example               # Template for secrets
-├── Dockerfile                 # Multi-stage build
-├── docker-compose.yml         # Local + remote deployment
-└── schema/
-    └── registry-v2.schema.json  # JSON schema for validation
+│   │   │       ├── base.js          # Shared spawn-process logic
+│   │   │       ├── index.js         # ServerManager + source dispatch
+│   │   │       ├── pkg.js           # source: "pkg"
+│   │   │       ├── git.js           # source: "git" (clone + auto-detect install/build)
+│   │   │       ├── container.js     # source: "container" (image OR build)
+│   │   │       ├── remote.js        # source: "remote" (sse/http)
+│   │   │       ├── local.js         # source: "local"
+│   │   │       └── stdio-handler.js # JSON-RPC over stdio parser
+│   │   ├── validation/       # AJV schema validator + semantic checks
+│   │   └── logging/          # Logger
+│   └── package.json
+├── ui/                       # React dashboard (Dashboard, Servers, Logs)
+├── registry.json             # Active server configuration
+├── registry.example.json     # One example per source
+├── schema/registry-v2.schema.json
+├── types/registry.d.ts       # TypeScript types mirroring the schema
+└── docker-compose*.yml
 ```
 
-## Key Implementation Details
+(The `backends/` directory name is preserved for filesystem stability; the code inside is source-based — `ServerManager`, source files named after the 5 sources. Treat "backend" and "server" as synonymous in legacy paths.)
 
-### Backend Lifecycle Management
+## Tool Namespacing
 
-**On-Demand Backends** (`lifecycle: "on-demand"`):
-- Spawned when first tool call arrives
-- Kept alive for 5 minutes after last use
-- Process killed if idle too long
-- Good for: infrequently used tools, resource-heavy backends
+To avoid conflicts, all tools are namespaced by server name:
+- Server `obs` exposes a tool `start_recording` → clients see `obs/start_recording`
+- Server `kapture` exposes `screenshot` → clients see `kapture/screenshot`
 
-**Persistent Backends** (`lifecycle: "persistent"`):
-- Spawned at gateway startup
-- Restarted on crash
-- Kept alive until gateway shutdown
-- Good for: frequently used tools, OAuth-authenticated backends
+The router parses the namespace at `/` and routes to the correct server process.
 
-### Tool Namespacing
+## Server Lifecycle
 
-To avoid conflicts, all tools are namespaced by backend ID:
-- Backend `obs` exposes tool `start_recording` → client sees `obs/start_recording`
-- Backend `kapture` exposes tool `screenshot` → client sees `kapture/screenshot`
+- **`on-demand`** (default): spawned on first tool call, killed after 5 min idle. Good for infrequently-used or heavy servers.
+- **`persistent`**: spawned at gateway startup, restarted on crash, killed at gateway shutdown. Good for frequently-used servers.
 
-The router parses the namespace and routes to the correct backend process.
+Restarts are exponentially backed off (2s, 4s, 6s) up to 3 retries before the server is marked failed.
 
-### Git Backend Build Flow
+## Adding a New Source
 
-For `git-npm`, `git-python`, `git-docker` types:
+To add a brand-new source type beyond the 5:
 
-1. **Clone**: `git clone <repo> ~/.mcp/repos/<backend-id>`
-2. **Build**: Execute steps from `install.build.steps` array
-3. **Cache**: Mark as built, skip rebuild unless registry changes
-4. **Execute**: Spawn using `runtime.command` + `install.build.entrypoint`
-
-Build steps run in the repo directory. Use `&&` for sequential commands.
-
-### OAuth Token Management
-
-For backends with `auth.type: "oauth"`:
-
-1. User clicks "Connect GitHub" in UI
-2. Gateway redirects to OAuth provider
-3. Callback receives auth code
-4. Gateway exchanges for access + refresh tokens
-5. Tokens stored encrypted in `~/.mcp/tokens.enc`
-6. Gateway auto-refreshes tokens before expiry
-7. Backend receives token via `${GITHUB_ACCESS_TOKEN}` env var
-
-Supported providers: GitHub, Smithery (extensible)
-
-### SSE Transport Protocol
-
-Gateway implements MCP over SSE (Server-Sent Events):
-
-**Client → Server** (HTTP POST):
-```
-POST /mcp/call
-Content-Type: application/json
-
-{
-  "method": "tools/call",
-  "params": {
-    "name": "obs/start_recording",
-    "arguments": {}
-  }
-}
-```
-
-**Server → Client** (SSE stream):
-```
-GET /mcp/stream
-Accept: text/event-stream
-
-event: message
-data: {"type":"tool_result","content":"..."}
-
-event: message
-data: {"type":"log","level":"info","message":"..."}
-```
-
-This matches Smithery's transport pattern for compatibility.
+1. Add the variant in `schema/registry-v2.schema.json` under `definitions/` and the top-level `servers` `oneOf`.
+2. Create `server/src/mcp/backends/<name>.js` extending `BaseServer` (or implementing the same shape as `RemoteServer` for non-spawn sources). Implement `getSpawnArgs()` and optionally `prepare()`.
+3. Register in `server/src/mcp/backends/index.js` `createServerForSource()`.
+4. Add the TypeScript type to `types/registry.d.ts`.
+5. Add an example to `registry.example.json`.
 
 ## Development Workflow
 
-### Initial Setup
-
 ```bash
-# Install dependencies
+# install deps
 cd server && npm install
 cd ui && npm install
 
-# Copy environment template
-cp .env.example .env
-# Edit .env with your secrets
+# copy env template
+cp .env.example .env  # edit secrets
 
-# Start development servers
-cd server && npm run dev  # Port 3000
-cd ui && npm run dev      # Port 5173 (proxies to 3000)
+# run gateway (port 3000) and UI dev server (port 5173, proxies /api → 3000)
+cd server && npm run dev
+cd ui && npm run dev
 ```
 
-### Testing a Backend
+### Pointing a client at the gateway
 
-```bash
-# Add to registry.json
-# Set enabled: true
-
-# Restart gateway
-npm run dev
-
-# Test in Claude Code
-# Add to ~/.claude/.mcp.json:
-{
-  "gateway": {
-    "url": "http://localhost:3000/sse",
-    "transport": "sse"
-  }
-}
-```
-
-### Adding a New Backend Type
-
-1. Create backend manager in `server/src/mcp/backends/<type>.js`
-2. Implement `spawn(config)` and `kill()` methods
-3. Register in `server/src/mcp/backends/index.js`
-4. Add type to JSON schema in `schema/registry-v2.schema.json`
-5. Update UI form in `ui/src/components/BackendConfig.jsx`
-
-### Docker Deployment
-
-**Local**:
-```bash
-docker-compose up
-```
-
-**Remote** (e.g., VPS):
-```bash
-# Set GATEWAY_HOST in .env
-GATEWAY_HOST=0.0.0.0
-
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-Access at `http://<server-ip>:3000`
-
-**Client config for remote**:
-```json
-{
-  "gateway": {
-    "url": "https://mcp-gateway.yourdomain.com/sse",
-    "transport": "sse",
-    "headers": {
-      "Authorization": "Bearer ${GATEWAY_API_KEY}"
-    }
-  }
-}
-```
-
-## Security Considerations
-
-### .env File
-Never commit `.env` to git. It contains:
-- OAuth client secrets
-- API keys for backend MCPs
-- Gateway API key for remote auth
-
-### Token Storage
-OAuth tokens stored in `~/.mcp/tokens.enc` with AES-256-GCM encryption. Encryption key derived from gateway secret in `.env`.
-
-### Remote Deployment
-For production remote deployment:
-1. Enable auth: `gateway.security.enableAuth: true` in registry.json
-2. Set `GATEWAY_API_KEY` in .env
-3. Use HTTPS (add nginx/caddy reverse proxy)
-4. Restrict `gateway.security.allowedIPs` if needed
-
-## Client Configuration
-
-All AI coding tools point to single gateway endpoint:
-
-**Claude Code** (`~/.claude/.mcp.json`):
-```json
-{
-  "gateway": {
-    "url": "http://localhost:3000/sse",
-    "transport": "sse"
-  }
-}
-```
-
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+**Claude Code** (`~/.claude/.mcp.json`) or **Claude Desktop**:
 ```json
 {
   "mcpServers": {
@@ -361,84 +267,216 @@ All AI coding tools point to single gateway endpoint:
 }
 ```
 
-**Cline/Cursor**: Same SSE URL in their MCP config
+The same SSE URL works for Cline and Cursor.
 
-## Example Registry Entries
+## HTTPS / Custom Domain
 
-### NPX Package
+The gateway listens **plain HTTP on `127.0.0.1` by default** (loopback only) — never expose it directly. For HTTPS or remote access, put **Caddy** in front. Two Caddyfile templates ship in the repo:
+
+### Local HTTPS (`Caddyfile.local`)
+
+Serves `https://mcp.local/sse` (or `https://localhost/sse`) using Caddy's internal CA — no Let's Encrypt, no public DNS.
+
+```bash
+# one-time
+echo "127.0.0.1   mcp.local" | sudo tee -a /etc/hosts
+brew install caddy
+caddy trust                                          # install Caddy's local root CA
+
+# run
+caddy run --config Caddyfile.local
+```
+
+For other devices on your LAN (phone, second laptop), copy Caddy's root cert from `~/Library/Application Support/Caddy/pki/authorities/local/root.crt` and trust it on each.
+
+### Public domain (`Caddyfile.prod`)
+
+Auto-provisions a Let's Encrypt cert for `${DOMAIN}` and gates `/api`, `/sse`, `/mcp` behind a `Bearer` token.
+
+```bash
+# .env or shell
+export DOMAIN=mcp.yourdomain.com
+export GATEWAY_API_KEY=$(openssl rand -hex 32)
+
+caddy run --config Caddyfile.prod
+```
+
+Pair with `gateway.security.enableAuth: true` and `gateway.security.apiKey: "${GATEWAY_API_KEY}"` so the gateway itself also validates the token (defense in depth — Caddy's check + the gateway's check).
+
+If the box isn't directly internet-routable, front it with **Cloudflare Tunnel** or **Tailscale Funnel** and point Caddy at the tunnel endpoint instead of binding to `0.0.0.0`.
+
+### Why `trust proxy` is set
+
+`server/src/index.js` calls `app.set('trust proxy', 'loopback')` so when Caddy forwards a request, Express's `req.ip` shows the real client IP (via `X-Forwarded-For`) and `req.protocol` shows `https`. This is essential for the access logs to be meaningful and for `gateway.security.allowedIPs` to match against the real client.
+
+## Authenticated Access
+
+The gateway has built-in Bearer-token authentication and an IP allowlist, controlled by `gateway.security`. Both default to **off** (so local development just works), and both can be combined for defense-in-depth.
+
+### Bearer token
+
 ```json
-"obs": {
-  "type": "npx",
-  "install": { "package": "obs-mcp", "version": "latest" },
-  "runtime": { "env": { "OBS_WEBSOCKET_PASSWORD": "${OBS_WEBSOCKET_PASSWORD}" } },
-  "lifecycle": "on-demand",
-  "enabled": true
+"security": {
+  "apiKey": "${GATEWAY_API_KEY}",
+  "enableAuth": true,
+  "allowedIPs": []
 }
 ```
 
-### Git Repo with NPM Build
+```bash
+# .env
+GATEWAY_API_KEY=$(openssl rand -hex 32)
+```
+
+When `enableAuth: true`, every request to `/sse`, `/mcp/*`, and `/api/*` must include:
+
+```
+Authorization: Bearer <apiKey>
+```
+
+The token comparison uses **constant-time equality** (`crypto.timingSafeEqual`) — no timing oracle. Failed auth returns `401` with a standard `WWW-Authenticate: Bearer realm="mcp-gateway"` header. `/health` is always exempt so uptime monitors can probe it.
+
+**Fail-closed at startup:** if `enableAuth: true` but `apiKey` is missing/empty, the gateway throws during initialization rather than silently letting everything through. The validator also flags this as a semantic error and warns if the key is shorter than 16 chars.
+
+### IP allowlist
+
 ```json
-"custom-mcp": {
-  "type": "git-npm",
-  "install": {
-    "repository": "https://github.com/user/custom-mcp.git",
-    "branch": "main",
-    "build": {
-      "steps": ["npm install", "npm run build"],
-      "entrypoint": "dist/index.js"
-    }
-  },
-  "runtime": { "command": "node" },
-  "lifecycle": "persistent",
-  "enabled": true
+"security": {
+  "allowedIPs": ["127.0.0.0/8", "192.168.1.0/24", "10.0.0.5"]
 }
 ```
 
-### Docker Image
-```json
-"comfyui": {
-  "type": "docker",
-  "install": { "image": "ghcr.io/user/comfyui-mcp", "tag": "latest" },
-  "runtime": {
-    "volumes": ["${HOME}/.mcp/comfyui:/data"],
-    "env": { "COMFYUI_URL": "${COMFYUI_URL}" }
-  },
-  "lifecycle": "persistent",
-  "enabled": true
-}
+CIDR-aware (uses `ipaddr.js`); bare IPs become `/32` (or `/128` for IPv6). IPv4-mapped-in-IPv6 (e.g. `::ffff:127.0.0.1`) is normalized so you can write plain IPv4 entries. Applies even when `enableAuth: false` — useful if you want IP-gating without a token (e.g. internal LAN).
+
+### EventSource browsers limitation
+
+The browser `EventSource` API cannot set custom headers, so a browser-based dashboard cannot send `Authorization: Bearer`. As a fallback the middleware accepts `?access_token=<key>` **on `/sse` only**. Avoid putting tokens in URLs for any other endpoint — they'll end up in access logs.
+
+Real MCP clients (Claude Desktop, Cline, Cursor) all support custom headers and should use `Authorization`.
+
+### Defense-in-depth with Caddy
+
+`Caddyfile.prod` already gates by Bearer at the edge. Enabling `gateway.security.enableAuth` makes the gateway *also* check, so:
+
+- If someone misconfigures Caddy and removes the gate, the gateway still refuses.
+- If the gateway port is accidentally exposed past Caddy (e.g. `host: "0.0.0.0"`), the gateway still refuses.
+- A leaked token has to pass both checks.
+
+Use the same `${GATEWAY_API_KEY}` env var in both layers so there's one secret to rotate.
+
+## Release automation
+
+The repo is wired for hands-off releases — write Conventional Commits, merge PRs, merge the release PR when ready, image appears on ghcr.
+
+```
+PR with Conventional title  →  release-please opens release PR
+                            →  you merge release PR
+                            →  release-please creates v* tag
+                            →  release.yml builds + pushes ghcr image
 ```
 
-### Remote SSE with OAuth
-```json
-"github": {
-  "type": "npx",
-  "install": { "package": "@modelcontextprotocol/server-github" },
-  "runtime": { "env": { "GITHUB_TOKEN": "${GITHUB_ACCESS_TOKEN}" } },
-  "auth": {
-    "type": "oauth",
-    "provider": "github",
-    "scopes": ["repo", "read:org"],
-    "tokenRefresh": true
-  },
-  "lifecycle": "persistent",
-  "enabled": true
-}
+Workflows:
+- `pr-title.yml` — validates every PR title is a valid Conventional Commit
+- `release-please.yml` — runs on every push to `main`; opens/updates release PR; creates v* tag on merge
+- `release.yml` — listens for v* tags; pushes multi-arch image to ghcr
+
+**One-time human setup:** create a fine-grained PAT and store it as `RELEASE_PLEASE_TOKEN`. Without it, the v* tag created by release-please won't trigger the Docker workflow (GitHub's loop-prevention rule). See `CONTRIBUTING.md` → "One-time setup" for the exact PAT permissions.
+
+Config files: `release-please-config.json` (manifest mode, linked versions across server + ui) and `.release-please-manifest.json` (current version tracking).
+
+Bootstrap version: `0.1.0`. Linked versions mean server and ui bump together as a single product.
+
+## Run via Docker
+
+Pre-built multi-arch images (amd64, arm64) are published on every push to `main` and on `v*.*.*` tags:
+
+```bash
+docker pull ghcr.io/ismail-kattakath/mcp-gateway:latest
 ```
+
+Tags:
+
+| Tag | Source | Use |
+|---|---|---|
+| `latest` | latest tagged release | recommended for most users |
+| `v1.2.3` / `v1.2` / `v1` | tagged release | pin to a specific version |
+| `edge` | every push to `main` | bleeding edge |
+| `sha-abc1234` | every build | fully reproducible pin |
+
+### Quick start
+
+```bash
+# 1. Get a starting registry + env
+curl -O https://raw.githubusercontent.com/ismail-kattakath/mcp-gateway/main/registry.example.json
+mv registry.example.json registry.json
+echo "GATEWAY_API_KEY=$(openssl rand -hex 32)" > .env
+
+# 2. Run
+docker run -d --name mcp-gateway \
+  -p 127.0.0.1:3000:3000 \
+  -v $(pwd)/registry.json:/app/registry.json:ro \
+  -v $(pwd)/.env:/app/.env:ro \
+  -v $HOME/.mcp:/root/.mcp \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+Or via compose: `docker-compose up -d` (uses the published image by default).
+
+### Three trust tiers for `source: "container"`
+
+The gateway's `container` server source needs to spawn Docker containers. The choice of how it talks to a Docker daemon determines your blast radius if a malicious server makes it into the registry.
+
+| Tier | What you do | What works | Blast radius if compromised |
+|---|---|---|---|
+| **1 — no socket** *(default)* | Don't mount anything | `pkg`, `git`, `remote`, `local`. `container` returns errors. | Gateway is contained — no Docker access at all. |
+| **2 — socket proxy** | Uncomment `docker-proxy` in compose; set `DOCKER_HOST=tcp://docker-proxy:2375` | All sources including `container` | Attacker can spawn containers and pull images, but cannot mount arbitrary host paths, use `--privileged`, or escape via volume tricks. The proxy (`tecnativa/docker-socket-proxy`) whitelists only `containers/*`, `images/*`, `build/*`. |
+| **3 — rootless Docker on the host** | Set up [rootless Docker](https://docs.docker.com/engine/security/rootless/) on the host *before* running the gateway; combine with Tier 2 for belt-and-suspenders | All sources | Container root = your unprivileged user account, not host root. **Still has access to your home dir, SSH keys, dotfiles** — only worth the setup if you also keep secrets out of the user account that runs the daemon. |
+
+#### Why mounting `/var/run/docker.sock` is not a casual decision
+
+The Docker daemon socket is the daemon's control plane. Anything that can write to it can ask the daemon to:
+- Start a new container that mounts host `/` → read `/etc/shadow`, install cron persistence
+- Use `--privileged` → load kernel modules, escape into host PID namespace
+- Mount a different volume into a different container → read that container's secrets
+
+Inside our container the gateway is "just" running as root-in-container, which Docker isolates from the host. The socket bypasses that isolation by proxying through the host daemon. So **container root + raw Docker socket ≈ host root**.
+
+If you write the registry yourself and trust everything in it, Tier 2 is overkill and you can mount the raw socket. If anyone else can edit the registry (multi-tenant, public deployment, automated CI adding entries), use Tier 2 at minimum.
+
+### Production checklist
+
+1. Front the gateway with `Caddyfile.prod` (HTTPS + Bearer gate at the edge).
+2. Set `gateway.security.enableAuth: true` and `apiKey: "${GATEWAY_API_KEY}"` so the gateway *also* enforces auth (defense in depth).
+3. Pick a trust tier for `container` source (above).
+4. Keep the gateway bound to `127.0.0.1` — never `0.0.0.0` unless you've reviewed exactly who can reach it.
+5. Pin to a `sha-*` or `v*.*.*` tag in production, not `latest`.
+
+### Building from source
+
+```bash
+docker-compose up --build               # local
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+(In the compose files, comment out the `image:` line and uncomment `build:` to use a local build.)
+
+## API Surface
+
+The gateway exposes:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /sse` | MCP transport (clients connect here) |
+| `POST /mcp/message` | JSON-RPC request endpoint for SSE clients |
+| `GET /health` | Health check + server counts |
+| `GET /api/status` | Per-server status + gateway info |
+| `GET /api/config` | Full registry |
+| `GET /api/logs/:serverName?` | Server logs (omit serverName for all) |
+| `POST /api/servers/:serverName/start` | Start a server |
+| `POST /api/servers/:serverName/stop` | Stop a server |
 
 ## Web UI Features
 
-- **Dashboard**: Backend status, active connections, tool call metrics
-- **Backend Config**: Visual registry editor with "Add Backend" wizard
-- **Environment**: Manage .env variables with validation
-- **OAuth**: One-click connect for GitHub/Smithery with token status
-- **Logs**: Live streaming logs with filtering and search
-
-## Future Enhancements
-
-Potential additions (not yet implemented):
-- Health check dashboard with uptime monitoring
-- Backend version management and auto-updates
-- Metrics export (Prometheus format)
-- Multi-user support with per-user registries
-- Backend marketplace/discovery
-- Backup/restore for registry + secrets
+- **Dashboard**: status counts and per-server state
+- **Servers**: list of registry entries with start/stop controls
+- **Logs**: live tail with per-server filter

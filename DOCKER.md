@@ -1,5 +1,7 @@
 # Docker Deployment Guide
 
+> **⚠️ Out of date.** Registry/config examples here use the legacy 11-type schema. Current schema: 5 sources — see `CLAUDE.md` and `schema/registry-v2.schema.json`. Docker mechanics are still correct.
+
 This guide covers deploying MCP Gateway using Docker and Docker Compose.
 
 ## Quick Start

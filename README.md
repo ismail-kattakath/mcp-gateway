@@ -122,51 +122,50 @@ Point your AI tool to the gateway endpoint:
 
 ## Features
 
-### 11 Backend Types
+### 5 Server Sources
 
-The gateway supports diverse backend types:
+Each server entry declares a `source` — where the server comes from. Five values cover everything:
 
-| Type | Example | Use Case |
-|------|---------|----------|
-| **npx** | `obs-mcp`, `kapture-mcp` | NPM packages |
-| **uvx/pipx** | `mcp-server-time` | Python packages |
-| **docker** | `ghcr.io/user/mcp-server` | Docker Hub images |
-| **git-npm** | Private GitHub repo | Custom npm-based MCP |
-| **git-python** | Private GitHub repo | Custom Python MCP |
-| **git-docker** | Repo with Dockerfile | Custom Docker MCP |
-| **local** | `/path/to/script.js` | Local development |
-| **remote-sse** | Smithery hosted | Remote SSE endpoints |
-| **remote-http** | HTTP API | HTTP-based MCPs |
-| **shell** | Wrapper script | Shell script MCP |
+| `source` | Use case | Required fields |
+|----------|----------|-----------------|
+| **pkg** | Package managers (npx, uvx, pipx) | `command`, `args` |
+| **git** | Clone a repo, auto-detect install/build | `repo`, `command`, `args` |
+| **container** | Docker container (pull image or build locally) | `image` **or** `build` |
+| **remote** | Already-running MCP server (HTTP/SSE) | `url`, `transport` |
+| **local** | Pre-existing script/binary on disk | `command` |
 
 ### Tool Namespacing
 
 All tools are automatically namespaced to avoid conflicts:
-- Backend `obs` exposes `start_recording` → Client sees `obs/start_recording`
-- Backend `kapture` exposes `screenshot` → Client sees `kapture/screenshot`
+- Server `obs` exposes `start_recording` → Client sees `obs/start_recording`
+- Server `kapture` exposes `screenshot` → Client sees `kapture/screenshot`
 
 ### Lifecycle Management
 
-**On-Demand Backends:**
-- Spawn when first tool call arrives
-- Idle for 5 minutes → auto-killed
-- Good for: infrequently used tools
+**On-demand servers** (default): spawn on first tool call; idle for 5 minutes → auto-killed. Good for infrequently used tools.
 
-**Persistent Backends:**
-- Spawn at gateway startup
-- Auto-restart on crash
-- Good for: frequently used tools, OAuth-authenticated backends
+**Persistent servers**: spawn at gateway startup; auto-restart on crash. Good for frequently used tools.
 
-### OAuth Token Management
+### Environment Variables
 
-For backends requiring authentication:
-1. User clicks "Connect GitHub" in web UI
-2. Gateway handles OAuth flow
-3. Tokens stored encrypted with AES-256-GCM
-4. Auto-refresh before expiry
-5. Backend receives token via environment variable
+Server configs reference secrets via `${VAR}` syntax. Values resolve from the local `.env` file or system environment — paste/rotate tokens manually like with any other MCP client. No auto-managed tokens.
 
-Supported providers: GitHub, Smithery (extensible)
+## Run via Docker
+
+Pre-built multi-arch images on ghcr:
+
+```bash
+docker pull ghcr.io/ismail-kattakath/mcp-gateway:latest
+
+docker run -d --name mcp-gateway \
+  -p 127.0.0.1:3000:3000 \
+  -v $(pwd)/registry.json:/app/registry.json:ro \
+  -v $(pwd)/.env:/app/.env:ro \
+  -v $HOME/.mcp:/root/.mcp \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+Default deployment does NOT mount the Docker socket — `pkg`/`git`/`remote`/`local` server sources work out of the box, and `source: "container"` is opt-in via a filtered socket proxy (uncomment the `docker-proxy` block in `docker-compose.yml`). See `CLAUDE.md → Run via Docker` for the three trust tiers and trade-offs.
 
 ## Architecture
 
@@ -181,16 +180,12 @@ Supported providers: GitHub, Smithery (extensible)
 │   MCP Gateway Server                    │
 │   - Protocol translation                │
 │   - Tool routing & namespacing          │
-│   - OAuth token management              │
-│   - Backend lifecycle management        │
+│   - Server lifecycle management         │
 └──────────────┬──────────────────────────┘
                │
-      ┌────────┼────────┐
-      ↓        ↓        ↓
-   ┌─────┐ ┌──────┐ ┌────────┐
-   │ NPX │ │Docker│ │Git Repo│
-   │ MCP │ │ MCP  │ │  MCP   │
-   └─────┘ └──────┘ └────────┘
+   ┌──────┬────┴────┬─────────┬────────┐
+   ↓      ↓         ↓         ↓        ↓
+  pkg    git    container   remote   local
 ```
 
 ## Testing

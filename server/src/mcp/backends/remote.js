@@ -1,237 +1,113 @@
 /**
- * Remote Backend Spawner
+ * remote source — reach an MCP server over HTTP or SSE.
  *
- * Handles remote-sse and remote-http MCP backends
- * Proxies connections to remote MCP servers
+ * Nothing executes locally. Implements the same surface as spawn-based
+ * servers (write/message events, isRunning, getStatus) so the manager
+ * and router treat it uniformly.
+ *
+ * For SSE: opens an EventSource-style stream to receive messages.
+ * For HTTP: each write() POSTs the request and emits the response.
  */
 
-import { EventSource } from 'eventsource';
-import axios from 'axios';
-import logger from '../../logging/logger.js';
 import { EventEmitter } from 'events';
+import logger from '../../logging/logger.js';
 
-export class RemoteBackend extends EventEmitter {
-  constructor(backendId, config) {
+export class RemoteServer extends EventEmitter {
+  constructor(serverName, config) {
     super();
-    this.backendId = backendId;
+    this.serverName = serverName;
     this.config = config;
-    this.eventSource = null;
     this.state = 'stopped';
-    this.retryCount = 0;
-    this.maxRetries = 3;
     this.lastError = null;
     this.startTime = null;
     this.logs = [];
     this.maxLogs = 1000;
-    this.messageHandlers = [];
+    this.abortController = null;
   }
 
   addLog(level, message, data = {}) {
-    const entry = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      ...data
-    };
-
+    const entry = { timestamp: new Date().toISOString(), level, message, ...data };
     this.logs.push(entry);
-    if (this.logs.length > this.maxLogs) {
-      this.logs.shift();
-    }
-
+    if (this.logs.length > this.maxLogs) this.logs.shift();
     this.emit('log', entry);
   }
 
-  /**
-   * Get headers for remote connection
-   */
-  getHeaders() {
-    const headers = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'MCP-Gateway/1.0',
-      ...this.config.runtime?.headers
-    };
-
-    return headers;
-  }
-
   async spawn() {
-    if (this.state === 'running' || this.state === 'starting') {
-      logger.warn(`Backend ${this.backendId} is already ${this.state}`);
-      return;
-    }
-
+    if (this.state === 'running' || this.state === 'starting') return;
     this.state = 'starting';
-    this.addLog('info', 'Starting backend');
+    this.addLog('info', 'Connecting to remote server', { url: this.config.url, transport: this.config.transport });
 
     try {
-      const { type, install } = this.config;
-
-      if (type === 'remote-sse') {
-        await this.connectSSE(install.url);
-      } else if (type === 'remote-http') {
-        await this.connectHTTP(install.url);
-      } else {
-        throw new Error(`Unknown remote type: ${type}`);
+      if (this.config.transport === 'sse') {
+        await this.connectSSE();
       }
-
-      this.startTime = Date.now();
       this.state = 'running';
-      this.lastError = null;
-
-      logger.info(`Backend ${this.backendId} connected`, {
-        type,
-        url: install.url
-      });
-
-      this.emit('started', 'remote');
+      this.startTime = Date.now();
+      this.emit('started', null);
     } catch (error) {
       this.state = 'failed';
       this.lastError = error.message;
-      this.addLog('error', 'Failed to connect to remote backend', { error: error.message });
-
-      logger.error(`Failed to connect backend ${this.backendId}`, {
-        error: error.message,
-        stack: error.stack
-      });
-
-      // Retry connection
-      if (this.retryCount < this.maxRetries) {
-        this.retryCount++;
-        logger.warn(`Backend ${this.backendId} failed, retrying... (${this.retryCount}/${this.maxRetries})`);
-        setTimeout(() => this.spawn(), 2000 * this.retryCount);
-      } else {
-        logger.error(`Backend ${this.backendId} failed after ${this.maxRetries} retries`);
-        this.emit('failed', this.lastError);
-      }
-
+      this.addLog('error', 'Failed to connect', { error: error.message });
       this.emit('error', error);
       throw error;
     }
   }
 
-  /**
-   * Connect to SSE endpoint
-   */
-  async connectSSE(url) {
-    logger.info(`Connecting to SSE endpoint: ${url}`, { backend: this.backendId });
-    this.addLog('info', 'Connecting to SSE endpoint', { url });
-
-    const headers = this.getHeaders();
-
-    this.eventSource = new EventSource(url, {
-      headers
+  async connectSSE() {
+    this.abortController = new AbortController();
+    const response = await fetch(this.config.url, {
+      method: 'GET',
+      headers: { Accept: 'text/event-stream', ...(this.config.headers || {}) },
+      signal: this.abortController.signal
     });
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('SSE connection timeout'));
-      }, 10000);
+    if (!response.ok) throw new Error(`SSE connection failed: ${response.status}`);
 
-      this.eventSource.onopen = () => {
-        clearTimeout(timeout);
-        logger.info(`SSE connection established: ${this.backendId}`);
-        this.addLog('info', 'SSE connection established');
-        resolve();
-      };
-
-      this.eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this.addLog('message', 'Received message', { type: data.type });
-          logger.debug(`[${this.backendId}] SSE message:`, data);
-
-          // Forward to all registered handlers
-          for (const handler of this.messageHandlers) {
-            handler(data);
-          }
-
-          this.emit('message', data);
-        } catch (error) {
-          logger.error(`Failed to parse SSE message from ${this.backendId}`, {
-            error: error.message,
-            data: event.data
-          });
-        }
-      };
-
-      this.eventSource.onerror = (error) => {
-        clearTimeout(timeout);
-        logger.error(`SSE connection error for ${this.backendId}`, { error });
-        this.addLog('error', 'SSE connection error', { error: error.message || 'Unknown error' });
-
-        // Attempt reconnect
-        if (this.state === 'running') {
-          logger.warn(`SSE connection lost for ${this.backendId}, reconnecting...`);
-          this.state = 'failed';
-          this.eventSource.close();
-          this.eventSource = null;
-
-          setTimeout(() => {
-            if (this.retryCount < this.maxRetries) {
-              this.spawn();
-            }
-          }, 2000);
-        }
-
-        this.emit('error', error);
-        reject(error);
-      };
+    this.parseStream(response.body).catch(error => {
+      if (error.name !== 'AbortError') {
+        logger.error(`SSE stream error for ${this.serverName}`, { error: error.message });
+        this.state = 'failed';
+        this.emit('exit', null, null);
+      }
     });
   }
 
-  /**
-   * Connect to HTTP endpoint
-   */
-  async connectHTTP(url) {
-    logger.info(`Connecting to HTTP endpoint: ${url}`, { backend: this.backendId });
-    this.addLog('info', 'Connecting to HTTP endpoint', { url });
+  async parseStream(stream) {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-    const headers = this.getHeaders();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-    // Test connection with a health check or initial request
-    try {
-      const response = await axios.get(url, {
-        headers,
-        timeout: 10000,
-        validateStatus: (status) => status < 500 // Accept 4xx but not 5xx
-      });
+      const events = buffer.split('\n\n');
+      buffer = events.pop();
 
-      logger.info(`HTTP connection established: ${this.backendId}`, {
-        status: response.status
-      });
-      this.addLog('info', 'HTTP connection established', {
-        status: response.status,
-        statusText: response.statusText
-      });
-    } catch (error) {
-      logger.error(`Failed to connect to HTTP endpoint ${url}`, {
-        error: error.message
-      });
-      throw error;
+      for (const event of events) {
+        const lines = event.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            try {
+              const message = JSON.parse(data);
+              if (message.jsonrpc === '2.0') this.emit('message', message);
+            } catch {}
+          }
+        }
+      }
     }
   }
 
   async kill() {
-    if (this.state === 'stopped' || this.state === 'stopping') {
-      return;
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
     }
-
-    this.state = 'stopping';
-    this.addLog('info', 'Stopping backend');
-
-    logger.info(`Stopping backend ${this.backendId}`);
-
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-    }
-
-    this.messageHandlers = [];
     this.state = 'stopped';
-    this.addLog('info', 'Backend stopped');
-
-    logger.info(`Backend ${this.backendId} stopped`);
+    this.addLog('info', 'Disconnected from remote');
+    this.emit('exit', null, null);
   }
 
   isRunning() {
@@ -240,13 +116,13 @@ export class RemoteBackend extends EventEmitter {
 
   getStatus() {
     return {
-      backendId: this.backendId,
+      serverName: this.serverName,
+      source: 'remote',
       state: this.state,
+      url: this.config.url,
+      transport: this.config.transport,
       uptime: this.startTime ? Date.now() - this.startTime : null,
-      retryCount: this.retryCount,
-      lastError: this.lastError,
-      url: this.config.install.url,
-      type: this.config.type
+      lastError: this.lastError
     };
   }
 
@@ -254,81 +130,37 @@ export class RemoteBackend extends EventEmitter {
     return this.logs.slice(-limit);
   }
 
-  /**
-   * Send message to remote backend (HTTP POST)
-   */
   async write(data) {
-    if (!this.isRunning()) {
-      throw new Error(`Backend ${this.backendId} is not running`);
+    if (!this.isRunning()) throw new Error(`Server ${this.serverName} is not running`);
+
+    if (this.config.transport === 'sse') {
+      logger.warn(`Cannot write to SSE remote ${this.serverName}; SSE is read-only`);
+      return;
     }
 
-    const { type, install } = this.config;
-
-    if (type === 'remote-http') {
+    const method = this.config.method || 'POST';
+    try {
+      const response = await fetch(this.config.url, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(this.config.headers || {}) },
+        body: method === 'POST' ? data : undefined
+      });
+      const text = await response.text();
       try {
-        const headers = this.getHeaders();
-        const response = await axios.post(install.url, data, {
-          headers,
-          timeout: 30000
-        });
-
-        logger.debug(`[${this.backendId}] HTTP response:`, response.data);
-        return response.data;
-      } catch (error) {
-        logger.error(`HTTP request failed for ${this.backendId}`, {
-          error: error.message
-        });
-        throw error;
+        const message = JSON.parse(text);
+        if (message.jsonrpc === '2.0') this.emit('message', message);
+      } catch {
+        logger.warn(`Non-JSON response from ${this.serverName}`);
       }
-    } else if (type === 'remote-sse') {
-      // For SSE, we might need to send via a separate HTTP endpoint
-      const postUrl = install.postUrl || install.url.replace('/sse', '/message');
-
-      try {
-        const headers = this.getHeaders();
-        const response = await axios.post(postUrl, data, {
-          headers,
-          timeout: 30000
-        });
-
-        logger.debug(`[${this.backendId}] Message sent:`, response.data);
-        return response.data;
-      } catch (error) {
-        logger.error(`Failed to send message to ${this.backendId}`, {
-          error: error.message
-        });
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * Register callback for incoming messages
-   */
-  read(callback) {
-    if (!this.isRunning()) {
-      throw new Error(`Backend ${this.backendId} is not running`);
-    }
-
-    this.messageHandlers.push(callback);
-  }
-
-  /**
-   * Unregister message callback
-   */
-  removeReadHandler(callback) {
-    const index = this.messageHandlers.indexOf(callback);
-    if (index > -1) {
-      this.messageHandlers.splice(index, 1);
+    } catch (error) {
+      logger.error(`HTTP request to ${this.serverName} failed`, { error: error.message });
+      this.emit('error', error);
     }
   }
 }
 
-export function createRemoteBackend(backendId, config) {
-  return new RemoteBackend(backendId, config);
+export function createRemoteServer(serverName, config) {
+  return new RemoteServer(serverName, config);
 }
 
-export default {
-  RemoteBackend,
-  createRemoteBackend
-};
+export default { RemoteServer, createRemoteServer };

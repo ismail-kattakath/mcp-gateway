@@ -1,0 +1,43 @@
+name: PR Title (Conventional Commits)
+
+# Squash-merge default in this repo means the squash commit body comes from
+# the PR title. If the title isn't a valid Conventional Commit, release-please
+# can't categorize the change and will skip it silently. This check fails the
+# PR loudly instead.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Subset that matches what release-please knows how to bump.
+          # See https://www.conventionalcommits.org/ for full reference.
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            perf
+            test
+            build
+            ci
+            revert
+          requireScope: false
+          # Subject (the bit after the colon) must start lowercase to keep
+          # generated changelogs readable: "feat: add foo" not "feat: Add foo".
+          subjectPattern: ^[a-z].+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure it starts with
+            a lowercase letter, e.g. "feat: add foo" not "feat: Add foo".
