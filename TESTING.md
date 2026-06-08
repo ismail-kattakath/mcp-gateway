@@ -1,5 +1,7 @@
 # MCP Gateway Testing Guide
 
+> **⚠️ Out of date.** References to backend manager files (npx.js, uvx.js, etc.) and OAuth tests are stale. Current implementation: 5 source files in `server/src/mcp/backends/` (`pkg.js`, `git.js`, `container.js`, `remote.js`, `local.js`), no OAuth. Trust `CLAUDE.md` and the code.
+
 Comprehensive testing documentation for the MCP Gateway.
 
 ## Test Suites

@@ -1,241 +1,87 @@
 {
   "version": "2.0",
-  "backends": {
+  "servers": {
     "obs": {
-      "name": "OBS Studio Control",
-      "description": "Control OBS via WebSocket",
-      "type": "npx",
-      "install": {
-        "package": "obs-mcp",
-        "version": "latest"
-      },
-      "runtime": {
-        "env": {
-          "OBS_WEBSOCKET_PASSWORD": "${OBS_WEBSOCKET_PASSWORD}"
-        }
-      },
-      "lifecycle": "on-demand",
-      "timeout": 30000,
-      "enabled": true
-    },
-    "kapture": {
-      "name": "Screen Capture",
-      "description": "Capture screenshots and recordings",
-      "type": "npx",
-      "install": {
-        "package": "kapture-mcp",
-        "version": "latest"
-      },
-      "runtime": {
-        "args": ["bridge"]
-      },
-      "lifecycle": "persistent",
-      "enabled": true
+      "source": "pkg",
+      "command": "npx",
+      "args": ["-y", "obs-mcp@latest"],
+      "env": {
+        "OBS_WEBSOCKET_PASSWORD": "${OBS_WEBSOCKET_PASSWORD}"
+      }
     },
     "github": {
-      "name": "GitHub API",
-      "description": "Interact with GitHub repositories",
-      "type": "npx",
-      "install": {
-        "package": "@modelcontextprotocol/server-github",
-        "version": "latest"
+      "source": "pkg",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       },
-      "runtime": {
-        "env": {
-          "GITHUB_TOKEN": "${GITHUB_ACCESS_TOKEN}"
-        }
+      "lifecycle": "persistent"
+    },
+    "custom-from-git": {
+      "source": "git",
+      "repo": "https://github.com/username/custom-mcp.git",
+      "branch": "main",
+      "command": "node",
+      "args": ["${REPO_DIR}/dist/index.js"],
+      "env": {
+        "NODE_ENV": "production"
       },
-      "auth": {
-        "type": "oauth",
-        "provider": "github",
-        "scopes": ["repo", "read:org"],
-        "tokenRefresh": true
+      "enabled": false
+    },
+    "python-from-git": {
+      "source": "git",
+      "repo": "https://github.com/username/python-mcp.git",
+      "tag": "v1.0.0",
+      "command": "python3",
+      "args": ["${REPO_DIR}/main.py"],
+      "enabled": false
+    },
+    "comfyui": {
+      "source": "container",
+      "image": "ghcr.io/username/comfyui-mcp:latest",
+      "volumes": ["${HOME}/.mcp/data:/data"],
+      "ports": { "8188": 8189 },
+      "env": {
+        "API_KEY": "${CUSTOM_API_KEY}"
       },
       "lifecycle": "persistent",
       "enabled": false
     },
-    "custom-git-mcp": {
-      "name": "Custom Git MCP",
-      "description": "Example of git repo with npm build",
-      "type": "git-npm",
-      "install": {
-        "repository": "https://github.com/username/custom-mcp.git",
-        "branch": "main",
-        "build": {
-          "steps": [
-            "npm install",
-            "npm run build"
-          ],
-          "entrypoint": "dist/index.js"
-        }
+    "built-locally": {
+      "source": "container",
+      "build": {
+        "repo": "https://github.com/username/mcp.git",
+        "dockerfile": "Dockerfile",
+        "context": "."
       },
-      "runtime": {
-        "command": "node",
-        "env": {
-          "NODE_ENV": "production"
-        }
-      },
-      "lifecycle": "on-demand",
+      "ports": { "3000": 3001 },
       "enabled": false
     },
-    "docker-mcp": {
-      "name": "Docker MCP Example",
-      "description": "Example of Docker Hub image",
-      "type": "docker",
-      "install": {
-        "image": "ghcr.io/username/mcp-server",
-        "tag": "latest",
-        "pull": "missing"
-      },
-      "runtime": {
-        "volumes": [
-          "${HOME}/.mcp/data:/data"
-        ],
-        "env": {
-          "API_KEY": "${CUSTOM_API_KEY}"
-        }
-      },
-      "lifecycle": "persistent",
-      "healthcheck": {
-        "endpoint": "http://localhost:8080/health",
-        "interval": 30,
-        "timeout": 5,
-        "retries": 3
-      },
-      "enabled": false
-    },
-    "uvx-mcp": {
-      "name": "UVX Python Package",
-      "description": "Example of Python package via uvx",
-      "type": "uvx",
-      "install": {
-        "package": "mcp-server-time",
-        "version": "latest"
-      },
-      "runtime": {
-        "args": ["--port", "8080"],
-        "env": {
-          "PYTHONUNBUFFERED": "1"
-        }
-      },
-      "lifecycle": "on-demand",
-      "enabled": false
-    },
-    "pipx-mcp": {
-      "name": "PIPX Python Package",
-      "description": "Example of Python package via pipx",
-      "type": "pipx",
-      "install": {
-        "package": "mcp-server-filesystem",
-        "version": "0.1.0"
-      },
-      "runtime": {
-        "env": {
-          "PYTHONUNBUFFERED": "1"
-        }
-      },
-      "lifecycle": "on-demand",
-      "enabled": false
-    },
-    "git-python-mcp": {
-      "name": "Git Python MCP",
-      "description": "Example of git repo with Python",
-      "type": "git-python",
-      "install": {
-        "repository": "https://github.com/username/python-mcp.git",
-        "branch": "main",
-        "build": {
-          "steps": [
-            "uv venv",
-            "uv pip install -e ."
-          ],
-          "entrypoint": "src/main.py"
-        }
-      },
-      "runtime": {
-        "command": "python",
-        "env": {
-          "PYTHONUNBUFFERED": "1"
-        }
+    "smithery-example": {
+      "source": "remote",
+      "transport": "sse",
+      "url": "https://api.smithery.ai/servers/example/sse",
+      "headers": {
+        "Authorization": "Bearer ${SMITHERY_TOKEN}"
       },
       "lifecycle": "persistent",
       "enabled": false
     },
-    "local-mcp": {
-      "name": "Local Script MCP",
-      "description": "Example of local script execution",
-      "type": "local",
-      "install": {
-        "path": "${HOME}/.mcp/scripts/custom-mcp.js"
+    "my-local-script": {
+      "source": "local",
+      "command": "python3",
+      "args": ["${HOME}/scripts/my-mcp.py"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
       },
-      "runtime": {
-        "command": "node",
-        "env": {
-          "NODE_ENV": "production"
-        }
-      },
-      "lifecycle": "on-demand",
-      "enabled": false
-    },
-    "remote-sse-mcp": {
-      "name": "Remote SSE MCP",
-      "description": "Example of remote SSE endpoint",
-      "type": "remote-sse",
-      "install": {
-        "url": "https://smithery.ai/server/username/mcp-server/sse",
-        "postUrl": "https://smithery.ai/server/username/mcp-server/message"
-      },
-      "runtime": {
-        "headers": {
-          "Authorization": "Bearer ${SMITHERY_ACCESS_TOKEN}"
-        }
-      },
-      "auth": {
-        "type": "oauth",
-        "provider": "smithery",
-        "scopes": ["mcp.read", "mcp.write"],
-        "tokenRefresh": true
-      },
-      "lifecycle": "persistent",
-      "enabled": false
-    },
-    "remote-http-mcp": {
-      "name": "Remote HTTP MCP",
-      "description": "Example of remote HTTP endpoint",
-      "type": "remote-http",
-      "install": {
-        "url": "https://api.example.com/mcp"
-      },
-      "runtime": {
-        "headers": {
-          "X-API-Key": "${API_KEY}"
-        }
-      },
-      "lifecycle": "on-demand",
-      "enabled": false
-    },
-    "shell-mcp": {
-      "name": "Shell Script MCP",
-      "description": "Example of shell script wrapper",
-      "type": "shell",
-      "install": {
-        "script": "${HOME}/.mcp/scripts/wrapper.sh",
-        "shell": "/bin/bash"
-      },
-      "runtime": {
-        "args": ["--mode", "production"],
-        "env": {
-          "DEBUG": "false"
-        }
-      },
-      "lifecycle": "on-demand",
       "enabled": false
     }
   },
   "gateway": {
     "server": {
       "port": 3000,
-      "host": "0.0.0.0",
+      "host": "127.0.0.1",
       "transport": "sse",
       "cors": {
         "enabled": true,
@@ -252,20 +98,6 @@
       "level": "info",
       "format": "json",
       "outputs": ["console", "file"]
-    },
-    "oauth": {
-      "providers": {
-        "github": {
-          "clientId": "${GITHUB_CLIENT_ID}",
-          "clientSecret": "${GITHUB_CLIENT_SECRET}",
-          "callbackUrl": "http://localhost:3000/oauth/github/callback"
-        },
-        "smithery": {
-          "clientId": "${SMITHERY_CLIENT_ID}",
-          "clientSecret": "${SMITHERY_CLIENT_SECRET}",
-          "callbackUrl": "http://localhost:3000/oauth/smithery/callback"
-        }
-      }
     },
     "security": {
       "apiKey": "${GATEWAY_API_KEY}",

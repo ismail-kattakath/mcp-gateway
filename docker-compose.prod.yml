@@ -1,48 +1,39 @@
-version: '3.8'
+# mcp-gateway — production compose.
+#
+# Recommended companion: Caddyfile.prod in front of this for HTTPS + Bearer auth.
+# Defaults: Tier 1 (no docker socket). Uncomment docker-proxy for Tier 2.
 
 services:
   gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/ismail-kattakath/mcp-gateway:latest
     container_name: mcp-gateway-prod
     ports:
-      - "3000:3000"
+      # Loopback-only — Caddy/nginx talks to this from the same host.
+      - "127.0.0.1:3000:3000"
     volumes:
-      # Use named volumes for production data persistence
       - mcp-repos:/root/.mcp/repos
       - mcp-cache:/root/.mcp/cache
       - mcp-logs:/root/.mcp/logs
-      - mcp-tokens:/root/.mcp/tokens
 
-      # Mount Docker socket for docker backend type
-      # For production deployment, consider:
-      # 1. Rootless Docker: https://docs.docker.com/engine/security/rootless/
-      # 2. Docker Socket Proxy: https://github.com/Tecnativa/docker-socket-proxy
-      # 3. Separate Docker host with TLS authentication
-      - /var/run/docker.sock:/var/run/docker.sock
-
-      # Mount registry.json from host (allows live updates without rebuild)
+      # Registry + secrets from the host filesystem (not baked into the image).
       - ./registry.json:/app/registry.json:ro
-
-      # Mount .env from host (keep secrets out of image)
       - ./.env:/app/.env:ro
     environment:
-      - NODE_ENV=production
-      - LOG_LEVEL=info
-    env_file:
-      - .env
-    networks:
-      - mcp-network
+      NODE_ENV: production
+      LOG_LEVEL: info
+      # Tier 2 opt-in (see docker-proxy below):
+      # DOCKER_HOST: tcp://docker-proxy:2375
+    env_file: .env
     restart: always
+    networks: [mcp-network]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
@@ -54,6 +45,20 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+
+  # ===== Optional: Tier 2 — filtered Docker socket =====
+  #
+  # docker-proxy:
+  #   image: tecnativa/docker-socket-proxy:0.1
+  #   container_name: mcp-gateway-docker-proxy
+  #   environment:
+  #     CONTAINERS: 1
+  #     IMAGES: 1
+  #     BUILD: 1
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   restart: always
+  #   networks: [mcp-network]
 
 volumes:
   mcp-repos:
@@ -74,48 +79,18 @@ volumes:
       type: none
       o: bind
       device: ${HOME}/.mcp/logs
-  mcp-tokens:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${HOME}/.mcp/tokens
 
 networks:
   mcp-network:
     driver: bridge
 
-# Production deployment notes:
+# Production checklist:
 #
-# 1. HTTPS/TLS: Add nginx or Caddy reverse proxy
-#    Example nginx config:
-#    server {
-#      listen 443 ssl http2;
-#      server_name mcp-gateway.yourdomain.com;
-#      ssl_certificate /path/to/cert.pem;
-#      ssl_certificate_key /path/to/key.pem;
-#      location / {
-#        proxy_pass http://localhost:3000;
-#        proxy_http_version 1.1;
-#        proxy_set_header Upgrade $http_upgrade;
-#        proxy_set_header Connection "upgrade";
-#        proxy_set_header Host $host;
-#      }
-#    }
-#
-# 2. Authentication: Set ENABLE_AUTH=true and GATEWAY_API_KEY in .env
-#
-# 3. Firewall: Restrict port 3000 to localhost if using reverse proxy
-#    iptables -A INPUT -p tcp --dport 3000 -s 127.0.0.1 -j ACCEPT
-#    iptables -A INPUT -p tcp --dport 3000 -j DROP
-#
-# 4. Backups: Regularly backup volumes (especially mcp-tokens)
-#    docker run --rm -v mcp-tokens:/data -v $(pwd):/backup alpine \
-#      tar czf /backup/tokens-backup.tar.gz -C /data .
-#
-# 5. Updates: Pull latest image and recreate container
-#    docker-compose -f docker-compose.prod.yml pull
-#    docker-compose -f docker-compose.prod.yml up -d
-#
-# 6. Monitoring: Consider adding Prometheus + Grafana for metrics
-#    Or use Docker stats: docker stats mcp-gateway-prod
+# 1. Front this with Caddyfile.prod (HTTPS + Bearer gate).
+# 2. Set GATEWAY_API_KEY in .env (openssl rand -hex 32) and reference it from
+#    gateway.security.apiKey in registry.json; set enableAuth: true.
+# 3. Decide on Tier 1 (no docker source) vs Tier 2 (proxy) vs Tier 3 (rootless
+#    Docker on the host). See CLAUDE.md "Run via Docker" for the trade-offs.
+# 4. Backups: tar the named volumes (mcp-repos, mcp-cache, mcp-logs) on a
+#    schedule. .env should be backed up out-of-band.
+# 5. Updates: docker-compose -f docker-compose.prod.yml pull && up -d

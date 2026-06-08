@@ -1,0 +1,33 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # IMPORTANT: We MUST use a PAT here, not GITHUB_TOKEN.
+          # Default GITHUB_TOKEN cannot trigger other workflows (recursion-prevention rule).
+          # If RELEASE_PLEASE_TOKEN is unset, release-please still opens its release PR,
+          # but the v* tag it creates on merge will NOT fire release.yml — the Docker
+          # image won't be published until the tag is re-pushed manually.
+          #
+          # Setup once (a human action — see CONTRIBUTING.md "Release automation"):
+          #   1. Create a fine-grained PAT on this repo with:
+          #        contents: write
+          #        pull-requests: write
+          #        issues: write
+          #   2. Save as repo secret RELEASE_PLEASE_TOKEN.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

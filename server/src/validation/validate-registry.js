@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * CLI tool to validate registry.json files
+ * CLI tool to validate registry.json
  *
- * Usage:
  *   node validate-registry.js [path-to-registry.json]
  *   npm run validate
  */
@@ -19,27 +18,22 @@ async function main() {
   const args = process.argv.slice(2);
   let registryPath = args[0];
 
-  // Default to ../../../registry.json if no path provided
   if (!registryPath) {
     registryPath = path.resolve(__dirname, '../../../registry.json');
-    console.log(`📋 Validating default registry: ${registryPath}\n`);
+    console.log(`Validating default registry: ${registryPath}\n`);
   } else {
     registryPath = path.resolve(process.cwd(), registryPath);
-    console.log(`📋 Validating registry: ${registryPath}\n`);
+    console.log(`Validating registry: ${registryPath}\n`);
   }
 
   try {
     const result = await validateRegistryFile(registryPath);
-
-    console.log('✅ Registry validation passed!\n');
+    console.log('Registry validation passed.\n');
 
     if (result.warnings && result.warnings.length > 0) {
-      console.log(`   Found ${result.warnings.length} warning(s) - see above\n`);
-    } else {
-      console.log('   No issues found\n');
+      console.log(`Found ${result.warnings.length} warning(s) — see above.\n`);
     }
 
-    // Count backends by type
     const fs = await import('fs/promises');
     const content = await fs.readFile(registryPath, 'utf-8');
     const registry = JSON.parse(content);
@@ -47,39 +41,36 @@ async function main() {
     const stats = {
       total: 0,
       enabled: 0,
-      byType: {},
+      bySource: {},
       byLifecycle: { 'on-demand': 0, 'persistent': 0 }
     };
 
-    for (const backend of Object.values(registry.backends)) {
+    for (const server of Object.values(registry.servers)) {
       stats.total++;
-      if (backend.enabled) stats.enabled++;
-      stats.byType[backend.type] = (stats.byType[backend.type] || 0) + 1;
-      stats.byLifecycle[backend.lifecycle]++;
+      if (server.enabled !== false) stats.enabled++;
+      stats.bySource[server.source] = (stats.bySource[server.source] || 0) + 1;
+      const lc = server.lifecycle || 'on-demand';
+      stats.byLifecycle[lc] = (stats.byLifecycle[lc] || 0) + 1;
     }
 
-    console.log('📊 Registry Statistics:');
-    console.log(`   Total backends: ${stats.total}`);
-    console.log(`   Enabled: ${stats.enabled} | Disabled: ${stats.total - stats.enabled}`);
-    console.log(`   On-demand: ${stats.byLifecycle['on-demand']} | Persistent: ${stats.byLifecycle.persistent}`);
-    console.log('\n   By type:');
-    for (const [type, count] of Object.entries(stats.byType).sort()) {
-      console.log(`     ${type.padEnd(15)} ${count}`);
+    console.log('Registry stats:');
+    console.log(`  Total servers: ${stats.total}`);
+    console.log(`  Enabled: ${stats.enabled} | Disabled: ${stats.total - stats.enabled}`);
+    console.log(`  On-demand: ${stats.byLifecycle['on-demand']} | Persistent: ${stats.byLifecycle.persistent}`);
+    console.log('  By source:');
+    for (const [src, count] of Object.entries(stats.bySource).sort()) {
+      console.log(`    ${src.padEnd(12)} ${count}`);
     }
     console.log('');
 
     process.exit(0);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.error(`❌ File not found: ${registryPath}\n`);
-      console.error('💡 Create a registry.json file or specify a different path\n');
+      console.error(`File not found: ${registryPath}\n`);
     } else if (!error.validationErrors && !error.semanticErrors && !error.parseError) {
-      console.error(`❌ Unexpected error: ${error.message}\n`);
-      if (process.env.DEBUG) {
-        console.error(error.stack);
-      }
+      console.error(`Unexpected error: ${error.message}\n`);
+      if (process.env.DEBUG) console.error(error.stack);
     }
-
     process.exit(1);
   }
 }

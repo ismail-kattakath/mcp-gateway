@@ -1,416 +1,260 @@
 /**
- * Backend Manager
+ * Server Manager
  *
- * Manages lifecycle of all MCP backends:
- * - Initialize enabled backends
- * - Handle on-demand vs persistent lifecycle
- * - Route tool calls to correct backend
- * - Health check monitoring
+ * Manages lifecycle of all MCP servers:
+ * - Dispatches on config.source to the right adapter (pkg/git/container/remote/local)
+ * - Spawns persistent servers at startup
+ * - Lazy-loads on-demand servers; reaps after 5 min idle
  */
 
 import { EventEmitter } from 'events';
-import { createNpxBackend } from './npx.js';
-import { createUvxBackend } from './uvx.js';
-import { createPipxBackend } from './pipx.js';
-import { createDockerBackend } from './docker.js';
-import { createGitBackend } from './git.js';
-import { createLocalBackend } from './local.js';
-import { createRemoteBackend } from './remote.js';
-import { createShellBackend } from './shell.js';
 import logger from '../../logging/logger.js';
+import { createPkgServer } from './pkg.js';
+import { createGitServer } from './git.js';
+import { createContainerServer } from './container.js';
+import { createRemoteServer } from './remote.js';
+import { createLocalServer } from './local.js';
 
-export class BackendManager extends EventEmitter {
+function createServerForSource(serverName, config) {
+  switch (config.source) {
+    case 'pkg':       return createPkgServer(serverName, config);
+    case 'git':       return createGitServer(serverName, config);
+    case 'container': return createContainerServer(serverName, config);
+    case 'remote':    return createRemoteServer(serverName, config);
+    case 'local':     return createLocalServer(serverName, config);
+    default:          throw new Error(`Unknown server source: ${config.source}`);
+  }
+}
+
+export class ServerManager extends EventEmitter {
   constructor() {
     super();
-    this.backends = new Map(); // backendId -> backend instance
-    this.lastActivity = new Map(); // backendId -> timestamp
-    this.onDemandTimeouts = new Map(); // backendId -> timeout handle
-    this.onDemandIdleTime = 5 * 60 * 1000; // 5 minutes idle time
+    this.servers = new Map();
+    this.lastActivity = new Map();
+    this.onDemandTimeouts = new Map();
+    this.onDemandIdleTime = 5 * 60 * 1000;
   }
 
-  /**
-   * Initialize backend manager with registry
-   */
   async initialize(registry) {
-    logger.info('Initializing backend manager');
+    logger.info('Initializing server manager');
+    const enabled = Object.entries(registry.servers).filter(([_, c]) => c.enabled);
+    logger.info(`Found ${enabled.length} enabled servers`);
 
-    const enabledBackends = Object.entries(registry.backends)
-      .filter(([_, config]) => config.enabled);
-
-    logger.info(`Found ${enabledBackends.length} enabled backends`);
-
-    // Start persistent backends immediately
-    for (const [backendId, config] of enabledBackends) {
+    for (const [name, config] of enabled) {
       if (config.lifecycle === 'persistent') {
-        logger.info(`Starting persistent backend: ${backendId}`);
+        logger.info(`Starting persistent server: ${name}`);
         try {
-          await this.startBackend(backendId, config);
+          await this.startServer(name, config);
         } catch (error) {
-          logger.error(`Failed to start persistent backend ${backendId}`, {
-            error: error.message
-          });
-          // Continue with other backends
+          logger.error(`Failed to start persistent server ${name}`, { error: error.message });
         }
       } else {
-        logger.debug(`Backend ${backendId} is on-demand, will start when needed`);
+        logger.debug(`Server ${name} is on-demand, will start when needed`);
       }
     }
 
-    logger.info('Backend manager initialized', {
-      running: this.getRunningBackends().length,
-      total: enabledBackends.length
+    logger.info('Server manager initialized', {
+      running: this.getRunningServers().length,
+      total: enabled.length
     });
   }
 
-  /**
-   * Start a backend
-   */
-  async startBackend(backendId, config) {
-    // Check if already running
-    if (this.backends.has(backendId)) {
-      const backend = this.backends.get(backendId);
-      if (backend.isRunning()) {
-        logger.debug(`Backend ${backendId} is already running`);
-        return backend;
+  async startServer(serverName, config) {
+    if (this.servers.has(serverName)) {
+      const existing = this.servers.get(serverName);
+      if (existing.isRunning()) {
+        logger.debug(`Server ${serverName} is already running`);
+        return existing;
       }
     }
 
-    logger.info(`Starting backend: ${backendId}`, {
-      type: config.type,
-      lifecycle: config.lifecycle
+    logger.info(`Starting server: ${serverName}`, { source: config.source, lifecycle: config.lifecycle });
+
+    const server = createServerForSource(serverName, config);
+
+    server.on('started', (pid) => {
+      logger.info(`Server ${serverName} started`, { pid });
+      this.emit('server:started', serverName, pid);
     });
 
-    try {
-      // Create backend instance based on type
-      let backend;
-      switch (config.type) {
-        case 'npx':
-          backend = createNpxBackend(backendId, config);
-          break;
-
-        case 'uvx':
-          backend = createUvxBackend(backendId, config);
-          break;
-
-        case 'pipx':
-          backend = createPipxBackend(backendId, config);
-          break;
-
-        case 'docker':
-          backend = createDockerBackend(backendId, config);
-          break;
-
-        case 'git-npm':
-        case 'git-python':
-        case 'git-docker':
-          backend = createGitBackend(backendId, config);
-          break;
-
-        case 'local':
-          backend = createLocalBackend(backendId, config);
-          break;
-
-        case 'remote-sse':
-        case 'remote-http':
-          backend = createRemoteBackend(backendId, config);
-          break;
-
-        case 'shell':
-          backend = createShellBackend(backendId, config);
-          break;
-
-        default:
-          throw new Error(`Unknown backend type: ${config.type}`);
+    server.on('exit', (code, signal) => {
+      logger.info(`Server ${serverName} exited`, { code, signal });
+      this.emit('server:exit', serverName, code, signal);
+      if (config.lifecycle === 'persistent') {
+        logger.info(`Restarting persistent server: ${serverName}`);
+        setTimeout(() => {
+          this.startServer(serverName, config).catch(error => {
+            logger.error(`Failed to restart server ${serverName}`, { error: error.message });
+          });
+        }, 2000);
       }
+    });
 
-      // Set up event handlers
-      backend.on('started', (pid) => {
-        logger.info(`Backend ${backendId} started`, { pid });
-        this.emit('backend:started', backendId, pid);
-      });
+    server.on('error', (error) => {
+      logger.error(`Server ${serverName} error`, { error: error.message });
+      this.emit('server:error', serverName, error);
+    });
 
-      backend.on('exit', (code, signal) => {
-        logger.info(`Backend ${backendId} exited`, { code, signal });
-        this.emit('backend:exit', backendId, code, signal);
+    server.on('failed', (error) => {
+      logger.error(`Server ${serverName} failed`, { error });
+      this.emit('server:failed', serverName, error);
+    });
 
-        // Restart persistent backends
-        if (config.lifecycle === 'persistent') {
-          logger.info(`Restarting persistent backend: ${backendId}`);
-          setTimeout(() => {
-            this.startBackend(backendId, config).catch(error => {
-              logger.error(`Failed to restart backend ${backendId}`, {
-                error: error.message
-              });
-            });
-          }, 2000);
-        }
-      });
+    server.on('log', (entry) => this.emit('server:log', serverName, entry));
 
-      backend.on('error', (error) => {
-        logger.error(`Backend ${backendId} error`, { error: error.message });
-        this.emit('backend:error', backendId, error);
-      });
+    this.servers.set(serverName, server);
+    await server.spawn();
 
-      backend.on('failed', (error) => {
-        logger.error(`Backend ${backendId} failed`, { error });
-        this.emit('backend:failed', backendId, error);
-      });
-
-      backend.on('log', (entry) => {
-        this.emit('backend:log', backendId, entry);
-      });
-
-      // Store backend instance
-      this.backends.set(backendId, backend);
-
-      // Spawn the process
-      await backend.spawn();
-
-      // Track activity for on-demand backends
-      if (config.lifecycle === 'on-demand') {
-        this.updateActivity(backendId);
-        this.scheduleIdleCheck(backendId, config);
-      }
-
-      return backend;
-    } catch (error) {
-      logger.error(`Failed to start backend ${backendId}`, {
-        error: error.message,
-        stack: error.stack
-      });
-      throw error;
+    if (config.lifecycle === 'on-demand') {
+      this.updateActivity(serverName);
+      this.scheduleIdleCheck(serverName, config);
     }
+
+    return server;
   }
 
-  /**
-   * Stop a backend
-   */
-  async stopBackend(backendId) {
-    const backend = this.backends.get(backendId);
-    if (!backend) {
-      logger.warn(`Backend ${backendId} not found`);
+  async stopServer(serverName) {
+    const server = this.servers.get(serverName);
+    if (!server) {
+      logger.warn(`Server ${serverName} not found`);
       return;
     }
-
-    logger.info(`Stopping backend: ${backendId}`);
-
-    // Cancel idle timeout if exists
-    const timeout = this.onDemandTimeouts.get(backendId);
+    logger.info(`Stopping server: ${serverName}`);
+    const timeout = this.onDemandTimeouts.get(serverName);
     if (timeout) {
       clearTimeout(timeout);
-      this.onDemandTimeouts.delete(backendId);
+      this.onDemandTimeouts.delete(serverName);
     }
-
-    await backend.kill();
-    this.backends.delete(backendId);
-    this.lastActivity.delete(backendId);
-
-    logger.info(`Backend ${backendId} stopped`);
+    await server.kill();
+    this.servers.delete(serverName);
+    this.lastActivity.delete(serverName);
+    logger.info(`Server ${serverName} stopped`);
   }
 
-  /**
-   * Get or start backend (for on-demand)
-   */
-  async getBackend(backendId, config) {
-    let backend = this.backends.get(backendId);
-
-    if (!backend || !backend.isRunning()) {
-      logger.info(`Backend ${backendId} not running, starting on-demand`);
-      backend = await this.startBackend(backendId, config);
+  async getServer(serverName, config) {
+    let server = this.servers.get(serverName);
+    if (!server || !server.isRunning()) {
+      logger.info(`Server ${serverName} not running, starting on-demand`);
+      server = await this.startServer(serverName, config);
     }
-
-    // Update activity for on-demand backends
     if (config.lifecycle === 'on-demand') {
-      this.updateActivity(backendId);
-      this.scheduleIdleCheck(backendId, config);
+      this.updateActivity(serverName);
+      this.scheduleIdleCheck(serverName, config);
     }
-
-    return backend;
+    return server;
   }
 
-  /**
-   * Update last activity time
-   */
-  updateActivity(backendId) {
-    this.lastActivity.set(backendId, Date.now());
+  updateActivity(serverName) {
+    this.lastActivity.set(serverName, Date.now());
   }
 
-  /**
-   * Schedule idle check for on-demand backend
-   */
-  scheduleIdleCheck(backendId, config) {
-    // Cancel existing timeout
-    const existingTimeout = this.onDemandTimeouts.get(backendId);
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-    }
+  scheduleIdleCheck(serverName, config) {
+    const existing = this.onDemandTimeouts.get(serverName);
+    if (existing) clearTimeout(existing);
 
-    // Schedule new timeout
     const timeout = setTimeout(async () => {
-      const lastActivity = this.lastActivity.get(backendId);
-      const idleTime = Date.now() - lastActivity;
-
-      if (idleTime >= this.onDemandIdleTime) {
-        logger.info(`Backend ${backendId} idle for ${(idleTime / 1000).toFixed(0)}s, stopping`);
-        await this.stopBackend(backendId);
+      const last = this.lastActivity.get(serverName);
+      const idle = Date.now() - last;
+      if (idle >= this.onDemandIdleTime) {
+        logger.info(`Server ${serverName} idle for ${(idle / 1000).toFixed(0)}s, stopping`);
+        await this.stopServer(serverName);
       } else {
-        // Reschedule check
-        this.scheduleIdleCheck(backendId, config);
+        this.scheduleIdleCheck(serverName, config);
       }
     }, this.onDemandIdleTime);
 
-    this.onDemandTimeouts.set(backendId, timeout);
+    this.onDemandTimeouts.set(serverName, timeout);
   }
 
-  /**
-   * Get backend status
-   */
-  getBackendStatus(backendId) {
-    const backend = this.backends.get(backendId);
-    if (!backend) {
-      return {
-        backendId,
-        state: 'not_started',
-        pid: null
-      };
-    }
-
-    const status = backend.getStatus();
-    const lastActivity = this.lastActivity.get(backendId);
-    if (lastActivity) {
-      status.idleTime = Date.now() - lastActivity;
-    }
-
+  getServerStatus(serverName) {
+    const server = this.servers.get(serverName);
+    if (!server) return { serverName, state: 'not_started', pid: null };
+    const status = server.getStatus();
+    const last = this.lastActivity.get(serverName);
+    if (last) status.idleTime = Date.now() - last;
     return status;
   }
 
-  /**
-   * Get all backend statuses
-   */
   getAllStatuses() {
     const statuses = {};
-    for (const [backendId, backend] of this.backends.entries()) {
-      statuses[backendId] = this.getBackendStatus(backendId);
+    for (const [name] of this.servers.entries()) {
+      statuses[name] = this.getServerStatus(name);
     }
     return statuses;
   }
 
-  /**
-   * Get running backends
-   */
-  getRunningBackends() {
-    return Array.from(this.backends.entries())
-      .filter(([_, backend]) => backend.isRunning())
-      .map(([id, _]) => id);
+  getRunningServers() {
+    return Array.from(this.servers.entries())
+      .filter(([_, s]) => s.isRunning())
+      .map(([name]) => name);
   }
 
-  /**
-   * Get backend logs
-   */
-  getBackendLogs(backendId, limit = 100) {
-    const backend = this.backends.get(backendId);
-    if (!backend) {
-      return [];
-    }
-    return backend.getLogs(limit);
+  getServerLogs(serverName, limit = 100) {
+    const server = this.servers.get(serverName);
+    if (!server) return [];
+    return server.getLogs(limit);
   }
 
-  /**
-   * Stop all backends
-   */
   async stopAll() {
-    logger.info('Stopping all backends');
-
-    // Cancel all idle timeouts
-    for (const timeout of this.onDemandTimeouts.values()) {
-      clearTimeout(timeout);
-    }
+    logger.info('Stopping all servers');
+    for (const t of this.onDemandTimeouts.values()) clearTimeout(t);
     this.onDemandTimeouts.clear();
 
-    // Stop all backends
     const stopPromises = [];
-    for (const [backendId, backend] of this.backends.entries()) {
-      if (backend.isRunning()) {
+    for (const [name, server] of this.servers.entries()) {
+      if (server.isRunning()) {
         stopPromises.push(
-          backend.kill().catch(error => {
-            logger.error(`Error stopping backend ${backendId}`, {
-              error: error.message
-            });
+          server.kill().catch(error => {
+            logger.error(`Error stopping server ${name}`, { error: error.message });
           })
         );
       }
     }
-
     await Promise.all(stopPromises);
-    this.backends.clear();
+    this.servers.clear();
     this.lastActivity.clear();
-
-    logger.info('All backends stopped');
+    logger.info('All servers stopped');
   }
 
-  /**
-   * Reload backends from new registry
-   */
   async reload(newRegistry, oldRegistry) {
-    logger.info('Reloading backends from new registry');
+    logger.info('Reloading servers from new registry');
+    const next = newRegistry.servers;
+    const prev = oldRegistry.servers;
 
-    const newBackends = newRegistry.backends;
-    const oldBackends = oldRegistry.backends;
-
-    // Find backends to stop (disabled or removed)
-    for (const [backendId, oldConfig] of Object.entries(oldBackends)) {
-      const newConfig = newBackends[backendId];
-      if (!newConfig || !newConfig.enabled) {
-        logger.info(`Backend ${backendId} disabled or removed, stopping`);
-        await this.stopBackend(backendId);
+    for (const [name] of Object.entries(prev)) {
+      const newCfg = next[name];
+      if (!newCfg || !newCfg.enabled) {
+        logger.info(`Server ${name} disabled or removed, stopping`);
+        await this.stopServer(name);
       }
     }
 
-    // Find backends to start or restart (enabled or changed)
-    for (const [backendId, newConfig] of Object.entries(newBackends)) {
-      if (!newConfig.enabled) {
-        continue;
-      }
-
-      const oldConfig = oldBackends[backendId];
-      const configChanged = JSON.stringify(oldConfig) !== JSON.stringify(newConfig);
-
-      if (!oldConfig || configChanged) {
-        if (oldConfig) {
-          logger.info(`Backend ${backendId} config changed, restarting`);
-          await this.stopBackend(backendId);
+    for (const [name, newCfg] of Object.entries(next)) {
+      if (!newCfg.enabled) continue;
+      const oldCfg = prev[name];
+      const changed = JSON.stringify(oldCfg) !== JSON.stringify(newCfg);
+      if (!oldCfg || changed) {
+        if (oldCfg) {
+          logger.info(`Server ${name} config changed, restarting`);
+          await this.stopServer(name);
         }
-
-        // Start if persistent
-        if (newConfig.lifecycle === 'persistent') {
-          logger.info(`Starting backend ${backendId}`);
-          await this.startBackend(backendId, newConfig).catch(error => {
-            logger.error(`Failed to start backend ${backendId}`, {
-              error: error.message
-            });
+        if (newCfg.lifecycle === 'persistent') {
+          logger.info(`Starting server ${name}`);
+          await this.startServer(name, newCfg).catch(error => {
+            logger.error(`Failed to start server ${name}`, { error: error.message });
           });
         }
       }
     }
-
-    logger.info('Backend reload complete');
+    logger.info('Server reload complete');
   }
 }
 
-// Singleton instance
-let backendManager = null;
+let serverManager = null;
 
-/**
- * Get or create backend manager instance
- */
-export function getBackendManager() {
-  if (!backendManager) {
-    backendManager = new BackendManager();
-  }
-  return backendManager;
+export function getServerManager() {
+  if (!serverManager) serverManager = new ServerManager();
+  return serverManager;
 }
 
-export default {
-  BackendManager,
-  getBackendManager
-};
+export default { ServerManager, getServerManager };

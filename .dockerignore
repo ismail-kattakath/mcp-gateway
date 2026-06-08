@@ -8,7 +8,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# NOTE: do NOT exclude package-lock.json — `npm ci` in the Dockerfile requires it
 pnpm-lock.yaml
 
 # Build outputs (will be generated during multi-stage build)
@@ -53,9 +53,13 @@ __mocks__/
 test/
 tests/
 
-# Documentation
+# Documentation — skip all *.md to keep image small.
+# CLAUDE.md is kept because the runtime image bundles registry.example.json,
+# which references CLAUDE.md by relative path in a few comments. Not strictly
+# required for runtime, but small and useful for `docker exec` introspection.
 *.md
 !CLAUDE.md
+!README.md
 docs/
 
 # Claude Code project files

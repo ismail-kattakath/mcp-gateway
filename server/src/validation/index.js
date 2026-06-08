@@ -1,11 +1,11 @@
 /**
  * Registry Validation Module
  *
- * Exports all validation utilities for use in the MCP Gateway server
+ * Re-exports the public validation surface.
  */
 
 export {
   validateRegistry,
   validateRegistryFile,
-  validateBackend
+  validateServer
 } from './registry-validator.js';

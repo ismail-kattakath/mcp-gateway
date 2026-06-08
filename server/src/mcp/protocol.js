@@ -21,11 +21,11 @@ import { routeToolCall, listAllTools } from './router.js';
  * Handle MCP request
  *
  * @param {object} request - JSON-RPC request
- * @param {object} backendManager - Backend manager instance
+ * @param {object} serverManager - Backend manager instance
  * @param {object} registry - Registry object
  * @returns {Promise<object>} - JSON-RPC response
  */
-export async function handleMCPRequest(request, backendManager, registry) {
+export async function handleMCPRequest(request, serverManager, registry) {
   logger.debug('Handling MCP request', {
     id: request.id,
     method: request.method
@@ -56,31 +56,31 @@ export async function handleMCPRequest(request, backendManager, registry) {
 
     switch (request.method) {
       case 'tools/list':
-        result = await handleToolsList(request.params, backendManager, registry);
+        result = await handleToolsList(request.params, serverManager, registry);
         break;
 
       case 'tools/call':
-        result = await handleToolsCall(request.params, backendManager, registry);
+        result = await handleToolsCall(request.params, serverManager, registry);
         break;
 
       case 'prompts/list':
-        result = await handlePromptsList(request.params, backendManager, registry);
+        result = await handlePromptsList(request.params, serverManager, registry);
         break;
 
       case 'prompts/get':
-        result = await handlePromptsGet(request.params, backendManager, registry);
+        result = await handlePromptsGet(request.params, serverManager, registry);
         break;
 
       case 'resources/list':
-        result = await handleResourcesList(request.params, backendManager, registry);
+        result = await handleResourcesList(request.params, serverManager, registry);
         break;
 
       case 'resources/read':
-        result = await handleResourcesRead(request.params, backendManager, registry);
+        result = await handleResourcesRead(request.params, serverManager, registry);
         break;
 
       case 'initialize':
-        result = await handleInitialize(request.params, backendManager, registry);
+        result = await handleInitialize(request.params, serverManager, registry);
         break;
 
       case 'ping':
@@ -116,10 +116,10 @@ export async function handleMCPRequest(request, backendManager, registry) {
 /**
  * Handle tools/list request
  */
-async function handleToolsList(params, backendManager, registry) {
+async function handleToolsList(params, serverManager, registry) {
   logger.info('Handling tools/list request');
 
-  const tools = await listAllTools(backendManager, registry);
+  const tools = await listAllTools(serverManager, registry);
 
   return {
     tools: tools.map(tool => ({
@@ -133,7 +133,7 @@ async function handleToolsList(params, backendManager, registry) {
 /**
  * Handle tools/call request
  */
-async function handleToolsCall(params, backendManager, registry) {
+async function handleToolsCall(params, serverManager, registry) {
   if (!params?.name) {
     throw new Error('Tool name is required');
   }
@@ -146,7 +146,7 @@ async function handleToolsCall(params, backendManager, registry) {
   const result = await routeToolCall(
     params.name,
     params.arguments || {},
-    backendManager,
+    serverManager,
     registry
   );
 
@@ -164,7 +164,7 @@ async function handleToolsCall(params, backendManager, registry) {
 /**
  * Handle prompts/list request
  */
-async function handlePromptsList(params, backendManager, registry) {
+async function handlePromptsList(params, serverManager, registry) {
   logger.info('Handling prompts/list request');
 
   // TODO: Aggregate prompts from backends
@@ -177,7 +177,7 @@ async function handlePromptsList(params, backendManager, registry) {
 /**
  * Handle prompts/get request
  */
-async function handlePromptsGet(params, backendManager, registry) {
+async function handlePromptsGet(params, serverManager, registry) {
   if (!params?.name) {
     throw new Error('Prompt name is required');
   }
@@ -191,7 +191,7 @@ async function handlePromptsGet(params, backendManager, registry) {
 /**
  * Handle resources/list request
  */
-async function handleResourcesList(params, backendManager, registry) {
+async function handleResourcesList(params, serverManager, registry) {
   logger.info('Handling resources/list request');
 
   // TODO: Aggregate resources from backends
@@ -203,7 +203,7 @@ async function handleResourcesList(params, backendManager, registry) {
 /**
  * Handle resources/read request
  */
-async function handleResourcesRead(params, backendManager, registry) {
+async function handleResourcesRead(params, serverManager, registry) {
   if (!params?.uri) {
     throw new Error('Resource URI is required');
   }
@@ -217,7 +217,7 @@ async function handleResourcesRead(params, backendManager, registry) {
 /**
  * Handle initialize request (MCP handshake)
  */
-async function handleInitialize(params, backendManager, registry) {
+async function handleInitialize(params, serverManager, registry) {
   logger.info('Handling initialize request', { clientInfo: params?.clientInfo });
 
   return {
@@ -339,13 +339,13 @@ export function sendNotification(res, method, params) {
 /**
  * Handle MCP request and stream response
  */
-export async function handleAndStreamRequest(requestStr, res, backendManager, registry) {
+export async function handleAndStreamRequest(requestStr, res, serverManager, registry) {
   try {
     // Parse request
     const request = parseRequest(requestStr);
 
     // Handle request
-    const response = await handleMCPRequest(request, backendManager, registry);
+    const response = await handleMCPRequest(request, serverManager, registry);
 
     // Stream response
     streamMessage(res, response);
