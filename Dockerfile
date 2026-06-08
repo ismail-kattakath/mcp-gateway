@@ -4,8 +4,12 @@
 # =====================================
 # Stage 1: build server (TypeScript -> JavaScript)
 FROM node:20-alpine AS server-builder
-WORKDIR /app/server
+WORKDIR /app
 
+# Copy type definitions needed by server
+COPY types/ ./types/
+
+WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --no-audit --no-fund
 
