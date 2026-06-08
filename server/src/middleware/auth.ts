@@ -168,7 +168,7 @@ export function createAuthMiddleware(
 }
 
 function extractToken(req: Request): string | null {
-  const header = req.get('Authorization') ?? '';
+  const header = (req.get('Authorization') ?? '').trim();
   // Fixed: Use non-backtracking regex to prevent ReDoS
   const m = header.match(/^Bearer\s+(\S+)$/i);
   if (m !== null) {
