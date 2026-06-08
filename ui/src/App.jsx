@@ -1,12 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Home, Server, Activity } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import ServerConfig from './components/BackendConfig';
 import LogsViewer from './components/LogsViewer';
+import UnauthorizedHelp from './components/UnauthorizedHelp';
+import { setAuthErrorCallback } from './utils/authInterceptor';
 
 function App() {
   const location = useLocation();
+  const [showUnauthorized, setShowUnauthorized] = useState(false);
+
+  useEffect(() => {
+    // Check for access_token in URL and store it
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('access_token');
+    if (token) {
+      localStorage.setItem('gateway_api_key', token);
+    }
+
+    // Set up global auth error handler
+    setAuthErrorCallback(() => {
+      setShowUnauthorized(true);
+    });
+  }, []);
+
+  if (showUnauthorized) {
+    return <UnauthorizedHelp />;
+  }
 
   const navigation = [
     { name: 'Dashboard', path: '/', icon: Home },

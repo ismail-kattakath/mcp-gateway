@@ -33,10 +33,15 @@
       "required": ["server", "storage", "logging"],
       "additionalProperties": false,
       "properties": {
-        "server":   { "$ref": "#/definitions/ServerConfig" },
-        "storage":  { "$ref": "#/definitions/StorageConfig" },
-        "logging":  { "$ref": "#/definitions/LoggingConfig" },
-        "security": { "$ref": "#/definitions/SecurityConfig" }
+        "server":     { "$ref": "#/definitions/ServerConfig" },
+        "storage":    { "$ref": "#/definitions/StorageConfig" },
+        "logging":    { "$ref": "#/definitions/LoggingConfig" },
+        "enableAuth": { "type": "boolean", "default": true, "description": "Require Bearer token for SSE/HTTP access. stdio transport (spawned clients) bypasses auth. Default: true (secure by default). Override via GATEWAY_ENABLE_AUTH env var." },
+        "allowedIPs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(/[0-9]{1,2})?$|^([0-9a-fA-F:]+)(/[0-9]{1,3})?$" },
+          "description": "CIDR-aware IP allowlist (applies to all transports). Empty array = no IP filtering."
+        }
       }
     }
   },
@@ -255,17 +260,5 @@
       }
     },
 
-    "SecurityConfig": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "apiKey":     { "type": "string", "description": "Gateway API key for remote access (supports ${VAR})" },
-        "enableAuth": { "type": "boolean", "default": false },
-        "allowedIPs": {
-          "type": "array",
-          "items": { "type": "string", "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(/[0-9]{1,2})?$" }
-        }
-      }
-    }
   }
 }

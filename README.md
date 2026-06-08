@@ -25,15 +25,15 @@ docker pull ghcr.io/ismail-kattakath/mcp-gateway:latest
 # Get a starter registry
 curl -O https://raw.githubusercontent.com/ismail-kattakath/mcp-gateway/main/registry.example.json
 mv registry.example.json registry.json
-echo "GATEWAY_API_KEY=$(openssl rand -hex 32)" > .env
 
 docker run -d --name mcp-gateway \
   -p 127.0.0.1:3000:3000 \
   -v $(pwd)/registry.json:/app/registry.json:ro \
-  -v $(pwd)/.env:/app/.env:ro \
   -v $HOME/.mcp:/root/.mcp \
   ghcr.io/ismail-kattakath/mcp-gateway:latest
 ```
+
+The gateway auto-generates a secure API key on first run and stores it in `~/.mcp/gateway-api-key`.
 
 Then point any MCP client at `http://localhost:3000/sse`:
 
@@ -80,21 +80,65 @@ Optional fields on every server (all default to sensible values):
   "lifecycle": "on-demand",  // or "persistent"
   "enabled":   true,
   "timeout":   30000,
-  "env": { "MY_TOKEN": "${MY_TOKEN}" }   // ${VAR} resolves from .env or system env
+  "env": { "MY_TOKEN": "${MY_TOKEN}" }   // ${VAR} resolves from system env
 }
 ```
 
 Full schema: [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json). Typed mirror: [`types/registry.d.ts`](types/registry.d.ts).
 
-## Authenticated access
+## Authentication
 
-Defaults are safe for local use (no auth, loopback bind). For remote / shared deployments, the gateway has built-in Bearer token + IP allowlist enforcement:
+**Secure by default**: The gateway auto-generates a cryptographic API key on first run (stored in `~/.mcp/gateway-api-key`) and requires it for all SSE/HTTP access. stdio transport (spawned by clients) bypasses auth.
+
+### Get your API key
+
+```bash
+docker run --rm -v $HOME/.mcp:/root/.mcp \
+  -e PRINT_API_KEY=true \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+Use it in client configs:
 
 ```json
-"security": {
-  "apiKey":     "${GATEWAY_API_KEY}",
-  "enableAuth": true,
-  "allowedIPs": ["10.0.0.0/8"]
+{
+  "headers": {
+    "Authorization": "Bearer YOUR_API_KEY"
+  }
+}
+```
+
+Or for browsers (query param): `http://localhost:3000/sse?access_token=YOUR_API_KEY`
+
+### Rotate the key
+
+```bash
+docker run --rm -v $HOME/.mcp:/root/.mcp \
+  -e ROTATE_API_KEY=true \
+  ghcr.io/ismail-kattakath/mcp-gateway:latest
+```
+
+### Disable auth (local dev only)
+
+```bash
+docker run -e GATEWAY_ENABLE_AUTH=false ...
+```
+
+Or in `registry.json`:
+
+```json
+"gateway": {
+  ...
+  "enableAuth": false
+}
+```
+
+### IP allowlist (optional)
+
+```json
+"gateway": {
+  ...
+  "allowedIPs": ["10.0.0.0/8", "192.168.1.0/24"]
 }
 ```
 
@@ -115,7 +159,6 @@ Full discussion of trade-offs in [`CLAUDE.md`](CLAUDE.md#three-trust-tiers-for-s
 ```bash
 git clone https://github.com/ismail-kattakath/mcp-gateway.git
 cd mcp-gateway
-cp .env.example .env                          # add your secrets
 
 # Dev (hot-reload)
 cd server && npm install && npm run dev       # gateway on :3000
