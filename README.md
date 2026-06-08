@@ -13,96 +13,20 @@ Universal aggregator for [Model Context Protocol](https://modelcontextprotocol.i
 
 ## Quick Start
 
-<<<<<<< HEAD
-| Without a gateway | With this gateway |
-|---|---|
-| N copies of the same `mcpServers` block in N tool configs | One `registry.json` |
-| Every tool loads every server upfront → context spam | Servers spawn on-demand and idle out after 5 min |
-| Secrets duplicated across tool configs | One `.env` |
-| Same servers re-configured on every machine | Deploy once (local or remote), all machines connect |
-| Restart every client whenever an MCP server is added, removed, or reconfigured | Edit `registry.json` — the gateway hot-reloads in place; no gateway restart, and the next tool listing from each client reflects the change |
-| Each client spawns its own server instance — open sessions, caches, and stateful connections don't cross tools | One server process shared by every connected client — state and history are visible from anywhere |
-| MCP servers cold-start on every reboot and every client restart | Gateway runs as a service (Docker / launchd / systemd); persistent servers stay up across reboots |
-
-## Quick start (Docker)
-
-```bash
-docker pull ghcr.io/ismail-kattakath/mcp-gateway:latest
-
-# Get a starter registry
-curl -O https://raw.githubusercontent.com/ismail-kattakath/mcp-gateway/main/registry.example.json
-mv registry.example.json registry.json
-
-docker run -d --name mcp-gateway \
-  -p 127.0.0.1:3000:3000 \
-  -v $(pwd)/registry.json:/app/registry.json:ro \
-  -v $HOME/.mcp:/root/.mcp \
-  ghcr.io/ismail-kattakath/mcp-gateway:latest
-```
-
-The gateway auto-generates a secure API key on first run using industry-standard storage:
-- **Primary**: System keychain (macOS Keychain, Linux libsecret, Windows Credential Manager)
-- **Fallback**: AES-256-GCM encrypted file with machine-derived key (for headless servers)
-
-Old cleartext keys are automatically migrated to secure storage on first run.
-
-### Option 1: Auto-spawn (zero setup)
-
-The gateway spawns automatically when your MCP client starts. Just paste this config:
-
-```json
-{
-  "mcpServers": {
-    "gateway": {
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-v", "${HOME}/.mcp:/root/.mcp",
-        "-v", "${HOME}/.mcp-gateway/registry.json:/app/registry.json:ro",
-        "ghcr.io/ismail-kattakath/mcp-gateway:latest"
-      ],
-      "transport": "stdio"
-    }
-  }
-}
-```
-
-- First client spawns the container
-- Uses stdio transport (no auth needed - pipe is trusted)
-- HTTP/SSE endpoints also available on `:3000` (with auth)
-
-### Option 2: Persistent daemon
-
-For shared access or remote deployment, run once as a daemon:
-=======
 **Zero setup required** — Just paste this config into your MCP client:
->>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 
 **For Claude Code** (`~/.claude/.mcp.json`):
 ```json
 {
   "mcpServers": {
     "gateway": {
-<<<<<<< HEAD
-      "url": "http://localhost:3000/sse",
-      "transport": "sse",
-      "headers": {
-        "Authorization": "Bearer YOUR_API_KEY"
-      }
-=======
       "command": "docker",
       "args": ["run", "-i", "--rm", "ghcr.io/ismail-kattakath/mcp-gateway"]
->>>>>>> a4895a8 (chore: remove internal and meta-documentation)
     }
   }
 }
 ```
 
-<<<<<<< HEAD
-Get `YOUR_API_KEY` with `PRINT_API_KEY=true` (see [Authentication](#authentication) section).
-
-For HTTPS or a custom domain, put **Caddy** in front. Templates ship with the repo (`Caddyfile.local`, `Caddyfile.prod`) and the steps are in [`CLAUDE.md`](CLAUDE.md#https--custom-domain).
-=======
 **For Claude Desktop:**
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -239,7 +163,6 @@ cd server && npm install && npm run dev       # gateway on :3000
 # UI (optional)
 cd ../ui && npm install && npm run dev        # dashboard on :5173
 ```
->>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 
 ## Image tags
 
@@ -279,59 +202,6 @@ Full schema: [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json).
 
 ## Authentication
 
-<<<<<<< HEAD
-**Secure by default**: The gateway auto-generates a cryptographic API key on first run (stored in `~/.mcp/gateway-api-key`) and requires it for all SSE/HTTP access. stdio transport (spawned by clients) bypasses auth.
-
-### Get your API key
-
-```bash
-docker run --rm -v $HOME/.mcp:/root/.mcp \
-  -e PRINT_API_KEY=true \
-  ghcr.io/ismail-kattakath/mcp-gateway:latest
-```
-
-Use it in client configs:
-
-```json
-{
-  "headers": {
-    "Authorization": "Bearer YOUR_API_KEY"
-  }
-}
-```
-
-Or for browsers (query param): `http://localhost:3000/sse?access_token=YOUR_API_KEY`
-
-### Rotate the key
-
-```bash
-docker run --rm -v $HOME/.mcp:/root/.mcp \
-  -e ROTATE_API_KEY=true \
-  ghcr.io/ismail-kattakath/mcp-gateway:latest
-```
-
-### Disable auth (local dev only)
-
-```bash
-docker run -e GATEWAY_ENABLE_AUTH=false ...
-```
-
-Or in `registry.json`:
-
-```json
-"gateway": {
-  ...
-  "enableAuth": false
-}
-```
-
-### IP allowlist (optional)
-
-```json
-"gateway": {
-  ...
-  "allowedIPs": ["10.0.0.0/8", "192.168.1.0/24"]
-=======
 The gateway is **secure by default** with auto-generated API keys:
 
 - **Auto-generated keys**: Stored securely in system keychain (macOS Keychain, Linux libsecret, Windows Credential Manager)
@@ -345,7 +215,6 @@ The gateway is **secure by default** with auto-generated API keys:
 "gateway": {
   "enableAuth": true,
   "allowedIPs": ["10.0.0.0/8"]
->>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 }
 ```
 
@@ -362,25 +231,7 @@ The `container` source needs to talk to a Docker daemon. By default, the gateway
 2. **Filtered socket proxy** (run a socket proxy container and set `DOCKER_HOST`) — `container` works, attacker can't escape the container
 3. **Rootless Docker on the host** — additional belt-and-suspenders
 
-<<<<<<< HEAD
-Full discussion of trade-offs in [`CLAUDE.md`](CLAUDE.md#three-trust-tiers-for-source-container).
-
-## Build from source
-
-```bash
-git clone https://github.com/ismail-kattakath/mcp-gateway.git
-cd mcp-gateway
-
-# Dev (hot-reload)
-cd server && npm install && npm run dev       # gateway on :3000
-cd ../ui && npm install && npm run dev        # dashboard on :5173, proxies /api → 3000
-
-# Or via Docker
-docker-compose up --build
-```
-=======
 See [docs/architecture/decisions.md](docs/architecture/decisions.md) for security trade-offs.
->>>>>>> a4895a8 (chore: remove internal and meta-documentation)
 
 ## Project structure
 
