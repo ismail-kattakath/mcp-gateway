@@ -30,6 +30,8 @@
     "dockerode": "^4.0.2",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "keytar": "^7.9.0",
+    "node-machine-id": "^1.1.12",
     "simple-git": "^3.27.0",
     "winston": "^3.17.0"
   },

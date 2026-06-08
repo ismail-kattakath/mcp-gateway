@@ -2,15 +2,17 @@
  * Auto-generated API Key Manager
  *
  * Handles automatic generation, storage, and retrieval of the gateway API key.
- * Key is stored in ~/.mcp/gateway-api-key and persists across restarts.
+ * Uses industry-standard secure storage:
+ * - Primary: System keychain (macOS Keychain, Linux libsecret, Windows Credential Manager)
+ * - Fallback: AES-256-GCM encrypted file with machine-derived key
  */
 
-import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import logger from '../logging/logger.js';
+import { storeSecret, retrieveSecret, deleteSecret, migrateFromCleartext } from './secure-storage.js';
 
-const API_KEY_FILE = path.join(
+const OLD_CLEARTEXT_FILE = path.join(
   process.env.HOME || process.env.USERPROFILE || '/tmp',
   '.mcp',
   'gateway-api-key'
@@ -30,29 +32,31 @@ function generateApiKey() {
  */
 export async function getOrCreateApiKey(forceRotate = false) {
   try {
-    // Ensure directory exists
-    await fs.mkdir(path.dirname(API_KEY_FILE), { recursive: true });
-
-    // Check for existing key
+    // Check for existing key in secure storage
     if (!forceRotate) {
-      try {
-        const existingKey = await fs.readFile(API_KEY_FILE, 'utf-8');
-        const key = existingKey.trim();
-        if (key && key.length >= 16) {
-          logger.debug('Loaded existing API key from storage');
-          return key;
-        }
-      } catch (err) {
-        if (err.code !== 'ENOENT') {
-          logger.warn('Failed to read existing API key, generating new one', { error: err.message });
-        }
+      // Try to migrate from old cleartext storage first
+      const migratedKey = await migrateFromCleartext(OLD_CLEARTEXT_FILE);
+      if (migratedKey) {
+        return migratedKey;
+      }
+
+      // Load from secure storage
+      const existingKey = await retrieveSecret();
+      if (existingKey && existingKey.length >= 16) {
+        logger.debug('Loaded existing API key from secure storage');
+        return existingKey;
       }
     }
 
     // Generate new key
     const newKey = generateApiKey();
-    await fs.writeFile(API_KEY_FILE, newKey, { mode: 0o600 }); // user-readable only
-    logger.info(forceRotate ? 'API key rotated' : 'Generated new API key', { path: API_KEY_FILE });
+    const stored = await storeSecret(newKey);
+
+    if (!stored) {
+      throw new Error('Failed to store API key in any storage backend');
+    }
+
+    logger.info(forceRotate ? 'API key rotated' : 'Generated new API key');
     return newKey;
   } catch (error) {
     logger.error('Failed to load/generate API key', { error: error.message, stack: error.stack });

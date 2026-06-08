@@ -33,7 +33,11 @@ docker run -d --name mcp-gateway \
   ghcr.io/ismail-kattakath/mcp-gateway:latest
 ```
 
-The gateway auto-generates a secure API key on first run and stores it in `~/.mcp/gateway-api-key`.
+The gateway auto-generates a secure API key on first run using industry-standard storage:
+- **Primary**: System keychain (macOS Keychain, Linux libsecret, Windows Credential Manager)
+- **Fallback**: AES-256-GCM encrypted file with machine-derived key (for headless servers)
+
+Old cleartext keys are automatically migrated to secure storage on first run.
 
 ### Option 1: Auto-spawn (zero setup)
 
