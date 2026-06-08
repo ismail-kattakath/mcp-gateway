@@ -98,7 +98,8 @@ async function initializeServer(): Promise<HttpServer | null> {
 
     // Check if stdin is a pipe (docker run -i) → enable stdio transport
     // Only enable if stdin is readable AND not explicitly disabled
-    const stdioDisabled = process.env.DISABLE_STDIO === 'true' || process.env.GATEWAY_TRANSPORT === 'http';
+    const stdioDisabled =
+      process.env.DISABLE_STDIO === 'true' || process.env.GATEWAY_TRANSPORT === 'http';
     const isStdinPipe = !stdioDisabled && !process.stdin.isTTY && process.stdin.readable;
     if (isStdinPipe) {
       logger.info('Detected stdin pipe, enabling stdio transport');
