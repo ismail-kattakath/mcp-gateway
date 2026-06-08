@@ -47,3 +47,8 @@ registry.json
 # Testing
 coverage/
 .nyc_output/
+
+# Claude Code local settings and worktrees
+.claude/settings.local.json
+*.local.md
+.claude/worktrees/

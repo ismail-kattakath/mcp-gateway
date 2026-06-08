@@ -3,6 +3,33 @@
   "permissions": {
     "defaultMode": "auto",
     "allowedCommands": ["npm", "node", "git", "docker", "gh", "curl"],
-    "allowedPaths": ["."]
+    "allowedPaths": ["."],
+    "allowedTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash",
+      "Agent",
+      "Skill",
+      "TaskCreate",
+      "TaskUpdate",
+      "TaskGet",
+      "TaskList",
+      "EnterWorktree",
+      "ExitWorktree"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/quality-gate.sh"
+          }
+        ]
+      }
+    ]
   }
 }

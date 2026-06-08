@@ -1,0 +1,309 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+**MCP Gateway** is a universal aggregator for Model Context Protocol (MCP) servers. It allows AI coding tools to connect to a single gateway instead of managing multiple MCP server configurations. The gateway routes namespaced tool calls (`<server-name>/<tool-name>`) to the appropriate backend server.
+
+**Key Architecture:**
+- **Monorepo**: `server/` (Node.js TypeScript gateway) + `ui/` (React dashboard)
+- **Transport modes**: stdio (spawned clients), SSE, HTTP
+- **Five server sources**: `pkg` (npm/uvx/pipx), `git` (clone+build), `container` (Docker), `remote` (HTTP/SSE), `local` (existing scripts)
+- **Lifecycle modes**: `persistent` (always running) or `on-demand` (lazy-loaded, reaped after 5min idle)
+- **Security**: Auto-generated API keys stored in system keychain, optional IP allowlist
+
+## Development Commands
+
+### Server (Node.js/TypeScript)
+
+```bash
+cd server
+
+# Development (with hot reload)
+npm run dev                  # Start on :3000
+
+# Build & Production
+npm run build                # Compile TypeScript → dist/
+npm start                    # Run compiled dist/index.js
+
+# Testing
+npm test                     # Run all tests (Vitest)
+npm run test:watch           # Watch mode
+npm run test:coverage        # Generate coverage report
+
+# Code Quality
+npm run lint                 # ESLint check
+npm run lint:fix             # Auto-fix ESLint issues
+npm run format               # Prettier format
+npm run format:check         # Prettier check (CI)
+npm run type-check           # TypeScript type check without emit
+
+# Validation
+npm run validate             # Validate registry.json schema
+```
+
+### UI (React/Vite)
+
+```bash
+cd ui
+
+# Development
+npm run dev                  # Start on :5173
+
+# Build & Production
+npm run build                # Compile TypeScript + Vite build
+npm run preview              # Preview production build
+
+# Testing
+npm test                     # Run all tests (Vitest)
+npm run test:watch           # Watch mode
+npm run test:coverage        # Generate coverage report
+
+# Code Quality
+npm run lint                 # ESLint check
+npm run lint:fix             # Auto-fix ESLint issues
+npm run format               # Prettier format
+npm run format:check         # Prettier check (CI)
+npm run type-check           # TypeScript type check without emit
+```
+
+### Root (Monorepo)
+
+```bash
+# Git hooks
+npm run prepare              # Install husky git hooks
+
+# Pre-commit hook runs automatically via lint-staged:
+# - ESLint fix
+# - Prettier format
+# - TypeScript type-check
+```
+
+## Architecture
+
+### Core Request Flow
+
+```
+Client (Claude Code, etc.)
+  ↓ MCP JSON-RPC request
+server/src/index.ts (HTTP/SSE entrypoint)
+  ↓
+server/src/mcp/protocol.ts (MCP handler)
+  ↓ tools/list or tools/call
+server/src/mcp/router.ts (parse <server>/<tool>)
+  ↓
+server/src/mcp/backends/index.ts (ServerManager)
+  ↓ dispatch on config.source
+server/src/mcp/backends/{pkg,git,container,remote,local}.ts
+  ↓ spawn/connect to actual MCP server
+MCP Server (obs-mcp, filesystem, etc.)
+  ↓ result
+← response bubbles back up
+```
+
+### Key Components
+
+**`server/src/mcp/backends/`** — Server lifecycle management
+- `index.ts` — `ServerManager` class: initializes persistent servers, lazy-loads on-demand servers, handles auto-restart and idle reaping
+- `base.ts` — `BaseServer` abstract class: state machine (stopped/starting/running/stopping/failed), retry logic, stdio parsing, event emitter for logs/exit/error
+- `{pkg,git,container,local}.ts` — Concrete adapters extending `BaseServer`, each implements `prepare()` (setup work) and `getSpawnArgs()` (command/args/env)
+- `remote.ts` — `RemoteServer` class: non-spawn adapter for SSE/HTTP remotes, implements same surface (isRunning, write, events) for uniform router interface
+- `stdio-handler.ts` — JSON-RPC message parser for stdout/stderr streams
+
+**`server/src/mcp/`** — MCP protocol layer
+- `protocol.ts` — JSON-RPC 2.0 handlers: `tools/list`, `tools/call`, SSE streaming (`streamMessage`, `sendNotification`)
+- `router.ts` — Parse `<server>/<tool>`, validate server exists/enabled, dispatch to `ServerManager.getServer()`
+- `registry.ts` — Load/validate/watch `registry.json`, hot-reload on file change, apply defaults, validate schema + semantic checks
+
+**`server/src/validation/`** — Registry validation
+- `registry-validator.ts` — AJV schema validator + semantic checks (e.g., detect duplicate env keys, validate git repo URLs)
+- `validate-registry.ts` — CLI tool for standalone validation
+
+**`server/src/middleware/auth.ts`** — Bearer token + IP allowlist middleware (skips stdio transport, always allows `/health`)
+
+**`server/src/security/`** — API key management
+- `apikey.ts` — Generate/retrieve/rotate keys using crypto.randomBytes(32)
+- `secure-storage.ts` — Wrapper for `keytar` (system keychain: macOS Keychain, Linux libsecret, Windows Credential Manager)
+
+**`server/src/logging/`** — Winston-based logging
+- `logger.ts` — Console + file transport, custom format with automatic sanitization
+- `sanitizer.ts` — Sanitize user-controlled values (serverName, URL, path, args) before logging to prevent log injection (CRLF, control chars, credential leakage)
+
+**`schema/registry-v2.schema.json`** — Source of truth for registry.json structure. TypeScript mirror at `server/src/types/registry.d.ts`.
+
+## Registry Configuration
+
+The `registry.json` file is the single source of truth for server configuration. Each server is keyed by a **server name** (lowercase, alphanumeric + hyphens) and declares a `source` field:
+
+| Source | Use Case |
+|--------|----------|
+| `pkg` | Package manager (npx, uvx, pipx) |
+| `git` | Clone repo, auto-detect install/build, spawn |
+| `container` | Docker image (pull or build) |
+| `remote` | Already-running MCP server over SSE/HTTP |
+| `local` | Existing script/binary on disk |
+
+**Common fields** (all optional with defaults):
+- `lifecycle`: `"on-demand"` (lazy-loaded) or `"persistent"` (always running)
+- `enabled`: `true` | `false`
+- `timeout`: milliseconds (default 30000)
+- `env`: Object with `${VAR}` substitution from system env
+
+**Schema validation:**
+- Run `cd server && npm run validate` to validate registry.json
+- AJV validates against `schema/registry-v2.schema.json`
+- Semantic checks enforce server name format, env key format, etc.
+
+## Security Requirements
+
+**This project is enterprise-ready and must maintain production-grade security.**
+
+1. **Log Injection Prevention**
+   - All user-controlled values MUST be sanitized before logging
+   - Use `sanitizeServerName()`, `sanitizeUrl()`, `sanitizePath()`, `sanitizeString()`, `sanitizeArgs()` from `server/src/logging/sanitizer.ts`
+   - Even though Winston format pipeline auto-sanitizes, CodeQL requires explicit call-site sanitization for static analysis
+   - Pattern: `logger.info(\`Starting ${sanitizeServerName(name)}\`)` not `logger.info(\`Starting ${name}\`)`
+
+2. **Path Traversal Prevention**
+   - Validate all user-controlled paths with `path.resolve()` and check they don't escape intended parent directory
+   - Example: `if (!repoDir.startsWith(path.resolve(reposRoot))) throw new Error(...)`
+
+3. **Command Injection Prevention**
+   - Always use `spawn(command, args, {shell: false})` — never construct command strings
+   - Validate URL protocols before passing to `git clone` or similar
+
+4. **Cryptographic Security**
+   - Use `crypto.randomBytes()` for API key generation, never `Math.random()`
+   - API keys are 32-byte base64url-encoded strings stored in system keychain
+
+5. **Authentication**
+   - Bearer token required for SSE/HTTP transports (default enabled)
+   - stdio transport bypasses auth (pipe = inherent authentication)
+   - `/health` endpoint always exempt from auth
+   - Constant-time token comparison
+
+**CodeQL scanning runs on every PR.** All high-severity findings must be resolved before merge.
+
+## Testing
+
+**Server:** 124+ tests with Vitest, including:
+- Unit tests for sanitizers (32 tests)
+- Auth middleware tests (Bearer token, IP allowlist)
+- Registry validation tests
+- Security tests (API key generation, secure storage)
+
+**Coverage target:** 77%+
+
+**Running tests:**
+```bash
+cd server && npm test                # Run once
+cd server && npm run test:watch      # Watch mode
+cd server && npm run test:coverage   # With coverage report
+```
+
+## Release Process
+
+**Fully automated via GitHub Actions + release-please:**
+
+1. **Open a PR with Conventional Commits title:**
+   - `feat:` → minor bump (0.1.0 → 0.2.0)
+   - `fix:` → patch bump (0.1.0 → 0.1.1)
+   - `feat!:` or `fix!:` → major bump (0.1.0 → 1.0.0)
+   - `docs:`, `chore:`, `refactor:`, `test:` → no bump
+
+2. **Title validation:** `.github/workflows/pr-title.yml` blocks PRs with malformed titles
+
+3. **Squash-merge to main:** PR title becomes commit message, triggers release-please
+
+4. **Release PR auto-created:** `chore(main): release X.Y.Z` updates `CHANGELOG.md`, `package.json`, `.release-please-manifest.json`
+
+5. **Merge release PR:** Creates GitHub Release + git tag `vX.Y.Z`, triggers Docker build
+
+6. **Docker workflow:** Builds multi-arch image (`linux/amd64`, `linux/arm64`), pushes to `ghcr.io/ismail-kattakath/mcp-gateway` with tags `:latest`, `:X.Y.Z`, `:X.Y`, `:X`, `:edge`, `:sha-<short>`
+
+**Never manually:**
+- Bump versions in package.json
+- Edit CHANGELOG.md
+- Create git tags
+- Build/push Docker images
+
+See `CONTRIBUTING.md` for full release-please setup details.
+
+## Commit Hygiene
+
+**Use Conventional Commits for all PR titles:**
+
+✅ Good:
+- `feat: add support for container build.repo`
+- `fix: prevent on-demand server reaping during active tool call`
+- `chore: bump express to 4.21.3`
+- `feat!: rename backends to servers`
+
+❌ Bad:
+- `Add new feature` — missing type prefix
+- `feat: Add new feature` — subject must start lowercase
+- `Feat: add new feature` — type must be lowercase
+
+**Git hooks:**
+- Pre-commit: runs lint-staged (ESLint fix, Prettier format, TypeScript check on staged files)
+- Commit message validation happens in CI via `pr-title.yml`, not locally
+
+## Docker
+
+**Container sources** (`source: "container"`) require Docker socket access. By default, the gateway container **does not** mount `/var/run/docker.sock` for security. To enable:
+
+```bash
+docker run -i --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  ghcr.io/ismail-kattakath/mcp-gateway
+```
+
+**Alternative:** Use a Docker socket proxy (e.g., `tecnativa/docker-socket-proxy`) and set `DOCKER_HOST` env var.
+
+## Environment Variables
+
+**Gateway behavior:**
+- `GATEWAY_ENABLE_AUTH` — Override `gateway.enableAuth` in registry.json
+- `GATEWAY_PORT` — Override HTTP port (default 3000)
+- `PRINT_API_KEY=true` — Print API key and exit (for daemon mode setup)
+- `ROTATE_API_KEY=true` — Generate new API key and exit
+
+**Server env substitution:**
+- Registry `env` fields support `${VAR}` substitution from system env
+- Example: `"env": {"API_KEY": "${MY_API_KEY}"}` resolves `MY_API_KEY` from process.env
+
+## Common Pitfalls
+
+1. **Don't sanitize-then-validate-then-return-original:** CodeQL's sanitizer.ts refactor (June 2026) moved from "validate-then-use" to "sanitize-then-validate-then-return-sanitized". Always return the sanitized value, even if validation fails.
+
+2. **Don't skip CodeQL warnings:** All high-severity findings are blocking. If CodeQL flags log injection, add explicit sanitization even if Winston format pipeline already sanitizes at runtime.
+
+3. **Don't use `shell: true` in spawn():** Always pass args array to `spawn(command, args, {shell: false})` to prevent command injection.
+
+4. **Don't commit without Conventional Commits title:** CI will fail. Prefix PR titles with `feat:`, `fix:`, `chore:`, etc.
+
+5. **Don't manually version:** Let release-please handle version bumps and changelogs.
+
+## Validation Skills
+
+This project includes custom validation skills in `.claude/skills/`:
+
+- **`/validate-all`** — Master orchestrator that runs all validations in parallel (tests, Docker, pre-commit hooks) and provides consolidated report. Use before pushing changes.
+- **`/validate-tests`** — Run full test suite (server + UI) 3 times to detect flaky tests. Validates 124+ tests pass with 77%+ coverage.
+- **`/validate-docker`** — Build Docker image and test runtime in both stdio and HTTP modes. Validates health endpoint and checks logs.
+- **`/validate-precommit`** — Test git hooks with clean and broken code to ensure ESLint, Prettier, and TypeScript checks work correctly.
+
+**Recommended workflow before pushing:**
+```
+/validate-all
+```
+This spawns 3 parallel validation agents and reports consolidated results in ~2-3 minutes.
+
+## Documentation
+
+- **`README.md`** — User-facing quick start, features, setup modes
+- **`CONTRIBUTING.md`** — Release-please workflow, Conventional Commits guide
+- **`schema/registry-v2.schema.json`** — Canonical registry schema
+- **`docs/`** — Architecture decisions, API reference (if present)
+- **`.claude/skills/`** — Validation skills for pre-push verification
