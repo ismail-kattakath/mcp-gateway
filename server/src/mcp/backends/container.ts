@@ -78,7 +78,9 @@ export class ContainerServer extends BaseServer {
       }
       if (!(await pathExists(repoDir))) {
         await fs.mkdir(path.dirname(repoDir), { recursive: true });
-        logger.info(`Cloning ${sanitizeUrl(build.repo)} into ${sanitizePath(repoDir)}`);
+        logger.info(
+          `Cloning ${sanitizeString(sanitizeUrl(build.repo))} into ${sanitizeString(sanitizePath(repoDir))}`
+        );
         // Fixed: Validate repo URL format to prevent command injection
         const repoUrl = new URL(build.repo);
         if (!['http:', 'https:', 'git:', 'ssh:'].includes(repoUrl.protocol)) {
