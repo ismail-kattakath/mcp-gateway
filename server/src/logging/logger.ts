@@ -2,11 +2,14 @@
  * Winston Logger Configuration
  *
  * Provides structured logging with console and file transports
+ * Automatically sanitizes user-provided values to prevent log injection
+ * and information disclosure.
  */
 
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
+import { sanitizeObject } from './sanitizer.js';
 
 // Determine log directory from environment or default
 const LOG_DIR: string =
@@ -20,8 +23,28 @@ if (!fs.existsSync(LOG_DIR)) {
 // Log level from environment or default to 'info'
 const LOG_LEVEL: string = process.env.LOG_LEVEL ?? 'info';
 
+// Sanitization format - applies to all logs before other formatting
+const sanitizationFormat = winston.format((info) => {
+  // Sanitize the message
+  if (typeof info.message === 'string') {
+    // Basic CRLF injection prevention
+    info.message = info.message.replace(/[\r\n]/g, ' ');
+  }
+
+  // Sanitize metadata (everything except standard winston fields)
+  const standardFields = ['level', 'message', 'timestamp', 'stack'];
+  for (const key of Object.keys(info)) {
+    if (!standardFields.includes(key)) {
+      info[key] = sanitizeObject(info[key]);
+    }
+  }
+
+  return info;
+})();
+
 // Custom format for console output (human-readable)
 const consoleFormat = winston.format.combine(
+  sanitizationFormat,
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.colorize(),
   winston.format.printf(({ timestamp, level, message, ...meta }): string => {
@@ -35,6 +58,7 @@ const consoleFormat = winston.format.combine(
 
 // JSON format for file output (structured)
 const fileFormat = winston.format.combine(
+  sanitizationFormat,
   winston.format.timestamp(),
   winston.format.errors({ stack: true }),
   winston.format.json()
@@ -116,5 +140,18 @@ logger.info('Logger initialized', {
   environment: process.env.NODE_ENV ?? 'development',
   fileLogging: process.env.DISABLE_FILE_LOGGING !== 'true',
 });
+
+// Re-export sanitization utilities for direct use
+export {
+  sanitizeString,
+  sanitizeServerName,
+  sanitizeUrl,
+  sanitizeArgs,
+  sanitizeEnv,
+  sanitizeError,
+  sanitizeIp,
+  sanitizePath,
+  sanitizeObject,
+} from './sanitizer.js';
 
 export default logger;
