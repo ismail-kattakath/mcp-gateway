@@ -107,7 +107,7 @@ jobs:
           slug: ismail-kattakath/mcp-gateway
           flags: server
           files: ./server/coverage/lcov.info
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # Job 4: Test UI (Matrix)
   test-ui:
