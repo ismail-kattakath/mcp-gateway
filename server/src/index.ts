@@ -97,7 +97,8 @@ async function initializeServer(): Promise<HttpServer | null> {
     await serverManager.initialize(registry);
 
     // Check if stdin is a pipe (docker run -i) → enable stdio transport
-    const isStdinPipe = !process.stdin.isTTY;
+    // Only enable if stdin is readable (not just closed/detached)
+    const isStdinPipe = !process.stdin.isTTY && process.stdin.readable;
     if (isStdinPipe) {
       logger.info('Detected stdin pipe, enabling stdio transport');
       startStdioTransport(serverManager, registry);
