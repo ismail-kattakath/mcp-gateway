@@ -9,7 +9,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs/promises';
-import logger from '../../logging/logger.js';
+import logger, { sanitizeUrl, sanitizePath } from '../../logging/logger.js';
 import { getGatewayConfig } from '../registry.js';
 import { BaseServer, SpawnArgs } from './base.js';
 import type { ContainerServer as ContainerServerConfig } from '../../types/registry.js';
@@ -78,7 +78,7 @@ export class ContainerServer extends BaseServer {
       }
       if (!(await pathExists(repoDir))) {
         await fs.mkdir(path.dirname(repoDir), { recursive: true });
-        logger.info(`Cloning ${build.repo} into ${repoDir}`);
+        logger.info(`Cloning ${sanitizeUrl(build.repo)} into ${sanitizePath(repoDir)}`);
         // Fixed: Validate repo URL format to prevent command injection
         const repoUrl = new URL(build.repo);
         if (!['http:', 'https:', 'git:', 'ssh:'].includes(repoUrl.protocol)) {
@@ -103,7 +103,7 @@ export class ContainerServer extends BaseServer {
       buildArgs.push('--build-arg', `${k}=${v}`);
     }
     buildArgs.push(contextDir);
-    logger.info(`Building image: ${this.imageRef}`);
+    logger.info(`Building image: ${this.imageRef}`, { context: sanitizePath(contextDir) });
     await runShell('docker', buildArgs);
   }
 

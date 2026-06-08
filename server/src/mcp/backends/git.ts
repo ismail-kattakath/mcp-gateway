@@ -14,7 +14,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
-import logger from '../../logging/logger.js';
+import logger, { sanitizeServerName, sanitizeUrl, sanitizePath } from '../../logging/logger.js';
 import { getGatewayConfig } from '../registry.js';
 import { BaseServer, SpawnArgs } from './base.js';
 import type { GitServer as GitServerConfig } from '../../types/registry.js';
@@ -102,7 +102,7 @@ export class GitServer extends BaseServer {
 
     if (!(await fileExists(this.repoDir))) {
       await fs.mkdir(path.dirname(this.repoDir), { recursive: true });
-      logger.info(`Cloning ${repo} into ${this.repoDir}`, { branch, tag, commit });
+      logger.info(`Cloning ${sanitizeUrl(repo)} into ${sanitizePath(this.repoDir)}`, { branch, tag, commit });
       const cloneArgs = ['clone'];
       if (branch) cloneArgs.push('--branch', branch);
       else if (tag) cloneArgs.push('--branch', tag);
@@ -112,12 +112,12 @@ export class GitServer extends BaseServer {
         await runShell('git', ['checkout', commit], this.repoDir);
       }
     } else {
-      logger.debug(`Repo already exists at ${this.repoDir}, skipping clone`);
+      logger.debug(`Repo already exists at ${sanitizePath(this.repoDir)}, skipping clone`);
     }
 
     const installSteps = this.config.install ?? (await detectInstall(this.repoDir));
     if (installSteps) {
-      logger.info(`Running install steps for ${this.serverName}`, { steps: installSteps });
+      logger.info(`Running install steps for ${sanitizeServerName(this.serverName)}`, { steps: installSteps });
       for (const step of installSteps) {
         await runCommandLine(step, this.repoDir, process.env);
       }
@@ -125,7 +125,7 @@ export class GitServer extends BaseServer {
 
     const buildSteps = this.config.build ?? (await detectBuild(this.repoDir));
     if (buildSteps) {
-      logger.info(`Running build steps for ${this.serverName}`, { steps: buildSteps });
+      logger.info(`Running build steps for ${sanitizeServerName(this.serverName)}`, { steps: buildSteps });
       for (const step of buildSteps) {
         await runCommandLine(step, this.repoDir, process.env);
       }

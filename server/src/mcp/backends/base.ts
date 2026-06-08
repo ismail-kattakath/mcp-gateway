@@ -13,7 +13,7 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import logger from '../../logging/logger.js';
+import logger, { sanitizeServerName, sanitizeArgs } from '../../logging/logger.js';
 import { createStdoutHandler, createStderrHandler } from './stdio-handler.js';
 import type { Server } from '../../types/registry.js';
 
@@ -91,7 +91,7 @@ export abstract class BaseServer extends EventEmitter {
 
   async spawn(): Promise<void> {
     if (this.state === 'running' || this.state === 'starting') {
-      logger.warn(`Server ${this.serverName} is already ${this.state}`);
+      logger.warn(`Server ${sanitizeServerName(this.serverName)} is already ${this.state}`);
       return;
     }
 
@@ -102,7 +102,7 @@ export abstract class BaseServer extends EventEmitter {
       await this.prepare();
       const { command, args, env: extraEnv = {}, cwd } = await this.getSpawnArgs();
 
-      logger.info(`Spawning server: ${this.serverName}`, { command, args });
+      logger.info(`Spawning server: ${sanitizeServerName(this.serverName)}`, { command, args: sanitizeArgs(args) });
 
       const env = { ...process.env, ...extraEnv };
 
@@ -117,7 +117,7 @@ export abstract class BaseServer extends EventEmitter {
       this.state = 'running';
       this.lastError = null;
       this.addLog('info', 'Server started', { pid: this.process.pid });
-      logger.info(`Server ${this.serverName} started`, { pid: this.process.pid });
+      logger.info(`Server ${sanitizeServerName(this.serverName)} started`, { pid: this.process.pid });
 
       this.process.stdout?.on('data', createStdoutHandler(this, this.serverName));
       this.process.stderr?.on('data', createStderrHandler(this, this.serverName));
@@ -125,7 +125,7 @@ export abstract class BaseServer extends EventEmitter {
       this.process.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
         const uptime = Date.now() - (this.startTime || Date.now());
         this.addLog('info', 'Server process exited', { code, signal, uptime });
-        logger.info(`Server ${this.serverName} exited`, {
+        logger.info(`Server ${sanitizeServerName(this.serverName)} exited`, {
           code,
           signal,
           uptime: `${(uptime / 1000).toFixed(2)}s`,
@@ -141,11 +141,11 @@ export abstract class BaseServer extends EventEmitter {
             );
             setTimeout(() => {
               this.spawn().catch((err: Error) => {
-                logger.error(`Retry spawn failed for ${this.serverName}`, { error: err.message });
+                logger.error(`Retry spawn failed for ${sanitizeServerName(this.serverName)}`, { error: err.message });
               });
             }, 2000 * this.retryCount);
           } else {
-            logger.error(`Server ${this.serverName} failed after ${this.maxRetries} retries`);
+            logger.error(`Server ${sanitizeServerName(this.serverName)} failed after ${this.maxRetries} retries`);
             this.emit('failed', this.lastError);
           }
         } else {
@@ -160,7 +160,7 @@ export abstract class BaseServer extends EventEmitter {
         this.state = 'failed';
         this.lastError = error.message;
         this.addLog('error', 'Server process error', { error: error.message });
-        logger.error(`Server ${this.serverName} process error`, { error: error.message });
+        logger.error(`Server ${sanitizeServerName(this.serverName)} process error`, { error: error.message });
         this.emit('error', error);
       });
 
@@ -170,7 +170,7 @@ export abstract class BaseServer extends EventEmitter {
       this.state = 'failed';
       this.lastError = err.message;
       this.addLog('error', 'Failed to spawn server', { error: err.message });
-      logger.error(`Failed to spawn server ${this.serverName}`, {
+      logger.error(`Failed to spawn server ${sanitizeServerName(this.serverName)}`, {
         error: err.message,
         stack: err.stack,
       });
@@ -184,12 +184,12 @@ export abstract class BaseServer extends EventEmitter {
 
     this.state = 'stopping';
     this.addLog('info', 'Stopping server', { signal });
-    logger.info(`Stopping server ${this.serverName}`, { pid: this.process.pid, signal });
+    logger.info(`Stopping server ${sanitizeServerName(this.serverName)}`, { pid: this.process.pid, signal });
 
     return new Promise((resolve) => {
       const killTimeout = setTimeout(() => {
         if (this.process) {
-          logger.warn(`Server ${this.serverName} did not stop gracefully, force killing`);
+          logger.warn(`Server ${sanitizeServerName(this.serverName)} did not stop gracefully, force killing`);
           this.process.kill('SIGKILL');
         }
         resolve();
