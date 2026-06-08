@@ -2,7 +2,6 @@
  * Server Configuration page.
  * (Kept filename BackendConfig.tsx for import compatibility; exports as ServerConfig.)
  */
-import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Server, Play, Square, CheckCircle, XCircle, AlertCircle, LucideIcon } from 'lucide-react';
 import { getRegistry, getStatus, startServer, stopServer } from '../api/client';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertCircle, Key, Terminal, RotateCcw } from 'lucide-react';
 
 function UnauthorizedHelp(): JSX.Element {

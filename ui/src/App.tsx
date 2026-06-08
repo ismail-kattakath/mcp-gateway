@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Home, Server, Activity, LucideIcon } from 'lucide-react';
 import Dashboard from './components/Dashboard';

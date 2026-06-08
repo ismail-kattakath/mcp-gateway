@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, Search } from 'lucide-react';
 import { getLogs, getRegistry } from '../api/client';

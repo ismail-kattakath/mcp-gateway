@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Server, Activity, CheckCircle, XCircle, AlertCircle, LucideIcon } from 'lucide-react';
 import { getStatus } from '../api/client';

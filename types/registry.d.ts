@@ -113,15 +113,9 @@ export interface GatewayConfig {
   server: ServerConfig;
   storage: StorageConfig;
   logging: LoggingConfig;
-<<<<<<< HEAD
-  /** Require Bearer token for SSE/HTTP access. stdio bypasses auth. Default: true. */
-  enableAuth?: boolean;
-  /** CIDR-aware IP allowlist. Empty = no IP filtering. */
-=======
   /** Enable Bearer token authentication. Default true (secure by default). API key is auto-generated. */
   enableAuth?: boolean;
-  /** IP allowlist (CIDR notation). Empty = all IPs allowed. */
->>>>>>> a4895a8 (chore: remove internal and meta-documentation)
+  /** IP allowlist (CIDR notation). Empty = all IPs allowed. stdio bypasses auth. */
   allowedIPs?: string[];
 }
 
