@@ -102,7 +102,11 @@ export class GitServer extends BaseServer {
 
     if (!(await fileExists(this.repoDir))) {
       await fs.mkdir(path.dirname(this.repoDir), { recursive: true });
-      logger.info(`Cloning ${sanitizeUrl(repo)} into ${sanitizePath(this.repoDir)}`, { branch, tag, commit });
+      logger.info(`Cloning ${sanitizeUrl(repo)} into ${sanitizePath(this.repoDir)}`, {
+        branch,
+        tag,
+        commit,
+      });
       const cloneArgs = ['clone'];
       if (branch) cloneArgs.push('--branch', branch);
       else if (tag) cloneArgs.push('--branch', tag);
@@ -117,7 +121,9 @@ export class GitServer extends BaseServer {
 
     const installSteps = this.config.install ?? (await detectInstall(this.repoDir));
     if (installSteps) {
-      logger.info(`Running install steps for ${sanitizeServerName(this.serverName)}`, { steps: installSteps });
+      logger.info(`Running install steps for ${sanitizeServerName(this.serverName)}`, {
+        steps: installSteps,
+      });
       for (const step of installSteps) {
         await runCommandLine(step, this.repoDir, process.env);
       }
@@ -125,7 +131,9 @@ export class GitServer extends BaseServer {
 
     const buildSteps = this.config.build ?? (await detectBuild(this.repoDir));
     if (buildSteps) {
-      logger.info(`Running build steps for ${sanitizeServerName(this.serverName)}`, { steps: buildSteps });
+      logger.info(`Running build steps for ${sanitizeServerName(this.serverName)}`, {
+        steps: buildSteps,
+      });
       for (const step of buildSteps) {
         await runCommandLine(step, this.repoDir, process.env);
       }

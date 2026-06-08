@@ -102,7 +102,10 @@ export abstract class BaseServer extends EventEmitter {
       await this.prepare();
       const { command, args, env: extraEnv = {}, cwd } = await this.getSpawnArgs();
 
-      logger.info(`Spawning server: ${sanitizeServerName(this.serverName)}`, { command, args: sanitizeArgs(args) });
+      logger.info(`Spawning server: ${sanitizeServerName(this.serverName)}`, {
+        command,
+        args: sanitizeArgs(args),
+      });
 
       const env = { ...process.env, ...extraEnv };
 
@@ -117,7 +120,9 @@ export abstract class BaseServer extends EventEmitter {
       this.state = 'running';
       this.lastError = null;
       this.addLog('info', 'Server started', { pid: this.process.pid });
-      logger.info(`Server ${sanitizeServerName(this.serverName)} started`, { pid: this.process.pid });
+      logger.info(`Server ${sanitizeServerName(this.serverName)} started`, {
+        pid: this.process.pid,
+      });
 
       this.process.stdout?.on('data', createStdoutHandler(this, this.serverName));
       this.process.stderr?.on('data', createStderrHandler(this, this.serverName));
@@ -141,11 +146,15 @@ export abstract class BaseServer extends EventEmitter {
             );
             setTimeout(() => {
               this.spawn().catch((err: Error) => {
-                logger.error(`Retry spawn failed for ${sanitizeServerName(this.serverName)}`, { error: err.message });
+                logger.error(`Retry spawn failed for ${sanitizeServerName(this.serverName)}`, {
+                  error: err.message,
+                });
               });
             }, 2000 * this.retryCount);
           } else {
-            logger.error(`Server ${sanitizeServerName(this.serverName)} failed after ${this.maxRetries} retries`);
+            logger.error(
+              `Server ${sanitizeServerName(this.serverName)} failed after ${this.maxRetries} retries`
+            );
             this.emit('failed', this.lastError);
           }
         } else {
@@ -160,7 +169,9 @@ export abstract class BaseServer extends EventEmitter {
         this.state = 'failed';
         this.lastError = error.message;
         this.addLog('error', 'Server process error', { error: error.message });
-        logger.error(`Server ${sanitizeServerName(this.serverName)} process error`, { error: error.message });
+        logger.error(`Server ${sanitizeServerName(this.serverName)} process error`, {
+          error: error.message,
+        });
         this.emit('error', error);
       });
 
@@ -184,12 +195,17 @@ export abstract class BaseServer extends EventEmitter {
 
     this.state = 'stopping';
     this.addLog('info', 'Stopping server', { signal });
-    logger.info(`Stopping server ${sanitizeServerName(this.serverName)}`, { pid: this.process.pid, signal });
+    logger.info(`Stopping server ${sanitizeServerName(this.serverName)}`, {
+      pid: this.process.pid,
+      signal,
+    });
 
     return new Promise((resolve) => {
       const killTimeout = setTimeout(() => {
         if (this.process) {
-          logger.warn(`Server ${sanitizeServerName(this.serverName)} did not stop gracefully, force killing`);
+          logger.warn(
+            `Server ${sanitizeServerName(this.serverName)} did not stop gracefully, force killing`
+          );
           this.process.kill('SIGKILL');
         }
         resolve();
