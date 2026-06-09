@@ -34,10 +34,7 @@ import {
 } from './mcp/protocol.js';
 import { listAllTools } from './mcp/router.js';
 import { createAuthMiddleware } from './middleware/auth.js';
-import {
-  securityHeaders,
-  additionalSecurityHeaders,
-} from './middleware/security-headers.js';
+import { securityHeaders, additionalSecurityHeaders } from './middleware/security-headers.js';
 import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './security/apikey.js';
 import { startStdioTransport } from './mcp/stdio-transport.js';
 import { createApiRouter } from './api/routes.js';
@@ -87,10 +84,6 @@ import {
   initializeConnectionPool,
   createETagMiddleware,
 } from './performance/index.js';
-
-process.on('uncaughtException', (err) => {
-  console.error('[startup] uncaughtException:', err);
-});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
