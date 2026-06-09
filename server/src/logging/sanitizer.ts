@@ -271,6 +271,11 @@ export function sanitizeObject(obj: unknown, depth = 0, maxDepth = 3): unknown {
     }
 
     for (const [key, value] of entries) {
+      // Filter dangerous keys to prevent prototype pollution
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        continue;
+      }
+
       // Redact sensitive keys
       if (/password|secret|token|key|auth/i.test(key)) {
         sanitized[key] = '[REDACTED]';

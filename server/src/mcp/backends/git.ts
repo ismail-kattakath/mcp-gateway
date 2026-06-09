@@ -40,10 +40,60 @@ function runShell(
   });
 }
 
+/**
+ * Parse shell-style command line into command and arguments.
+ * Handles quoted arguments with spaces.
+ *
+ * @example
+ * parseCommandLine('npm install --prefix "/path with spaces"')
+ * // => ['npm', 'install', '--prefix', '/path with spaces']
+ */
+function parseCommandLine(line: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let inQuote = false;
+  let quoteChar = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if ((char === '"' || char === "'") && !inQuote) {
+      // Start quote
+      inQuote = true;
+      quoteChar = char;
+    } else if (char === quoteChar && inQuote) {
+      // End quote
+      inQuote = false;
+      quoteChar = '';
+    } else if (char === ' ' && !inQuote) {
+      // Space outside quotes: push current arg
+      if (current.length > 0) {
+        parts.push(current);
+        current = '';
+      }
+    } else {
+      current += char;
+    }
+  }
+
+  // Push final argument
+  if (current.length > 0) {
+    parts.push(current);
+  }
+
+  return parts;
+}
+
 function runCommandLine(line: string, cwd: string, env: NodeJS.ProcessEnv): Promise<void> {
   return new Promise((resolve, reject) => {
     // Parse command line into command and args to prevent command injection
-    const parts = line.trim().split(/\s+/);
+    // Handles quoted arguments properly (e.g., --prefix "/path with spaces")
+    const parts = parseCommandLine(line.trim());
+    if (parts.length === 0) {
+      reject(new Error('Empty command line'));
+      return;
+    }
+
     const command = parts[0];
     const args = parts.slice(1);
 

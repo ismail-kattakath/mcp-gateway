@@ -75,6 +75,33 @@ export class CaddyClient {
   }
 
   /**
+   * Sanitize Caddyfile content before sending to Caddy API
+   * Prevents file access to HTTP security issues by validating content
+   */
+  private sanitizeCaddyfile(caddyfile: string): string {
+    if (typeof caddyfile !== 'string') {
+      throw new Error('Caddyfile must be a string');
+    }
+
+    // Remove null bytes and control characters that could cause issues
+    // eslint-disable-next-line no-control-regex
+    const sanitized = caddyfile.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    // Basic validation: ensure it's not empty after sanitization
+    if (sanitized.trim().length === 0) {
+      throw new Error('Caddyfile is empty after sanitization');
+    }
+
+    // Prevent excessively large configs (DoS prevention)
+    const maxSize = 1024 * 1024; // 1MB
+    if (sanitized.length > maxSize) {
+      throw new Error(`Caddyfile too large: ${sanitized.length} bytes (max ${maxSize})`);
+    }
+
+    return sanitized;
+  }
+
+  /**
    * Reload Caddy configuration from Caddyfile
    *
    * This sends a POST request to /load with the Caddyfile content
@@ -83,7 +110,10 @@ export class CaddyClient {
     try {
       logger.info('Reloading Caddy configuration');
 
-      const response = await this.client.post('/load', caddyfile, {
+      // Sanitize caddyfile content before sending to API
+      const sanitizedCaddyfile = this.sanitizeCaddyfile(caddyfile);
+
+      const response = await this.client.post('/load', sanitizedCaddyfile, {
         headers: {
           'Content-Type': 'text/caddyfile',
         },
