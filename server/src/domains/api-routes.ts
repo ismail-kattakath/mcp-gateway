@@ -128,7 +128,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     const newDomain = await domainManager.addDomain(normalized, options);
 
-    logger.info(`Domain added via API: ${sanitizeString(normalized)}`);
+    logger.info('Domain added via API', { domain: sanitizeString(normalized) });
 
     res.status(201).json(newDomain);
   } catch (error: any) {
