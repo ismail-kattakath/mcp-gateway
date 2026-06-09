@@ -1,0 +1,29 @@
+{
+  "version": "3.0",
+  "servers": {
+    "filesystem": {
+      "source": "pkg",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    },
+    "observatory": {
+      "source": "pkg",
+      "command": "npx",
+      "args": ["-y", "obs-mcp@1.0.0"],
+      "lifecycle": "persistent",
+      "enabled": true
+    },
+    "git-server": {
+      "source": "git",
+      "repo": "https://github.com/example/mcp-server.git",
+      "branch": "main",
+      "command": "node",
+      "args": ["${REPO_DIR}/dist/index.js"]
+    }
+  },
+  "gateway": {
+    "port": 3000,
+    "host": "0.0.0.0",
+    "transport": "sse"
+  }
+}

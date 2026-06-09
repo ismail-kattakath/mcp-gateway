@@ -168,7 +168,7 @@ export interface SimplifiedGatewayConfig {
 }
 
 export interface Registry {
-  version: '2.0';
+  version: '2.0' | '3.0';
   /** Server entries keyed by server name (lowercase, hyphens allowed). */
   servers: Record<string, Server>;
   /** Gateway configuration. Optional in v2.1+ (uses defaults if omitted). */

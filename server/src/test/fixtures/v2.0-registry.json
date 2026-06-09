@@ -1,0 +1,42 @@
+{
+  "version": "2.0",
+  "mcpServers": {
+    "filesystem": {
+      "source": "pkg",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "lifecycle": "on-demand"
+    },
+    "observatory": {
+      "source": "pkg",
+      "command": "npx",
+      "args": ["-y", "obs-mcp@1.0.0"],
+      "lifecycle": "persistent",
+      "enabled": true
+    }
+  },
+  "gateway": {
+    "server": {
+      "port": 3000,
+      "host": "127.0.0.1",
+      "transport": "sse",
+      "cors": {
+        "enabled": true,
+        "origins": ["*"],
+        "credentials": true
+      }
+    },
+    "storage": {
+      "repos": "${HOME}/.mcp/repos",
+      "cache": "${HOME}/.mcp/cache",
+      "logs": "${HOME}/.mcp/logs"
+    },
+    "logging": {
+      "level": "info",
+      "format": "json",
+      "outputs": ["console", "file"]
+    },
+    "disableAuth": false,
+    "allowedIPs": ["192.168.1.0/24", "10.0.0.1"]
+  }
+}

@@ -241,7 +241,8 @@ mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
 - AJV validates against `schema/registry-v2.schema.json`
 - Semantic checks enforce server name format, env key format, etc.
 
-**See `docs/MIGRATION-v2.1.md` for migration guide from v2.0.**
+**See `docs/MIGRATION-v2.1.md` for migration guide from v2.0 to v2.1.**
+**See `docs/MIGRATION_V2_TO_V3.md` for migration guide from v2.x to v3.0.**
 
 ## Security Requirements
 
@@ -503,17 +504,60 @@ See `docs/AUDIT_LOGGING.md` for complete documentation.
   - Jaeger tracing integration (optional)
 
 **Deployment guides:**
+
 - `docs/PRODUCTION_DEPLOYMENT.md` — Comprehensive guide for Kubernetes (GKE/EKS/AKS), Docker Swarm, Docker Compose, standalone
 - `deploy/kubernetes/README.md` — Quick start for Kubernetes
 - `deploy/docker-compose/README.md` — Quick start for Docker Compose
 
 **Key features:**
+
 - Horizontal autoscaling (min 3, max 10 replicas)
 - High availability (PodDisruptionBudget, anti-affinity rules)
 - Database migration strategies (SQLite → PostgreSQL)
 - Backup and restore procedures
 - Disaster recovery playbook (multi-region failover)
 - Scaling best practices (horizontal vs vertical)
+
+## Migration & Compatibility
+
+**MCP Gateway v3.0 includes comprehensive migration tools for seamless upgrades from v2.x:**
+
+### CLI Migration Commands
+
+```bash
+# Detect registry version
+mcp registry version
+
+# Migrate v2.x to v3.0 (with automatic backup)
+mcp migrate from-v2 --registry registry.json
+
+# Preview migration changes (dry-run)
+mcp migrate from-v2 --registry registry.json --dry-run
+
+# Migrate database schema
+mcp db migrate --to-version 3
+
+# Rollback database (if needed)
+mcp db rollback --to-version 2 --force
+```
+
+### Backward Compatibility
+
+Enable v2.x compatibility mode for zero-downtime migration:
+
+```bash
+export ENABLE_V2_COMPAT=true
+npm start
+```
+
+**Compatibility layer features**:
+
+- Auto-upgrades v2.0 `mcpServers` → v3.0 `servers` in-memory
+- Maps deprecated API paths and tool names
+- Logs deprecation warnings for legacy features
+- Allows gradual migration without downtime
+
+**See `docs/MIGRATION_V2_TO_V3.md` for comprehensive migration guide.**
 
 ## Documentation
 
@@ -524,5 +568,6 @@ See `docs/AUDIT_LOGGING.md` for complete documentation.
 - **`docs/AUDIT_LOGGING.md`** — Audit logging guide (Epic #22)
 - **`docs/PRODUCTION_DEPLOYMENT.md`** — Production deployment guide (Epic #29)
 - **`docs/MIGRATION-v2.1.md`** — Migration guide from v2.0 to v2.1
+- **`docs/MIGRATION_V2_TO_V3.md`** — Migration guide from v2.x to v3.0 (comprehensive)
 - **`cli/README.md`** — CLI usage guide
 - **`.claude/skills/`** — Validation skills for pre-push verification

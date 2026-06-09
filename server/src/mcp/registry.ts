@@ -171,11 +171,55 @@ function applyDefaults(registry: Registry): Registry {
   return registry;
 }
 
+/**
+ * Detect registry version from structure.
+ * Returns '2.0', '2.1', '3.0', or throws if unknown.
+ */
+export function detectRegistryVersion(registry: any): string {
+  // Explicit version field takes precedence
+  if (registry.version) return registry.version;
+
+  // Heuristic detection
+  if (registry.mcpServers) return '2.0';
+  if (registry.servers) return '2.1';
+
+  throw new Error(
+    'Unable to detect registry version. Missing version field and unrecognized structure.'
+  );
+}
+
+/**
+ * Auto-upgrade v2.x registry to v3.0 format in-memory.
+ */
+function autoUpgradeRegistry(registry: any): Registry {
+  const version = detectRegistryVersion(registry);
+
+  if (version === '2.0') {
+    logger.warn(
+      'Detected v2.0 registry.json. Auto-upgrading to v3.0 in-memory. Run "mcp migrate from-v2" to persist.'
+    );
+    // v2.0 used "mcpServers", v3.0 uses "servers"
+    registry.servers = registry.mcpServers;
+    delete registry.mcpServers;
+    registry.version = '3.0';
+  } else if (version === '2.1') {
+    logger.warn(
+      'Detected v2.1 registry.json. Auto-upgrading to v3.0 in-memory. Run "mcp migrate from-v2" to persist.'
+    );
+    registry.version = '3.0';
+  }
+
+  return registry as Registry;
+}
+
 async function loadRegistry(filePath: string): Promise<Registry> {
   logger.info(`Loading registry from: ${filePath}`);
 
   const content = await fs.readFile(filePath, 'utf-8');
-  const registry = JSON.parse(content) as Registry;
+  let registry = JSON.parse(content) as any;
+
+  // Auto-upgrade if v2.x detected
+  registry = autoUpgradeRegistry(registry);
 
   validateRegistry(registry);
 

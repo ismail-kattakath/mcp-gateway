@@ -82,6 +82,15 @@
       },
       "ldap": {
         "description": "Manage LDAP providers"
+      },
+      "migrate": {
+        "description": "Migration tools for upgrading between versions"
+      },
+      "registry": {
+        "description": "Registry inspection and validation"
+      },
+      "db": {
+        "description": "Database management and migrations"
       }
     }
   },
