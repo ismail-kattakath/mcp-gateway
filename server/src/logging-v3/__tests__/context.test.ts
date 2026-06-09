@@ -9,7 +9,6 @@ import {
   getRequestId,
   runWithContext,
   withContext,
-  asyncLocalStorage,
 } from '../context.js';
 
 describe('Context Propagation', () => {
