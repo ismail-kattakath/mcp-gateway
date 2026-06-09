@@ -53,16 +53,14 @@ describe('API routes', () => {
       startServer: vi.fn().mockResolvedValue(undefined),
       stopServer: vi.fn().mockResolvedValue(undefined),
       getRunningServers: vi.fn().mockReturnValue(['test-server']),
-      getServerLogs: vi
-        .fn()
-        .mockReturnValue([
-          {
-            timestamp: '2024-01-01T00:00:00.000Z',
-            level: 'info',
-            stream: 'stdout',
-            message: 'test',
-          },
-        ]),
+      getServerLogs: vi.fn().mockReturnValue([
+        {
+          timestamp: '2024-01-01T00:00:00.000Z',
+          level: 'info',
+          stream: 'stdout',
+          message: 'test',
+        },
+      ]),
     };
 
     // Create Express app with API router

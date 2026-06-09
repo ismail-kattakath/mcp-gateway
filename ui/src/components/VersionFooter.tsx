@@ -62,9 +62,7 @@ export default function VersionFooter(): JSX.Element {
             <Calendar className="w-3 h-3" />
             <span>{buildDate}</span>
           </div>
-          <div className="text-[10px] text-gray-500">
-            Node {version.nodeVersion}
-          </div>
+          <div className="text-[10px] text-gray-500">Node {version.nodeVersion}</div>
           <div className="text-[10px] text-gray-500">
             {version.platform}/{version.arch}
           </div>

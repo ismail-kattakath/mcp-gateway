@@ -14,10 +14,13 @@ function SecurityBanner({ repoUrl }: SecurityBannerProps): JSX.Element {
       <div className="flex items-start gap-3">
         <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
         <div className="flex-1">
-          <h3 className="text-red-500 font-semibold mb-1">Security Warning: Authentication Disabled</h3>
+          <h3 className="text-red-500 font-semibold mb-1">
+            Security Warning: Authentication Disabled
+          </h3>
           <p className="text-gray-300 text-sm mb-2">
-            Gateway authentication is currently <strong>DISABLED</strong>. Anyone with network access can
-            call APIs without authentication. This is <strong>INSECURE</strong> for production deployments.
+            Gateway authentication is currently <strong>DISABLED</strong>. Anyone with network
+            access can call APIs without authentication. This is <strong>INSECURE</strong> for
+            production deployments.
           </p>
           <a
             href={`${repoUrl}#authentication`}
