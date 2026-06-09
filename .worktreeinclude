@@ -1,4 +1,0 @@
-# Files that should be copied to worktrees despite being gitignored
-.claude/settings.local.json
-.env
-.env.local
