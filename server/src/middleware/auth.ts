@@ -19,7 +19,7 @@
 import { createRequire } from 'module';
 import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
-import logger from '../logging/logger.js';
+import logger, { sanitizeString } from '../logging/logger.js';
 import { isAuthDisabled, getAllowedIPs } from '../config/auth-config.js';
 
 const require = createRequire(import.meta.url);
@@ -58,7 +58,11 @@ function parseCidrs(entries: string[], name: string): Array<[IPAddress, number]>
       }
     } catch (error) {
       const err = error as Error;
-      logger.warn(`Invalid CIDR entry in ${name}: "${entry}" (${err.message})`);
+      logger.warn('Invalid CIDR entry', {
+        list: sanitizeString(name),
+        entry: sanitizeString(entry),
+        error: err.message,
+      });
     }
   }
   return parsed;
@@ -84,7 +88,7 @@ function ipMatches(clientIp: string, cidrs: Array<[IPAddress, number]>): boolean
       }
     }
   } catch (error) {
-    logger.warn(`Unparseable client IP: ${clientIp}`);
+    logger.warn('Unparseable client IP', { ip: sanitizeString(clientIp) });
   }
   return false;
 }

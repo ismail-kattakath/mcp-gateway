@@ -42,7 +42,12 @@ function runShell(
 
 function runCommandLine(line: string, cwd: string, env: NodeJS.ProcessEnv): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(line, { cwd, env, stdio: 'inherit', shell: true });
+    // Parse command line into command and args to prevent command injection
+    const parts = line.trim().split(/\s+/);
+    const command = parts[0];
+    const args = parts.slice(1);
+
+    const child = spawn(command, args, { cwd, env, stdio: 'inherit', shell: false });
     child.on('exit', (code: number | null) => {
       if (code === 0) resolve();
       else reject(new Error(`Command failed (exit ${code}): ${line}`));

@@ -14,6 +14,40 @@ import logger, { sanitizeServerName, sanitizeUrl } from '../../logging/logger.js
 import type { RemoteServer as RemoteServerConfig } from '../../types/registry.js';
 import type { ServerLog, ServerStatus, ServerState } from './base.js';
 
+/**
+ * Validate URL to prevent SSRF attacks
+ * Ensures URL uses safe protocols and doesn't target private/internal networks
+ */
+function validateRemoteUrl(urlString: string): void {
+  let url: URL;
+  try {
+    url = new URL(urlString);
+  } catch {
+    throw new Error(`Invalid URL: ${urlString}`);
+  }
+
+  // Only allow HTTP/HTTPS protocols
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`Invalid protocol: ${url.protocol}. Only HTTP/HTTPS allowed.`);
+  }
+
+  // Block localhost and private IP ranges to prevent SSRF
+  const hostname = url.hostname.toLowerCase();
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname.startsWith('169.254.') || // Link-local
+    hostname.startsWith('10.') || // Private class A
+    hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) || // Private class B
+    hostname.startsWith('192.168.') || // Private class C
+    hostname.startsWith('fc00:') || // Private IPv6
+    hostname.startsWith('fe80:') // Link-local IPv6
+  ) {
+    throw new Error(`Access to private/internal networks is not allowed: ${hostname}`);
+  }
+}
+
 interface JsonRpcMessage {
   jsonrpc: '2.0';
   id?: string | number;
@@ -77,6 +111,9 @@ export class RemoteServer extends EventEmitter {
   }
 
   async connectSSE(): Promise<void> {
+    // Validate URL to prevent SSRF
+    validateRemoteUrl(this.config.url);
+
     this.abortController = new AbortController();
     const response = await fetch(this.config.url, {
       method: 'GET',
@@ -170,6 +207,9 @@ export class RemoteServer extends EventEmitter {
       );
       return;
     }
+
+    // Validate URL to prevent SSRF
+    validateRemoteUrl(this.config.url);
 
     const method = this.config.method || 'POST';
     try {

@@ -56,7 +56,7 @@ export class ContainerServer extends BaseServer {
     if (image) {
       this.imageRef = image;
       if (pull === 'always' || (pull === 'missing' && !(await this.imageExistsLocally(image)))) {
-        logger.info(`Pulling image: ${sanitizeString(image)}`);
+        logger.info('Pulling Docker image', { image: sanitizeString(image) });
         await runShell('docker', ['pull', image]);
       }
       return;
