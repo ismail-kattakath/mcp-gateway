@@ -657,6 +657,64 @@ export class UsersModel {
       throw err;
     }
   }
+
+  /**
+   * Find user by SAML NameID
+   *
+   * @param provider - SAML provider name
+   * @param nameId - SAML NameID
+   * @returns User or null if not found
+   */
+  findBySAMLNameId(provider: string, nameId: string): UserPublic | null {
+    try {
+      const user = this.db
+        .prepare('SELECT * FROM users WHERE saml_provider = ? AND saml_nameid = ?')
+        .get(provider, nameId) as UserRecord | undefined;
+
+      if (!user) {
+        return null;
+      }
+
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to find user by SAML NameID', {
+        provider: sanitizeString(provider),
+        nameId: sanitizeString(nameId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Link SAML account to existing user
+   *
+   * @param userId - User ID
+   * @param provider - SAML provider name
+   * @param nameId - SAML NameID
+   */
+  linkSAML(userId: string, provider: string, nameId: string): void {
+    try {
+      const now = new Date().toISOString();
+      this.db
+        .prepare('UPDATE users SET saml_provider = ?, saml_nameid = ?, updated_at = ? WHERE id = ?')
+        .run(provider, nameId, now, userId);
+
+      logger.info('Linked SAML account to user', {
+        userId: sanitizeString(userId),
+        provider: sanitizeString(provider),
+        nameId: sanitizeString(nameId),
+      });
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to link SAML account', {
+        userId: sanitizeString(userId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
 }
 
 // Lazy singleton instance (only created when accessed)
@@ -678,6 +736,8 @@ export const usersModel = {
   findByGoogleId: (googleId: string) => usersModel.instance.findByGoogleId(googleId),
   findByOAuthId: (provider: string, oauthId: string) =>
     usersModel.instance.findByOAuthId(provider, oauthId),
+  findBySAMLNameId: (provider: string, nameId: string) =>
+    usersModel.instance.findBySAMLNameId(provider, nameId),
   authenticate: (username: string, password: string) =>
     usersModel.instance.authenticate(username, password),
   update: (id: string, options: UpdateUserOptions) => usersModel.instance.update(id, options),
@@ -690,6 +750,8 @@ export const usersModel = {
     usersModel.instance.linkGoogle(userId, googleId),
   linkOAuth: (userId: string, provider: string, oauthId: string) =>
     usersModel.instance.linkOAuth(userId, provider, oauthId),
+  linkSAML: (userId: string, provider: string, nameId: string) =>
+    usersModel.instance.linkSAML(userId, provider, nameId),
 };
 
 export default usersModel;

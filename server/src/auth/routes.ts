@@ -667,4 +667,295 @@ router.get('/oauth/providers', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * SAML 2.0 Routes (Epic #19)
+ */
+
+import passport from 'passport';
+import { samlProvidersModel } from '../storage/models/saml-providers.js';
+
+/**
+ * GET /auth/saml/:provider/login
+ *
+ * Initiate SAML login flow.
+ * Redirects to IdP SSO page.
+ */
+router.get('/saml/:provider/login', (req: Request, res: Response, next) => {
+  const provider = req.params.provider;
+
+  // Check if provider exists and is enabled
+  const samlProvider = samlProvidersModel.findByName(provider);
+
+  if (!samlProvider) {
+    return res.status(404).json({
+      error: `SAML provider '${provider}' not configured`,
+    });
+  }
+
+  if (!samlProvider.enabled) {
+    return res.status(403).json({
+      error: `SAML provider '${provider}' is disabled`,
+    });
+  }
+
+  // Authenticate using passport SAML strategy
+  return passport.authenticate(`saml-${provider}`, { session: false })(req, res, next);
+});
+
+/**
+ * POST /auth/saml/:provider/callback
+ *
+ * SAML Assertion Consumer Service (ACS).
+ * Receives SAML assertion from IdP, validates, and provisions user.
+ */
+router.post('/saml/:provider/callback', (req: Request, res: Response, next) => {
+  const provider = req.params.provider;
+
+  passport.authenticate(
+    `saml-${provider}`,
+    { session: false },
+    async (err: Error | null, user: any) => {
+      if (err) {
+        logger.error('SAML callback error', {
+          provider: sanitizeString(provider),
+          error: sanitizeString(err.message),
+          ip: req.ip,
+        });
+        return res.redirect('/auth/saml/failure?error=' + encodeURIComponent(err.message));
+      }
+
+      if (!user) {
+        logger.warn('SAML callback failed: no user', {
+          provider: sanitizeString(provider),
+          ip: req.ip,
+        });
+        return res.redirect('/auth/saml/failure?error=Authentication failed');
+      }
+
+      try {
+        // Generate tokens
+        const accessToken = generateAccessToken({
+          sub: user.id,
+          username: user.username,
+          role: user.role,
+          tenant: user.tenant,
+        });
+
+        const refreshTokenData = generateRefreshToken();
+
+        // Store refresh token in database
+        await refreshTokensModel.create({
+          userId: user.id,
+          tokenHash: refreshTokenData.tokenHash,
+          deviceInfo: req.get('User-Agent') || 'Unknown',
+          ipAddress: req.ip || 'Unknown',
+          expiresAt: refreshTokenData.expiresAt,
+          tenant: user.tenant,
+        });
+
+        logger.info('SAML login successful', {
+          provider: sanitizeString(provider),
+          userId: sanitizeString(user.id),
+          username: sanitizeString(user.username),
+          ip: req.ip,
+        });
+
+        // Redirect to success page with tokens
+        const redirectUrl = `/auth/saml/success?accessToken=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshTokenData.token)}&expiresIn=900`;
+        return res.redirect(redirectUrl);
+      } catch (error) {
+        const tokenErr = error as Error;
+        logger.error('SAML token generation error', {
+          provider: sanitizeString(provider),
+          error: sanitizeString(tokenErr.message),
+        });
+        return res.redirect('/auth/saml/failure?error=Token generation failed');
+      }
+    }
+  )(req, res, next);
+});
+
+/**
+ * GET /auth/saml/:provider/metadata
+ *
+ * Service Provider metadata endpoint.
+ * Returns SAML metadata XML for IdP configuration.
+ */
+router.get('/saml/:provider/metadata', (req: Request, res: Response) => {
+  const provider = req.params.provider;
+
+  // Check if provider exists
+  const samlProvider = samlProvidersModel.findByName(provider);
+
+  if (!samlProvider) {
+    return res.status(404).json({
+      error: `SAML provider '${provider}' not configured`,
+    });
+  }
+
+  // Generate SP metadata XML
+  const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+                  entityID="${samlProvider.sp_entity_id}">
+  <SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"
+                   WantAssertionsSigned="${samlProvider.want_assertions_signed}">
+    <AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                             Location="${samlProvider.acs_url}"
+                             index="1"/>
+  </SPSSODescriptor>
+</EntityDescriptor>`;
+
+  res.set('Content-Type', 'application/samlmetadata+xml');
+  return res.send(metadata);
+});
+
+/**
+ * GET /auth/saml/success
+ *
+ * SAML success page.
+ * Displayed after successful SAML authentication.
+ */
+router.get('/saml/success', (req: Request, res: Response) => {
+  const { accessToken, refreshToken, expiresIn } = req.query;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>SAML Login Successful</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .success { color: green; }
+        .token { background: #f5f5f5; padding: 10px; margin: 10px 0; word-break: break-all; }
+        .copy-btn { margin-left: 10px; }
+      </style>
+    </head>
+    <body>
+      <h1 class="success">✓ SAML Login Successful</h1>
+      <p>You have successfully authenticated via SAML.</p>
+
+      <h3>Access Token (expires in ${expiresIn || '900'}s):</h3>
+      <div class="token" id="accessToken">${accessToken || 'N/A'}</div>
+      <button class="copy-btn" onclick="copyToClipboard('accessToken')">Copy</button>
+
+      <h3>Refresh Token:</h3>
+      <div class="token" id="refreshToken">${refreshToken || 'N/A'}</div>
+      <button class="copy-btn" onclick="copyToClipboard('refreshToken')">Copy</button>
+
+      <p><a href="/">Go to Dashboard</a></p>
+
+      <script>
+        function copyToClipboard(elementId) {
+          const el = document.getElementById(elementId);
+          navigator.clipboard.writeText(el.textContent);
+          alert('Copied to clipboard!');
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+/**
+ * GET /auth/saml/failure
+ *
+ * SAML failure page.
+ * Displayed after failed SAML authentication.
+ */
+router.get('/saml/failure', (req: Request, res: Response) => {
+  const { error } = req.query;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>SAML Login Failed</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .error { color: red; }
+      </style>
+    </head>
+    <body>
+      <h1 class="error">✗ SAML Login Failed</h1>
+      <p>Authentication failed: ${error || 'Unknown error'}</p>
+      <p><a href="/auth/login">Try again</a></p>
+    </body>
+    </html>
+  `);
+});
+
+/**
+ * GET /auth/saml/providers
+ *
+ * List available SAML providers.
+ * Public endpoint (no auth required).
+ */
+router.get('/saml/providers', async (req: Request, res: Response) => {
+  try {
+    const providers = samlProvidersModel.list({ enabled: true });
+
+    const publicProviders = providers.map((p) => ({
+      name: p.name,
+      type: p.type,
+      enabled: p.enabled,
+    }));
+
+    return res.json(publicProviders);
+  } catch (error) {
+    const err = error as Error;
+    logger.error('SAML providers list error', {
+      error: sanitizeString(err.message),
+    });
+    return res.status(500).json({
+      error: 'Internal server error',
+    });
+  }
+});
+
+/**
+ * POST /auth/saml/providers
+ *
+ * Create SAML provider (admin only).
+ * Requires admin authentication.
+ */
+router.post(
+  '/saml/providers',
+  authenticate(),
+  requirePermission('create', 'setting'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({
+          error: 'Admin access required',
+        });
+      }
+
+      const provider = await samlProvidersModel.create(req.body);
+
+      logger.info('SAML provider created', {
+        adminId: sanitizeString(req.user.id),
+        providerId: sanitizeString(provider.id),
+        providerName: sanitizeString(provider.name),
+      });
+
+      return res.status(201).json(provider);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('SAML provider creation error', {
+        error: sanitizeString(err.message),
+      });
+
+      if (err.message.includes('already exists')) {
+        return res.status(409).json({
+          error: err.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal server error',
+      });
+    }
+  }
+);
+
 export default router;

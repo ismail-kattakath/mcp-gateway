@@ -14,6 +14,8 @@ import { jwtStrategy } from './strategies/jwt.js';
 import { basicStrategy } from './strategies/basic.js';
 import { apikeyStrategy } from './strategies/apikey.js';
 import { initOAuthStrategies } from './strategies/oauth/index.js';
+import { registerSAMLStrategies } from './strategies/saml/strategy.js';
+import { initializeValidation as initSAMLValidation } from './strategies/saml/validation.js';
 import logger from '../logging/logger.js';
 
 /**
@@ -38,6 +40,18 @@ export async function initializePassport(): Promise<typeof passport> {
       error: err.message,
     });
     // Don't fail server startup if OAuth init fails
+  }
+
+  // Initialize SAML strategies (async, loads from database)
+  try {
+    initSAMLValidation();
+    registerSAMLStrategies(passport);
+  } catch (error) {
+    const err = error as Error;
+    logger.warn('Failed to initialize SAML strategies', {
+      error: err.message,
+    });
+    // Don't fail server startup if SAML init fails
   }
 
   return passport;
