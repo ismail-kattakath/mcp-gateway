@@ -344,7 +344,7 @@ router.post('/:name/enable', async (req: Request, res: Response) => {
         ? normalizedName
         : '[INVALID_DOMAIN]';
 
-    logger.info(`Domain enabled via API: ${sanitizeString(safeDomainForLog)}`);
+    logger.info(`Domain enabled via API: ${sanitizeDomainForLog(safeDomainForLog)}`);
 
     return res.json(domain);
   } catch (error: any) {
