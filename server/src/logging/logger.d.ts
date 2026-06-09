@@ -7,9 +7,19 @@
  */
 import winston from 'winston';
 interface CustomLogger extends winston.Logger {
-    logDir: string;
+  logDir: string;
 }
 declare const logger: CustomLogger;
-export { sanitizeString, sanitizeServerName, sanitizeUrl, sanitizeArgs, sanitizeEnv, sanitizeError, sanitizeIp, sanitizePath, sanitizeObject, } from './sanitizer.js';
+export {
+  sanitizeString,
+  sanitizeServerName,
+  sanitizeUrl,
+  sanitizeArgs,
+  sanitizeEnv,
+  sanitizeError,
+  sanitizeIp,
+  sanitizePath,
+  sanitizeObject,
+} from './sanitizer.js';
 export default logger;
 //# sourceMappingURL=logger.d.ts.map

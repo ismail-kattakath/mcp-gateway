@@ -40,10 +40,10 @@ export declare function sanitizeEnv(env: NodeJS.ProcessEnv): Record<string, stri
  * Sanitizes an error object for logging
  */
 export declare function sanitizeError(error: unknown): {
-    message: string;
-    name?: string;
-    code?: string;
-    stack?: string;
+  message: string;
+  name?: string;
+  code?: string;
+  stack?: string;
 };
 /**
  * Sanitizes an IP address (preserves format but masks last octet for privacy)

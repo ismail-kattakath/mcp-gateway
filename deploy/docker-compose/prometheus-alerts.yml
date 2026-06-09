@@ -1,0 +1,54 @@
+groups:
+  - name: mcp-gateway
+    interval: 30s
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on MCP Gateway"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            container_memory_usage_bytes{name="mcp-gateway"}
+            /
+            container_spec_memory_limit_bytes{name="mcp-gateway"}
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on MCP Gateway"
+          description: "Memory usage is {{ $value | humanizePercentage }} of limit"
+
+      # Gateway down
+      - alert: GatewayDown
+        expr: up{job="mcp-gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MCP Gateway is down"
+          description: "MCP Gateway has been down for more than 2 minutes"
+
+      # Slow response time
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow response time on MCP Gateway"
+          description: "95th percentile response time is {{ $value }}s (threshold: 2s)"

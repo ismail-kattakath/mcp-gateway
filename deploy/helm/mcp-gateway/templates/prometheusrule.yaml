@@ -1,0 +1,51 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "mcp-gateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: {{ include "mcp-gateway.name" . }}.rules
+      interval: 30s
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            (
+              sum(rate(http_requests_total{status=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate on {{ include "mcp-gateway.name" . }}"
+            description: "Error rate is {{- `{{ $value | humanizePercentage }}` -}} (threshold: 5%)"
+
+        - alert: HighMemoryUsage
+          expr: |
+            (
+              container_memory_usage_bytes{pod=~"{{ include "mcp-gateway.fullname" . }}.*"}
+              /
+              container_spec_memory_limit_bytes{pod=~"{{ include "mcp-gateway.fullname" . }}.*"}
+            ) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory usage on {{- `{{ $labels.pod }}` -}}"
+            description: "Memory usage is {{- `{{ $value | humanizePercentage }}` -}} of limit"
+
+        - alert: PodDown
+          expr: |
+            kube_pod_status_phase{pod=~"{{ include "mcp-gateway.fullname" . }}.*", phase!="Running"} == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod is down"
+            description: "Pod {{- `{{ $labels.pod }}` -}} is in {{- `{{ $labels.phase }}` -}} state"
+{{- end }}

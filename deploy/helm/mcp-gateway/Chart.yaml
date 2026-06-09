@@ -1,0 +1,28 @@
+apiVersion: v2
+name: mcp-gateway
+description: Universal aggregator for Model Context Protocol (MCP) servers
+type: application
+version: 2.1.0
+appVersion: "2.1.0"
+
+keywords:
+  - mcp
+  - model-context-protocol
+  - gateway
+  - proxy
+  - server
+  - aggregator
+
+home: https://github.com/ismail-kattakath/mcp-gateway
+sources:
+  - https://github.com/ismail-kattakath/mcp-gateway
+
+maintainers:
+  - name: MCP Gateway Team
+    email: support@example.com
+
+icon: https://raw.githubusercontent.com/ismail-kattakath/mcp-gateway/main/docs/logo.png
+
+annotations:
+  category: Infrastructure
+  licenses: MIT

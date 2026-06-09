@@ -1,0 +1,70 @@
+# Caddyfile for MCP Gateway production deployment
+# Replace gateway.example.com with your actual domain
+
+gateway.example.com {
+    # TLS configuration (automatic HTTPS via Let's Encrypt)
+    tls {
+        protocols tls1.2 tls1.3
+    }
+
+    # Security headers
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent clickjacking
+        X-Frame-Options "DENY"
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+        # XSS protection
+        X-XSS-Protection "1; mode=block"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Remove server header
+        -Server
+    }
+
+    # Gzip compression
+    encode gzip
+
+    # Rate limiting (100 requests per minute per IP)
+    rate_limit {
+        zone dynamic {
+            key {remote_host}
+            events 100
+            window 1m
+        }
+    }
+
+    # Reverse proxy to gateway
+    reverse_proxy gateway:3000 {
+        # Load balancing (if multiple instances)
+        lb_policy round_robin
+
+        # Health check
+        health_uri /health
+        health_interval 30s
+        health_timeout 10s
+
+        # Timeouts
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 60s
+            read_timeout 60s
+            write_timeout 60s
+        }
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10mb
+            roll_keep 10
+        }
+        format json
+    }
+}
+
+# Redirect HTTP to HTTPS
+http://gateway.example.com {
+    redir https://gateway.example.com{uri} permanent
+}

@@ -40,11 +40,13 @@ describe('Audit Service', () => {
     `);
 
     // Create test users
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO users (id, username, email, password_hash, role)
       VALUES ('user-1', 'alice', 'alice@test.com', 'hash', 'user'),
              ('user-2', 'bob', 'bob@test.com', 'hash', 'user')
-    `).run();
+    `
+    ).run();
   });
 
   afterEach(() => {

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-gateway.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+data:
+  NODE_ENV: {{ .Values.config.nodeEnv | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  GATEWAY_HOST: {{ .Values.config.gatewayHost | quote }}
+  GATEWAY_PORT: {{ .Values.config.gatewayPort | quote }}
+  DATABASE_PATH: {{ .Values.database.path | quote }}
+  RATE_LIMIT_ENABLED: {{ .Values.config.rateLimit.enabled | quote }}
+  RATE_LIMIT_WINDOW_MS: {{ .Values.config.rateLimit.windowMs | quote }}
+  RATE_LIMIT_MAX_REQUESTS: {{ .Values.config.rateLimit.maxRequests | quote }}
+  TRACING_ENABLED: {{ .Values.config.tracing.enabled | quote }}
+  {{- if .Values.config.tracing.jaegerEndpoint }}
+  JAEGER_ENDPOINT: {{ .Values.config.tracing.jaegerEndpoint | quote }}
+  {{- end }}

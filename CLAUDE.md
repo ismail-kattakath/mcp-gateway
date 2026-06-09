@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Security**: Auto-generated API keys stored in system keychain, optional IP allowlist, comprehensive security hardening (OWASP Top 10, CWE Top 25)
 - **REST API**: Full CRUD operations for server management, OpenAPI 3.0 spec, Swagger UI docs
 - **Security Hardening**: Input validation, rate limiting, security headers, secrets management, container security
+- **Production Deployment**: Kubernetes manifests, Helm chart, Docker Compose, standalone server configurations with HA, autoscaling, and monitoring
 
 ## REST API
 
@@ -473,6 +474,47 @@ This spawns 3 parallel validation agents and reports consolidated results in ~2-
 
 See `docs/AUDIT_LOGGING.md` for complete documentation.
 
+## Production Deployment
+
+**MCP Gateway is production-ready with comprehensive deployment configurations:**
+
+- **Kubernetes**: Full manifests with HA, autoscaling, security hardening (`deploy/kubernetes/`)
+  - Deployment with readiness/liveness probes, resource limits, pod disruption budget
+  - Service (ClusterIP), Ingress with TLS, ConfigMap, Secret, PVC
+  - HorizontalPodAutoscaler (CPU/memory-based scaling)
+  - NetworkPolicy for egress/ingress restrictions
+  - RBAC (ServiceAccount, Role, RoleBinding)
+
+- **Helm Chart**: Parameterized templates with values schema validation (`deploy/helm/mcp-gateway/`)
+  - Sensible defaults for production (replicas, resources, ingress, TLS, database)
+  - Support for multiple deployment modes (standalone, clustered, high-availability)
+  - Values schema validation (values.schema.json)
+  - Post-install notes with access instructions
+
+- **Docker Compose**: Production setup with monitoring stack (`deploy/docker-compose/`)
+  - Multi-container: gateway + Caddy reverse proxy + Prometheus + Grafana + Node Exporter
+  - Health checks, restart policies, logging drivers
+  - Volume persistence, secrets management via Docker secrets
+  - Production-ready environment variables
+
+- **Monitoring**: Prometheus ServiceMonitor, PrometheusRule alerts, Grafana dashboard (`deploy/monitoring/`)
+  - Pre-configured alerts: high error rate, memory pressure, slow response time
+  - Grafana dashboard with request rate, latency percentiles, resource usage
+  - Jaeger tracing integration (optional)
+
+**Deployment guides:**
+- `docs/PRODUCTION_DEPLOYMENT.md` — Comprehensive guide for Kubernetes (GKE/EKS/AKS), Docker Swarm, Docker Compose, standalone
+- `deploy/kubernetes/README.md` — Quick start for Kubernetes
+- `deploy/docker-compose/README.md` — Quick start for Docker Compose
+
+**Key features:**
+- Horizontal autoscaling (min 3, max 10 replicas)
+- High availability (PodDisruptionBudget, anti-affinity rules)
+- Database migration strategies (SQLite → PostgreSQL)
+- Backup and restore procedures
+- Disaster recovery playbook (multi-region failover)
+- Scaling best practices (horizontal vs vertical)
+
 ## Documentation
 
 - **`README.md`** — User-facing quick start, features, setup modes
@@ -480,6 +522,7 @@ See `docs/AUDIT_LOGGING.md` for complete documentation.
 - **`schema/registry-v2.schema.json`** — Canonical registry schema (v2.0 + v2.1 formats)
 - **`docs/API.md`** — Complete REST API reference
 - **`docs/AUDIT_LOGGING.md`** — Audit logging guide (Epic #22)
+- **`docs/PRODUCTION_DEPLOYMENT.md`** — Production deployment guide (Epic #29)
 - **`docs/MIGRATION-v2.1.md`** — Migration guide from v2.0 to v2.1
 - **`cli/README.md`** — CLI usage guide
 - **`.claude/skills/`** — Validation skills for pre-push verification

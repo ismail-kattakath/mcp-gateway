@@ -1,0 +1,120 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mcp-gateway-alerts
+  namespace: mcp-gateway
+  labels:
+    app.kubernetes.io/name: mcp-gateway
+    app.kubernetes.io/component: monitoring
+spec:
+  groups:
+    - name: mcp-gateway.rules
+      interval: 30s
+      rules:
+        # High error rate alert
+        - alert: MCPGatewayHighErrorRate
+          expr: |
+            (
+              sum(rate(http_requests_total{status=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            component: mcp-gateway
+          annotations:
+            summary: "High error rate on MCP Gateway"
+            description: "MCP Gateway is experiencing {{ $value | humanizePercentage }} error rate (threshold: 5%)"
+
+        # High memory usage alert
+        - alert: MCPGatewayHighMemoryUsage
+          expr: |
+            (
+              container_memory_usage_bytes{pod=~"mcp-gateway.*"}
+              /
+              container_spec_memory_limit_bytes{pod=~"mcp-gateway.*"}
+            ) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            component: mcp-gateway
+          annotations:
+            summary: "High memory usage on {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit"
+
+        # High CPU usage alert
+        - alert: MCPGatewayHighCPUUsage
+          expr: |
+            (
+              rate(container_cpu_usage_seconds_total{pod=~"mcp-gateway.*"}[5m])
+              /
+              container_spec_cpu_quota{pod=~"mcp-gateway.*"}
+            ) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            component: mcp-gateway
+          annotations:
+            summary: "High CPU usage on {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its CPU limit"
+
+        # Pod down alert
+        - alert: MCPGatewayPodDown
+          expr: |
+            kube_pod_status_phase{pod=~"mcp-gateway.*", phase!="Running"} == 1
+          for: 5m
+          labels:
+            severity: critical
+            component: mcp-gateway
+          annotations:
+            summary: "MCP Gateway pod is down"
+            description: "Pod {{ $labels.pod }} has been in {{ $labels.phase }} state for more than 5 minutes"
+
+        # Slow response time alert
+        - alert: MCPGatewaySlowResponseTime
+          expr: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+          for: 5m
+          labels:
+            severity: warning
+            component: mcp-gateway
+          annotations:
+            summary: "MCP Gateway slow response time"
+            description: "95th percentile response time is {{ $value }}s (threshold: 2s)"
+
+        # High request rate alert
+        - alert: MCPGatewayHighRequestRate
+          expr: |
+            sum(rate(http_requests_total[5m])) > 1000
+          for: 5m
+          labels:
+            severity: info
+            component: mcp-gateway
+          annotations:
+            summary: "MCP Gateway experiencing high traffic"
+            description: "Request rate is {{ $value }} req/s (threshold: 1000 req/s)"
+
+        # Database lock contention alert
+        - alert: MCPGatewayDatabaseLockContention
+          expr: |
+            rate(sqlite_lock_wait_seconds_total[5m]) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: mcp-gateway
+          annotations:
+            summary: "MCP Gateway database lock contention"
+            description: "Database lock wait time is {{ $value }}s/req (consider migrating to PostgreSQL)"
+
+        # Insufficient replicas alert
+        - alert: MCPGatewayInsufficientReplicas
+          expr: |
+            kube_deployment_status_replicas_available{deployment="mcp-gateway"} < 2
+          for: 5m
+          labels:
+            severity: warning
+            component: mcp-gateway
+          annotations:
+            summary: "MCP Gateway has insufficient replicas"
+            description: "Only {{ $value }} replicas are available (minimum: 2 for high availability)"

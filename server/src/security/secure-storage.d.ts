@@ -35,16 +35,16 @@ export declare function migrateFromCleartext(oldFilePath: string): Promise<strin
  * SecureStorage class wrapper for keychain operations
  */
 export declare class SecureStorage {
-    setPassword(service: string, account: string, password: string): Promise<void>;
-    getPassword(service: string, account: string): Promise<string | null>;
-    deletePassword(service: string, account: string): Promise<void>;
+  setPassword(service: string, account: string, password: string): Promise<void>;
+  getPassword(service: string, account: string): Promise<string | null>;
+  deletePassword(service: string, account: string): Promise<void>;
 }
 declare const _default: {
-    storeSecret: typeof storeSecret;
-    retrieveSecret: typeof retrieveSecret;
-    deleteSecret: typeof deleteSecret;
-    migrateFromCleartext: typeof migrateFromCleartext;
-    SecureStorage: typeof SecureStorage;
+  storeSecret: typeof storeSecret;
+  retrieveSecret: typeof retrieveSecret;
+  deleteSecret: typeof deleteSecret;
+  migrateFromCleartext: typeof migrateFromCleartext;
+  SecureStorage: typeof SecureStorage;
 };
 export default _default;
 //# sourceMappingURL=secure-storage.d.ts.map

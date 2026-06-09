@@ -19,17 +19,16 @@ import logger from '../logging/logger.js';
 // Keytar is optional (not available in all environments)
 let keytar;
 try {
-    // Use createRequire for native modules (keytar is CommonJS)
-    const { createRequire } = await import('module');
-    const require = createRequire(import.meta.url);
-    keytar = require('keytar');
-    logger.debug('Keytar loaded successfully (system keychain available)');
-}
-catch (error) {
-    const err = error;
-    logger.info('keytar not available, will use encrypted file storage', {
-        reason: err.code === 'MODULE_NOT_FOUND' ? 'not installed' : err.message,
-    });
+  // Use createRequire for native modules (keytar is CommonJS)
+  const { createRequire } = await import('module');
+  const require = createRequire(import.meta.url);
+  keytar = require('keytar');
+  logger.debug('Keytar loaded successfully (system keychain available)');
+} catch (error) {
+  const err = error;
+  logger.info('keytar not available, will use encrypted file storage', {
+    reason: err.code === 'MODULE_NOT_FOUND' ? 'not installed' : err.message,
+  });
 }
 const SERVICE_NAME = 'mcp-gateway';
 const ACCOUNT_NAME = 'api-key';
@@ -48,38 +47,41 @@ const PBKDF2_DIGEST = 'sha512';
  * Key is tied to this specific machine - stolen file won't decrypt elsewhere.
  */
 function deriveEncryptionKey(salt) {
-    const machineIdValue = machineId.machineIdSync({ original: true });
-    return crypto.pbkdf2Sync(machineIdValue, salt, PBKDF2_ITERATIONS, KEY_LENGTH, PBKDF2_DIGEST);
+  const machineIdValue = machineId.machineIdSync({ original: true });
+  return crypto.pbkdf2Sync(machineIdValue, salt, PBKDF2_ITERATIONS, KEY_LENGTH, PBKDF2_DIGEST);
 }
 /**
  * Encrypt plaintext using AES-256-GCM with machine-derived key.
  * @returns Encrypted data format: [salt(32)][iv(16)][tag(16)][ciphertext]
  */
 function encrypt(plaintext) {
-    const salt = crypto.randomBytes(SALT_LENGTH);
-    const key = deriveEncryptionKey(salt);
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    // Format: salt + iv + tag + ciphertext
-    return Buffer.concat([salt, iv, tag, encrypted]);
+  const salt = crypto.randomBytes(SALT_LENGTH);
+  const key = deriveEncryptionKey(salt);
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // Format: salt + iv + tag + ciphertext
+  return Buffer.concat([salt, iv, tag, encrypted]);
 }
 /**
  * Decrypt data encrypted with encrypt().
  */
 function decrypt(encryptedBuffer) {
-    if (encryptedBuffer.length < SALT_LENGTH + IV_LENGTH + TAG_LENGTH) {
-        throw new Error('Encrypted data is corrupted (too short)');
-    }
-    const salt = encryptedBuffer.subarray(0, SALT_LENGTH);
-    const iv = encryptedBuffer.subarray(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
-    const tag = encryptedBuffer.subarray(SALT_LENGTH + IV_LENGTH, SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
-    const ciphertext = encryptedBuffer.subarray(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
-    const key = deriveEncryptionKey(salt);
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-    decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+  if (encryptedBuffer.length < SALT_LENGTH + IV_LENGTH + TAG_LENGTH) {
+    throw new Error('Encrypted data is corrupted (too short)');
+  }
+  const salt = encryptedBuffer.subarray(0, SALT_LENGTH);
+  const iv = encryptedBuffer.subarray(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
+  const tag = encryptedBuffer.subarray(
+    SALT_LENGTH + IV_LENGTH,
+    SALT_LENGTH + IV_LENGTH + TAG_LENGTH
+  );
+  const ciphertext = encryptedBuffer.subarray(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
+  const key = deriveEncryptionKey(salt);
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
 }
 /**
  * Store secret in system keychain (primary method).
@@ -88,24 +90,23 @@ function decrypt(encryptedBuffer) {
  * @returns true if successful
  */
 async function storeInKeychain(secret, accountName = ACCOUNT_NAME) {
-    if (!keytar) {
-        return false;
-    }
-    try {
-        await keytar.setPassword(SERVICE_NAME, accountName, secret);
-        logger.info('Secret stored in system keychain', {
-            service: SERVICE_NAME,
-            account: accountName,
-        });
-        return true;
-    }
-    catch (error) {
-        const err = error;
-        logger.warn('Failed to store in keychain, will use encrypted file', {
-            error: err.message,
-        });
-        return false;
-    }
+  if (!keytar) {
+    return false;
+  }
+  try {
+    await keytar.setPassword(SERVICE_NAME, accountName, secret);
+    logger.info('Secret stored in system keychain', {
+      service: SERVICE_NAME,
+      account: accountName,
+    });
+    return true;
+  } catch (error) {
+    const err = error;
+    logger.warn('Failed to store in keychain, will use encrypted file', {
+      error: err.message,
+    });
+    return false;
+  }
 }
 /**
  * Retrieve secret from system keychain.
@@ -113,97 +114,92 @@ async function storeInKeychain(secret, accountName = ACCOUNT_NAME) {
  * @returns Secret or null if not found
  */
 async function retrieveFromKeychain(accountName = ACCOUNT_NAME) {
-    if (!keytar) {
-        return null;
+  if (!keytar) {
+    return null;
+  }
+  try {
+    const secret = await keytar.getPassword(SERVICE_NAME, accountName);
+    if (secret !== null) {
+      logger.debug('Secret loaded from system keychain', { account: accountName });
     }
-    try {
-        const secret = await keytar.getPassword(SERVICE_NAME, accountName);
-        if (secret !== null) {
-            logger.debug('Secret loaded from system keychain', { account: accountName });
-        }
-        return secret;
-    }
-    catch (error) {
-        const err = error;
-        logger.warn('Failed to read from keychain', { error: err.message });
-        return null;
-    }
+    return secret;
+  } catch (error) {
+    const err = error;
+    logger.warn('Failed to read from keychain', { error: err.message });
+    return null;
+  }
 }
 /**
  * Delete secret from system keychain.
  */
 async function deleteFromKeychain() {
-    if (!keytar) {
-        return false;
+  if (!keytar) {
+    return false;
+  }
+  try {
+    const deleted = await keytar.deletePassword(SERVICE_NAME, ACCOUNT_NAME);
+    if (deleted) {
+      logger.info('API key deleted from system keychain');
     }
-    try {
-        const deleted = await keytar.deletePassword(SERVICE_NAME, ACCOUNT_NAME);
-        if (deleted) {
-            logger.info('API key deleted from system keychain');
-        }
-        return deleted;
-    }
-    catch (error) {
-        const err = error;
-        logger.warn('Failed to delete from keychain', { error: err.message });
-        return false;
-    }
+    return deleted;
+  } catch (error) {
+    const err = error;
+    logger.warn('Failed to delete from keychain', { error: err.message });
+    return false;
+  }
 }
 /**
  * Store secret in encrypted file (fallback method).
  */
 async function storeInEncryptedFile(secret) {
-    try {
-        await fs.mkdir(STORAGE_DIR, { recursive: true });
-        const encrypted = encrypt(secret);
-        await fs.writeFile(ENCRYPTED_FILE, encrypted, { mode: 0o600 });
-        logger.info('API key stored in encrypted file', { path: ENCRYPTED_FILE });
-        return true;
-    }
-    catch (error) {
-        const err = error;
-        logger.error('Failed to store in encrypted file', {
-            error: err.message,
-            stack: err.stack,
-        });
-        return false;
-    }
+  try {
+    await fs.mkdir(STORAGE_DIR, { recursive: true });
+    const encrypted = encrypt(secret);
+    await fs.writeFile(ENCRYPTED_FILE, encrypted, { mode: 0o600 });
+    logger.info('API key stored in encrypted file', { path: ENCRYPTED_FILE });
+    return true;
+  } catch (error) {
+    const err = error;
+    logger.error('Failed to store in encrypted file', {
+      error: err.message,
+      stack: err.stack,
+    });
+    return false;
+  }
 }
 /**
  * Retrieve secret from encrypted file.
  * @returns Secret or null if not found/corrupted
  */
 async function retrieveFromEncryptedFile() {
-    try {
-        const encrypted = await fs.readFile(ENCRYPTED_FILE);
-        const secret = decrypt(encrypted);
-        logger.debug('API key loaded from encrypted file');
-        return secret;
+  try {
+    const encrypted = await fs.readFile(ENCRYPTED_FILE);
+    const secret = decrypt(encrypted);
+    logger.debug('API key loaded from encrypted file');
+    return secret;
+  } catch (error) {
+    const err = error;
+    if (err.code !== 'ENOENT') {
+      logger.warn('Failed to read encrypted file (may be corrupted)', { error: err.message });
     }
-    catch (error) {
-        const err = error;
-        if (err.code !== 'ENOENT') {
-            logger.warn('Failed to read encrypted file (may be corrupted)', { error: err.message });
-        }
-        return null;
-    }
+    return null;
+  }
 }
 /**
  * Delete encrypted file.
  */
 async function deleteEncryptedFile() {
-    try {
-        await fs.unlink(ENCRYPTED_FILE);
-        logger.info('Encrypted file deleted', { path: ENCRYPTED_FILE });
-        return true;
+  try {
+    await fs.unlink(ENCRYPTED_FILE);
+    logger.info('Encrypted file deleted', { path: ENCRYPTED_FILE });
+    return true;
+  } catch (error) {
+    const err = error;
+    if (err.code !== 'ENOENT') {
+      logger.warn('Failed to delete encrypted file', { error: err.message });
     }
-    catch (error) {
-        const err = error;
-        if (err.code !== 'ENOENT') {
-            logger.warn('Failed to delete encrypted file', { error: err.message });
-        }
-        return false;
-    }
+    return false;
+  }
 }
 /**
  * Store secret securely (tries keychain first, falls back to encrypted file).
@@ -211,82 +207,80 @@ async function deleteEncryptedFile() {
  * @param accountName - Account name for keychain (default: 'api-key')
  */
 export async function storeSecret(secret, accountName = ACCOUNT_NAME) {
-    const keychainSuccess = await storeInKeychain(secret, accountName);
-    if (keychainSuccess) {
-        return true;
-    }
-    return await storeInEncryptedFile(secret);
+  const keychainSuccess = await storeInKeychain(secret, accountName);
+  if (keychainSuccess) {
+    return true;
+  }
+  return await storeInEncryptedFile(secret);
 }
 /**
  * Retrieve secret securely (tries keychain first, falls back to encrypted file).
  * @param accountName - Account name for keychain (default: 'api-key')
  */
 export async function retrieveSecret(accountName = ACCOUNT_NAME) {
-    const keychainSecret = await retrieveFromKeychain(accountName);
-    if (keychainSecret !== null) {
-        return keychainSecret;
-    }
-    return await retrieveFromEncryptedFile();
+  const keychainSecret = await retrieveFromKeychain(accountName);
+  if (keychainSecret !== null) {
+    return keychainSecret;
+  }
+  return await retrieveFromEncryptedFile();
 }
 /**
  * Delete secret from all storage locations.
  */
 export async function deleteSecret() {
-    const results = await Promise.all([deleteFromKeychain(), deleteEncryptedFile()]);
-    return results.some((r) => r); // true if deleted from at least one location
+  const results = await Promise.all([deleteFromKeychain(), deleteEncryptedFile()]);
+  return results.some((r) => r); // true if deleted from at least one location
 }
 /**
  * Migrate from old cleartext file to secure storage.
  * @param oldFilePath - Path to old cleartext file
  */
 export async function migrateFromCleartext(oldFilePath) {
-    try {
-        const cleartext = await fs.readFile(oldFilePath, 'utf-8');
-        const secret = cleartext.trim();
-        if (secret.length > 0 && secret.length >= 16) {
-            await storeSecret(secret);
-            await fs.unlink(oldFilePath);
-            logger.info('Migrated API key from cleartext to secure storage', { oldPath: oldFilePath });
-            return secret;
-        }
+  try {
+    const cleartext = await fs.readFile(oldFilePath, 'utf-8');
+    const secret = cleartext.trim();
+    if (secret.length > 0 && secret.length >= 16) {
+      await storeSecret(secret);
+      await fs.unlink(oldFilePath);
+      logger.info('Migrated API key from cleartext to secure storage', { oldPath: oldFilePath });
+      return secret;
     }
-    catch (error) {
-        const err = error;
-        if (err.code !== 'ENOENT') {
-            logger.warn('Failed to migrate from cleartext', { error: err.message });
-        }
+  } catch (error) {
+    const err = error;
+    if (err.code !== 'ENOENT') {
+      logger.warn('Failed to migrate from cleartext', { error: err.message });
     }
-    return null;
+  }
+  return null;
 }
 /**
  * SecureStorage class wrapper for keychain operations
  */
 export class SecureStorage {
-    async setPassword(service, account, password) {
-        if (keytar) {
-            await keytar.setPassword(service, account, password);
-        }
-        else {
-            throw new Error('Keychain not available');
-        }
+  async setPassword(service, account, password) {
+    if (keytar) {
+      await keytar.setPassword(service, account, password);
+    } else {
+      throw new Error('Keychain not available');
     }
-    async getPassword(service, account) {
-        if (keytar) {
-            return await keytar.getPassword(service, account);
-        }
-        return null;
+  }
+  async getPassword(service, account) {
+    if (keytar) {
+      return await keytar.getPassword(service, account);
     }
-    async deletePassword(service, account) {
-        if (keytar) {
-            await keytar.deletePassword(service, account);
-        }
+    return null;
+  }
+  async deletePassword(service, account) {
+    if (keytar) {
+      await keytar.deletePassword(service, account);
     }
+  }
 }
 export default {
-    storeSecret,
-    retrieveSecret,
-    deleteSecret,
-    migrateFromCleartext,
-    SecureStorage,
+  storeSecret,
+  retrieveSecret,
+  deleteSecret,
+  migrateFromCleartext,
+  SecureStorage,
 };
 //# sourceMappingURL=secure-storage.js.map
