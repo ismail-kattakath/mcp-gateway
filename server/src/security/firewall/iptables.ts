@@ -100,7 +100,18 @@ export async function addIptablesRule(
     }
 
     // Add rule: iptables -A INPUT -s <ip> -p tcp --dport <port> -j <action>
-    const args = ['-A', chain, '-s', ipRange, '-p', 'tcp', '--dport', port.toString(), '-j', action];
+    const args = [
+      '-A',
+      chain,
+      '-s',
+      ipRange,
+      '-p',
+      'tcp',
+      '--dport',
+      port.toString(),
+      '-j',
+      action,
+    ];
 
     await execIptables(args, useSudo);
 
@@ -140,7 +151,18 @@ export async function removeIptablesRule(
 
   try {
     // Remove rule: iptables -D INPUT -s <ip> -p tcp --dport <port> -j <action>
-    const args = ['-D', chain, '-s', ipRange, '-p', 'tcp', '--dport', port.toString(), '-j', action];
+    const args = [
+      '-D',
+      chain,
+      '-s',
+      ipRange,
+      '-p',
+      'tcp',
+      '--dport',
+      port.toString(),
+      '-j',
+      action,
+    ];
 
     await execIptables(args, useSudo);
 
@@ -163,7 +185,10 @@ export async function removeIptablesRule(
 /**
  * List iptables rules for a chain
  */
-export async function listIptablesRules(chain: string = 'INPUT', useSudo: boolean = false): Promise<string[]> {
+export async function listIptablesRules(
+  chain: string = 'INPUT',
+  useSudo: boolean = false
+): Promise<string[]> {
   if (!isIptablesAvailable()) {
     return [];
   }
@@ -184,7 +209,10 @@ export async function listIptablesRules(chain: string = 'INPUT', useSudo: boolea
 /**
  * Flush all iptables rules for MCP Gateway (matching port)
  */
-export async function flushIptablesRules(port: number = 3000, tenant?: string | null): Promise<void> {
+export async function flushIptablesRules(
+  port: number = 3000,
+  tenant?: string | null
+): Promise<void> {
   if (!isIptablesAvailable()) {
     logger.warn('iptables not available on this system');
     return;
@@ -223,7 +251,10 @@ export async function flushIptablesRules(port: number = 3000, tenant?: string | 
  * Adds rules that exist in DB but not in iptables
  * Removes rules that exist in iptables but not in DB
  */
-export async function syncIptablesToDatabase(port: number = 3000, tenant?: string | null): Promise<void> {
+export async function syncIptablesToDatabase(
+  port: number = 3000,
+  tenant?: string | null
+): Promise<void> {
   if (!isIptablesAvailable()) {
     logger.warn('iptables not available - skipping sync');
     return;

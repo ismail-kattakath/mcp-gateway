@@ -38,6 +38,7 @@ import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './se
 import { startStdioTransport } from './mcp/stdio-transport.js';
 import { createApiRouter } from './api/routes.js';
 import { createFirewallRouter } from './api/firewall-routes.js';
+import { createLDAPRouter } from './api/ldap-routes.js';
 import { swaggerSpec, swaggerUi, swaggerUiOptions } from './api/swagger.js';
 // Firewall (Epic #23)
 import { initializeFirewall, createFirewallMiddleware } from './security/firewall/index.js';
@@ -453,6 +454,10 @@ async function initializeServer(): Promise<HttpServer | null> {
     // ===== Firewall Management Routes =====
     const firewallRouter = createFirewallRouter();
     app.use('/api/firewall', firewallRouter);
+
+    // ===== LDAP Provider Management Routes =====
+    const ldapRouter = createLDAPRouter();
+    app.use('/api/ldap', ldapRouter);
 
     // ===== Domain Management Routes =====
     // Import dynamically to handle optional Caddy integration

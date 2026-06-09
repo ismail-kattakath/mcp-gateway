@@ -77,7 +77,7 @@ export async function createFirewallRule(
     options.ip_range,
     options.rule_type,
     options.description ?? null,
-    options.enabled ?? true ? 1 : 0,
+    (options.enabled ?? true) ? 1 : 0,
     options.tenant ?? null,
     now,
     now,
