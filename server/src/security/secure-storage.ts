@@ -109,16 +109,21 @@ function decrypt(encryptedBuffer: Buffer): string {
 
 /**
  * Store secret in system keychain (primary method).
+ * @param secret - Secret to store
+ * @param accountName - Account name for keychain (default: 'api-key')
  * @returns true if successful
  */
-async function storeInKeychain(secret: string): Promise<boolean> {
+async function storeInKeychain(secret: string, accountName = ACCOUNT_NAME): Promise<boolean> {
   if (!keytar) {
     return false;
   }
 
   try {
-    await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, secret);
-    logger.info('API key stored in system keychain', { service: SERVICE_NAME });
+    await keytar.setPassword(SERVICE_NAME, accountName, secret);
+    logger.info('Secret stored in system keychain', {
+      service: SERVICE_NAME,
+      account: accountName,
+    });
     return true;
   } catch (error) {
     const err = error as Error;
@@ -131,17 +136,18 @@ async function storeInKeychain(secret: string): Promise<boolean> {
 
 /**
  * Retrieve secret from system keychain.
+ * @param accountName - Account name for keychain (default: 'api-key')
  * @returns Secret or null if not found
  */
-async function retrieveFromKeychain(): Promise<string | null> {
+async function retrieveFromKeychain(accountName = ACCOUNT_NAME): Promise<string | null> {
   if (!keytar) {
     return null;
   }
 
   try {
-    const secret = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+    const secret = await keytar.getPassword(SERVICE_NAME, accountName);
     if (secret !== null) {
-      logger.debug('API key loaded from system keychain');
+      logger.debug('Secret loaded from system keychain', { account: accountName });
     }
     return secret;
   } catch (error) {
@@ -230,9 +236,11 @@ async function deleteEncryptedFile(): Promise<boolean> {
 
 /**
  * Store secret securely (tries keychain first, falls back to encrypted file).
+ * @param secret - Secret to store
+ * @param accountName - Account name for keychain (default: 'api-key')
  */
-export async function storeSecret(secret: string): Promise<boolean> {
-  const keychainSuccess = await storeInKeychain(secret);
+export async function storeSecret(secret: string, accountName = ACCOUNT_NAME): Promise<boolean> {
+  const keychainSuccess = await storeInKeychain(secret, accountName);
   if (keychainSuccess) {
     return true;
   }
@@ -242,9 +250,10 @@ export async function storeSecret(secret: string): Promise<boolean> {
 
 /**
  * Retrieve secret securely (tries keychain first, falls back to encrypted file).
+ * @param accountName - Account name for keychain (default: 'api-key')
  */
-export async function retrieveSecret(): Promise<string | null> {
-  const keychainSecret = await retrieveFromKeychain();
+export async function retrieveSecret(accountName = ACCOUNT_NAME): Promise<string | null> {
+  const keychainSecret = await retrieveFromKeychain(accountName);
   if (keychainSecret !== null) {
     return keychainSecret;
   }

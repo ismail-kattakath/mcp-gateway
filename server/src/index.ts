@@ -34,6 +34,7 @@ import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './se
 import { startStdioTransport } from './mcp/stdio-transport.js';
 import { createApiRouter } from './api/routes.js';
 import { swaggerSpec, swaggerUi, swaggerUiOptions } from './api/swagger.js';
+// Metrics & Monitoring (Epic #3)
 import { getMetrics } from './metrics/index.js';
 import { httpMetricsMiddleware } from './metrics/middleware.js';
 import {
@@ -49,6 +50,11 @@ import {
   recordRegistryReload,
   updateRegistryServerCount,
 } from './metrics/custom.js';
+// Authentication (Epic #4)
+import { initDatabase, usersModel } from './storage/index.js';
+import { initializePassport } from './auth/index.js';
+import { getOrCreateJwtSecret } from './auth/jwt-secret.js';
+import authRoutes from './auth/routes.js';
 import type { JsonRpcRequest } from './mcp/protocol.js';
 import type { ServerLog } from './mcp/backends/base.js';
 
@@ -57,6 +63,43 @@ const __dirname = path.dirname(__filename);
 
 let server: HttpServer | null = null;
 let isShuttingDown = false;
+
+/**
+ * Ensure default admin user exists for v3.0 authentication
+ * Creates user with username 'admin' and password 'changeme' if no users exist
+ */
+async function ensureDefaultAdminUser(): Promise<void> {
+  try {
+    const userCount = usersModel.count();
+    if (userCount === 0) {
+      logger.info('No users found, creating default admin user');
+      const defaultUser = await usersModel.create({
+        username: 'admin',
+        password: 'changeme',
+        email: 'admin@mcp-gateway.local',
+        role: 'admin',
+        status: 'active',
+      });
+      logger.warn('⚠️  DEFAULT ADMIN USER CREATED', {
+        userId: defaultUser.id,
+        username: 'admin',
+        password: 'changeme',
+        warning: 'CHANGE THIS PASSWORD IMMEDIATELY',
+        message: 'Default credentials are insecure for production use',
+        instructions: 'Run: mcp auth user update admin --password <new-password>',
+      });
+    } else {
+      logger.debug(`Found ${userCount} existing user(s), skipping default admin creation`);
+    }
+  } catch (error) {
+    const err = error as Error;
+    logger.error('Failed to ensure default admin user', {
+      error: err.message,
+      stack: err.stack,
+    });
+    // Don't throw - allow server to start even if user creation fails
+  }
+}
 
 async function initializeServer(): Promise<HttpServer | null> {
   try {
@@ -69,6 +112,19 @@ async function initializeServer(): Promise<HttpServer | null> {
     }
 
     logger.info('Starting MCP Gateway Server');
+
+    // Initialize database (SQLite)
+    logger.info('Initializing database...');
+    initDatabase();
+    logger.info('Database initialized');
+
+    // Initialize JWT secret (required for authentication)
+    logger.info('Initializing JWT secret...');
+    await getOrCreateJwtSecret();
+    logger.info('JWT secret initialized');
+
+    // Ensure default admin user exists
+    await ensureDefaultAdminUser();
 
     // Handle utility env vars first (they print and exit)
     if (process.env.PRINT_API_KEY === 'true') {
@@ -123,9 +179,16 @@ async function initializeServer(): Promise<HttpServer | null> {
       next();
     });
 
+    // Initialize Passport.js with all auth strategies
+    const passportInstance = initializePassport();
+    app.use(passportInstance.initialize());
+
     // Auth + IP allowlist. Reads from auth config file (.mcp-gateway.json).
     // Throws at construction if auth is enabled but key generation failed.
     app.use(createAuthMiddleware(registryPath, apiKey));
+
+    // Mount auth routes (login, token refresh, logout, user management)
+    app.use('/auth', authRoutes);
 
     const serverManager = getServerManager();
     await serverManager.initialize(registry);

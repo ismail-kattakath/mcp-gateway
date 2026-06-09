@@ -49,5 +49,17 @@ export type {
 export { settingsModel, SettingsModel } from './models/settings.js';
 export type { SettingRecord, Setting, SetSettingOptions } from './models/settings.js';
 
+export { usersModel, UsersModel } from './models/users.js';
+export type {
+  UserRecord,
+  UserPublic,
+  CreateUserOptions,
+  UpdateUserOptions,
+  ListUsersFilter,
+} from './models/users.js';
+
+export { refreshTokensModel, RefreshTokensModel } from './models/refresh-tokens.js';
+export type { RefreshTokenRecord, CreateRefreshTokenOptions } from './models/refresh-tokens.js';
+
 // Re-export types from registry.d.ts for convenience
 export type { Server, Registry, GatewayConfig } from '../types/registry.js';
