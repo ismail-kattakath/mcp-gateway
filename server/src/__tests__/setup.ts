@@ -8,8 +8,10 @@ process.env.GATEWAY_STORAGE_REPOS = '/tmp/mcp-gateway-test/repos';
 process.env.GATEWAY_STORAGE_CACHE = '/tmp/mcp-gateway-test/cache';
 process.env.GATEWAY_STORAGE_LOGS = '/tmp/mcp-gateway-test/logs';
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-purposes-minimum-32-characters';
+process.env.STORAGE_ENCRYPTION_KEY = 'dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItdGVzdGluZy1wdXJwb3Nlcy0zMi1ieXRlcw=='; // base64 encoded 32-byte key for testing
+process.env.MCP_GATEWAY_DB_PATH = '/tmp/mcp-gateway-test/test.db';
 
-// Clean up test directories before and after tests
+// Clean up test directories and database before and after tests
 beforeAll(async () => {
   const testDir = '/tmp/mcp-gateway-test';
   try {
@@ -21,6 +23,10 @@ beforeAll(async () => {
   await fs.mkdir(path.join(testDir, 'repos'), { recursive: true });
   await fs.mkdir(path.join(testDir, 'cache'), { recursive: true });
   await fs.mkdir(path.join(testDir, 'logs'), { recursive: true });
+
+  // Initialize test database
+  const { initDatabase } = await import('../storage/database.js');
+  initDatabase('/tmp/mcp-gateway-test/test.db');
 });
 
 afterAll(async () => {

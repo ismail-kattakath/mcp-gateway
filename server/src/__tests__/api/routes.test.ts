@@ -5,13 +5,68 @@ import { createApiRouter } from '../../api/routes.js';
 import type { ServerManager } from '../../mcp/backends/index.js';
 import type { Registry } from '../../types/registry.js';
 
+// Track the mock registry for ServerModel operations
+let testRegistry: Registry;
+
+// Mock ServerModel to update the test registry
+vi.mock('../../storage/models/servers.js', () => ({
+  ServerModel: vi.fn().mockImplementation(() => ({
+    create: vi.fn(async (options: any) => {
+      // Add server to test registry
+      if (testRegistry && testRegistry.servers) {
+        testRegistry.servers[options.name] = options.config;
+      }
+      return {
+        id: 'test-id',
+        name: options.name,
+        source: options.source,
+        config: options.config,
+        lifecycle: options.lifecycle || 'on-demand',
+        enabled: options.enabled !== false ? 1 : 0,
+        tenant: options.tenant || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: options.created_by || null,
+      };
+    }),
+    update: vi.fn(async (name: string, options: any) => {
+      // Update server in test registry
+      if (testRegistry && testRegistry.servers && testRegistry.servers[name]) {
+        if (options.config) testRegistry.servers[name] = options.config;
+        if (options.enabled !== undefined) testRegistry.servers[name].enabled = options.enabled;
+        if (options.lifecycle) testRegistry.servers[name].lifecycle = options.lifecycle;
+      }
+    }),
+    delete: vi.fn(async (name: string) => {
+      // Delete server from test registry
+      if (testRegistry && testRegistry.servers) {
+        delete testRegistry.servers[name];
+      }
+    }),
+  })),
+}));
+
+// Mock reloadFromDatabase to update the registry in tests
+let mockReloadFromDatabase: () => Promise<Registry>;
+
+vi.mock('../../mcp/registry.js', async () => {
+  const actual = await vi.importActual('../../mcp/registry.js');
+  return {
+    ...actual,
+    reloadFromDatabase: vi.fn(async () => {
+      // This will be set to update the mockRegistry in tests
+      return mockReloadFromDatabase ? await mockReloadFromDatabase() : { version: '2.0', servers: {}, gateway: {} };
+    }),
+  };
+});
+
 describe('API routes', () => {
   let app: Express;
   let mockServerManager: Partial<ServerManager>;
   let mockRegistry: Registry;
 
   beforeEach(() => {
-    mockRegistry = {
+    testRegistry = mockRegistry = {
       version: '2.0',
       servers: {
         'test-server': {
@@ -36,6 +91,9 @@ describe('API routes', () => {
         logging: { level: 'info', format: 'json', outputs: ['console'] },
       },
     };
+
+    // Mock reloadFromDatabase to return the current mockRegistry
+    mockReloadFromDatabase = vi.fn(async () => mockRegistry);
 
     mockServerManager = {
       getAllStatuses: vi.fn().mockReturnValue({
