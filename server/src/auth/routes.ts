@@ -958,4 +958,127 @@ router.post(
   }
 );
 
+/**
+ * LDAP/Active Directory Routes (Epic #20)
+ */
+
+import { ldapProvidersModel } from '../storage/models/ldap-providers.js';
+
+/**
+ * POST /auth/ldap/:provider/login
+ *
+ * Authenticate with LDAP/Active Directory.
+ *
+ * Request body:
+ * {
+ *   "username": "jdoe",
+ *   "password": "secret123"
+ * }
+ *
+ * Response:
+ * {
+ *   "accessToken": "eyJhbGc...",
+ *   "refreshToken": "abc123...",
+ *   "expiresIn": 900,
+ *   "user": { "id": "...", "username": "jdoe", "role": "user" }
+ * }
+ */
+router.post('/ldap/:provider/login', (req: Request, res: Response, next) => {
+  const provider = req.params.provider;
+
+  // Check if provider exists and is enabled
+  const ldapProvider = ldapProvidersModel.findByName(provider);
+
+  if (!ldapProvider) {
+    return res.status(404).json({
+      error: `LDAP provider '${provider}' not configured`,
+    });
+  }
+
+  if (!ldapProvider.enabled) {
+    return res.status(403).json({
+      error: `LDAP provider '${provider}' is disabled`,
+    });
+  }
+
+  // Authenticate using passport LDAP strategy
+  passport.authenticate(
+    `ldap-${provider}`,
+    { session: false },
+    async (err: Error | null, user: any) => {
+      if (err) {
+        logger.error('LDAP authentication error', {
+          provider: sanitizeString(provider),
+          error: sanitizeString(err.message),
+          ip: req.ip,
+        });
+        return res.status(401).json({
+          error: err.message || 'Authentication failed',
+        });
+      }
+
+      if (!user) {
+        logger.warn('LDAP authentication failed: no user', {
+          provider: sanitizeString(provider),
+          ip: req.ip,
+        });
+        return res.status(401).json({
+          error: 'Authentication failed',
+        });
+      }
+
+      try {
+        // Generate tokens
+        const accessToken = generateAccessToken({
+          sub: user.id,
+          username: user.username,
+          role: user.role,
+          tenant: user.tenant,
+        });
+
+        const refreshTokenData = generateRefreshToken();
+
+        // Store refresh token in database
+        await refreshTokensModel.create({
+          userId: user.id,
+          tokenHash: refreshTokenData.tokenHash,
+          deviceInfo: req.get('User-Agent') || 'Unknown',
+          ipAddress: req.ip || 'Unknown',
+          expiresAt: refreshTokenData.expiresAt,
+          tenant: user.tenant,
+        });
+
+        logger.info('LDAP login successful', {
+          provider: sanitizeString(provider),
+          userId: sanitizeString(user.id),
+          username: sanitizeString(user.username),
+          ip: req.ip,
+        });
+
+        return res.status(200).json({
+          accessToken,
+          refreshToken: refreshTokenData.token,
+          expiresIn: 900, // 15 minutes
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            tenant: user.tenant,
+          },
+        });
+      } catch (error) {
+        const tokenErr = error as Error;
+        logger.error('LDAP token generation error', {
+          provider: sanitizeString(provider),
+          error: sanitizeString(tokenErr.message),
+        });
+        return res.status(500).json({
+          error: 'Token generation failed',
+        });
+      }
+    }
+  )(req, res, next);
+});
+
 export default router;

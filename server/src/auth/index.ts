@@ -16,6 +16,7 @@ import { apikeyStrategy } from './strategies/apikey.js';
 import { initOAuthStrategies } from './strategies/oauth/index.js';
 import { registerSAMLStrategies } from './strategies/saml/strategy.js';
 import { initializeValidation as initSAMLValidation } from './strategies/saml/validation.js';
+import { registerLDAPStrategies } from './strategies/ldap/strategy.js';
 import logger from '../logging/logger.js';
 
 /**
@@ -52,6 +53,17 @@ export async function initializePassport(): Promise<typeof passport> {
       error: err.message,
     });
     // Don't fail server startup if SAML init fails
+  }
+
+  // Initialize LDAP strategies (async, loads from database)
+  try {
+    registerLDAPStrategies(passport);
+  } catch (error) {
+    const err = error as Error;
+    logger.warn('Failed to initialize LDAP strategies', {
+      error: err.message,
+    });
+    // Don't fail server startup if LDAP init fails
   }
 
   return passport;
