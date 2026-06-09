@@ -26,6 +26,7 @@ import {
 } from './discovery.js';
 import {
   registerHttpTerminator,
+  registerTracingShutdown,
   registerShutdownHandlers,
   performGracefulShutdown,
   isShutdownInProgress,
@@ -159,6 +160,7 @@ export {
   readDiscoveryFile,
   getGatewayUrl,
   registerHttpTerminator,
+  registerTracingShutdown,
   registerShutdownHandlers,
   performGracefulShutdown,
   isShutdownInProgress,

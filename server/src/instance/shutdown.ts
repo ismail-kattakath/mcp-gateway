@@ -25,6 +25,7 @@ import { closeDatabase } from '../storage/index.js';
 
 let isShuttingDown = false;
 let httpTerminator: HttpTerminator | null = null;
+let tracingShutdown: (() => Promise<void>) | null = null;
 
 /**
  * Register HTTP terminator for graceful connection draining
@@ -40,6 +41,16 @@ export function registerHttpTerminator(server: HttpServer): void {
   logger.info('HTTP terminator registered', {
     timeout: '30s',
   });
+}
+
+/**
+ * Register tracing shutdown handler
+ *
+ * @param shutdown Shutdown function from tracing initialization
+ */
+export function registerTracingShutdown(shutdown: () => Promise<void>): void {
+  tracingShutdown = shutdown;
+  logger.info('Tracing shutdown handler registered');
 }
 
 /**
@@ -92,6 +103,13 @@ export async function performGracefulShutdown(signal: string): Promise<void> {
     logger.info('Deleting port discovery file...');
     deleteDiscoveryFile();
     logger.info('Port discovery file deleted');
+
+    // Step 7: Shutdown OpenTelemetry tracing
+    if (tracingShutdown) {
+      logger.info('Shutting down distributed tracing...');
+      await tracingShutdown();
+      logger.info('Distributed tracing shut down');
+    }
 
     logger.info('Graceful shutdown complete');
     process.exit(0);

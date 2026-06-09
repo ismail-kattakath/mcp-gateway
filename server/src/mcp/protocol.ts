@@ -19,6 +19,7 @@ import logger from '../logging/logger.js';
 import { routeToolCall, listAllTools } from './router.js';
 import type { Registry } from '../types/registry.js';
 import type { ServerManager } from './backends/index.js';
+import { withToolsListSpan, withToolCallSpan } from '../tracing/spans.js';
 
 // JSON-RPC 2.0 Types
 export interface JsonRpcRequest {
@@ -203,15 +204,18 @@ async function handleToolsList(
 ): Promise<MCPToolsListResult> {
   logger.info('Handling tools/list request');
 
-  const tools = await listAllTools(serverManager, registry);
+  return withToolsListSpan(async (span) => {
+    const tools = await listAllTools(serverManager, registry);
+    span.setAttribute('mcp.tools.count', tools.length);
 
-  return {
-    tools: tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description || '',
-      inputSchema: tool.inputSchema || { type: 'object', properties: {} },
-    })),
-  };
+    return {
+      tools: tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description || '',
+        inputSchema: tool.inputSchema || { type: 'object', properties: {} },
+      })),
+    };
+  });
 }
 
 /**
@@ -233,22 +237,28 @@ async function handleToolsCall(
     hasArguments: !!toolParams.arguments,
   });
 
-  const result = await routeToolCall(
-    toolParams.name,
-    toolParams.arguments || {},
-    serverManager,
-    registry
-  );
+  return withToolCallSpan(toolParams.name, toolParams.arguments || {}, async (span) => {
+    const result = await routeToolCall(
+      toolParams.name,
+      toolParams.arguments || {},
+      serverManager,
+      registry
+    );
 
-  // MCP tool call response format
-  return {
-    content: [
-      {
-        type: 'text',
-        text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-      },
-    ],
-  };
+    // Add result metadata to span
+    const resultText = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+    span.setAttribute('mcp.result.size', resultText.length);
+
+    // MCP tool call response format
+    return {
+      content: [
+        {
+          type: 'text',
+          text: resultText,
+        },
+      ],
+    };
+  });
 }
 
 /**

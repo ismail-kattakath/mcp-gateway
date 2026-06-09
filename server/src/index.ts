@@ -13,6 +13,10 @@
  */
 
 import 'dotenv/config';
+
+// CRITICAL: Initialize OpenTelemetry tracing FIRST (before any other imports)
+// This ensures auto-instrumentation captures all HTTP/Express operations
+import { initTracing } from './tracing/index.js';
 import express, { Request, Response, NextFunction, Express } from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -60,6 +64,7 @@ import type { ServerLog } from './mcp/backends/base.js';
 import {
   initializeInstance,
   registerServer as registerInstanceServer,
+  registerTracingShutdown,
   performGracefulShutdown,
 } from './instance/index.js';
 
@@ -68,6 +73,7 @@ const __dirname = path.dirname(__filename);
 
 let server: HttpServer | null = null;
 let isShuttingDown = false;
+let shutdownTracing: (() => Promise<void>) | null = null;
 
 /**
  * Ensure default admin user exists for v3.0 authentication
@@ -115,6 +121,12 @@ async function initializeServer(): Promise<HttpServer | null> {
       logger.level = 'debug';
       logger.debug('Debug logging enabled via --debug flag');
     }
+
+    // Initialize OpenTelemetry tracing (Epic #24)
+    logger.info('Initializing distributed tracing...');
+    shutdownTracing = initTracing();
+    registerTracingShutdown(shutdownTracing);
+    logger.info('Distributed tracing initialized');
 
     logger.info('Starting MCP Gateway Server');
 

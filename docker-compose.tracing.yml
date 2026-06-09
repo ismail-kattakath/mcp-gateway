@@ -1,0 +1,51 @@
+# Docker Compose for Distributed Tracing Stack
+#
+# This file provides the observability infrastructure for distributed tracing
+# with Jaeger (all-in-one mode for development).
+#
+# Usage:
+#   docker-compose -f docker-compose.tracing.yml up -d
+#
+# Access:
+#   - Jaeger UI: http://localhost:16686
+#   - OTLP HTTP Collector: http://localhost:4318
+#   - OTLP gRPC Collector: http://localhost:4317
+#
+# For production, use Jaeger Collector + Query + Storage separately.
+
+version: "3.8"
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.51
+    container_name: mcp-gateway-jaeger
+    restart: unless-stopped
+    ports:
+      # Jaeger UI
+      - "16686:16686"
+      # OTLP HTTP receiver
+      - "4318:4318"
+      # OTLP gRPC receiver
+      - "4317:4317"
+      # Jaeger Collector HTTP (legacy)
+      - "14268:14268"
+      # Jaeger Agent (UDP, legacy)
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      # Zipkin compatible endpoint
+      - "9411:9411"
+    environment:
+      # Memory storage (dev only)
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+      # Sampling strategy
+      - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
+    volumes:
+      - ./config/jaeger-sampling.json:/etc/jaeger/sampling.json:ro
+    networks:
+      - tracing
+
+networks:
+  tracing:
+    driver: bridge
+    name: mcp-gateway-tracing

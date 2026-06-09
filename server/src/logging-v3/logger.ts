@@ -82,16 +82,33 @@ const loggerOptions: LoggerOptions = {
     log: (object: any) => {
       // Add request context if available
       const context = getRequestContext();
+      const enriched = { ...object };
+
       if (context) {
-        return {
-          ...object,
-          requestId: context.requestId,
-          userId: context.userId,
-          sessionId: context.sessionId,
-          tenant: context.tenant,
-        };
+        enriched.requestId = context.requestId;
+        enriched.userId = context.userId;
+        enriched.sessionId = context.sessionId;
+        enriched.tenant = context.tenant;
       }
-      return object;
+
+      // Add trace context for distributed tracing
+      try {
+        // Dynamic import to avoid circular dependency
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const tracing = require('../tracing/tracer.js');
+        const traceContext = tracing.getTraceContext();
+        if (traceContext.trace_id) {
+          enriched.trace_id = traceContext.trace_id;
+        }
+        if (traceContext.span_id) {
+          enriched.span_id = traceContext.span_id;
+        }
+      } catch (err) {
+        // Tracing not initialized or error accessing trace context
+        // This is expected during early startup, silently ignore
+      }
+
+      return enriched;
     },
   },
 
