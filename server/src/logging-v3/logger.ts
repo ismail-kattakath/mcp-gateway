@@ -15,7 +15,7 @@ import type { Logger, LoggerOptions } from 'pino';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { RotatingFileStream } from 'pino-rotating-file-stream';
+import RotatingFileStream from 'pino-rotating-file-stream';
 import { createPinoSerializers, sanitizeServerName, sanitizeStringEnhanced } from './sanitizer.js';
 import { getRequestContext } from './context.js';
 
@@ -37,9 +37,10 @@ const PRETTY_PRINT = process.env.NODE_ENV !== 'production' && !process.env.CI;
 /**
  * Create rotating file stream for logs
  */
-function createRotatingStream(filename: string): RotatingFileStream {
-  return new RotatingFileStream({
-    path: path.join(LOG_DIR, filename),
+function createRotatingStream(filename: string) {
+  return RotatingFileStream({
+    path: LOG_DIR,
+    filename: filename,
     size: '10M', // Rotate when file reaches 10MB
     interval: '1d', // Rotate daily
     maxFiles: 7, // Keep 7 days of logs

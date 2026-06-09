@@ -75,7 +75,9 @@ export class DomainManager {
       throw new Error('Insecure caddyfilePath: paths under OS temp directory are not allowed');
     }
     if (path.resolve(this.caddyfileTemplatePath).startsWith(`${tempDir}${path.sep}`)) {
-      throw new Error('Insecure caddyfileTemplatePath: paths under OS temp directory are not allowed');
+      throw new Error(
+        'Insecure caddyfileTemplatePath: paths under OS temp directory are not allowed'
+      );
     }
 
     logger.info('DomainManager initialized', {

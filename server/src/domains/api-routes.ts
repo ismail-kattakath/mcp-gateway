@@ -16,6 +16,7 @@
 
 import { Router, Request, Response } from 'express';
 import logger from '../logging/logger.js';
+import { sanitizeString } from '../logging/sanitizer.js';
 import { getDomainManager, DomainOptions } from './manager.js';
 import { isValidDomain, isValidWildcardDomain, normalizeDomain } from './validation.js';
 
@@ -47,13 +48,13 @@ router.get('/', async (req: Request, res: Response) => {
     const domainManager = getDomainManager();
     const domains = domainManager.listDomains();
 
-    res.json({
+    return res.json({
       domains,
       count: domains.length,
     });
   } catch (error: any) {
     logger.error('Failed to list domains', { error: error.message });
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to list domains',
       message: error.message,
     });
@@ -129,7 +130,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     logger.info('Domain added via API', { domain: sanitizeString(normalized) });
 
-    res.status(201).json(newDomain);
+    return res.status(201).json(newDomain);
   } catch (error: any) {
     logger.error('Failed to add domain', { error: error.message });
 
@@ -140,7 +141,7 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to add domain',
       message: error.message,
     });
@@ -185,10 +186,10 @@ router.get('/:name', async (req: Request, res: Response) => {
       });
     }
 
-    res.json(domain);
+    return res.json(domain);
   } catch (error: any) {
     logger.error('Failed to get domain', { error: error.message });
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get domain',
       message: error.message,
     });
@@ -241,7 +242,7 @@ router.put('/:name', async (req: Request, res: Response) => {
 
     logger.info(`Domain updated via API: ${sanitizeString(name)}`);
 
-    res.json(updatedDomain);
+    return res.json(updatedDomain);
   } catch (error: any) {
     logger.error('Failed to update domain', { error: error.message });
 
@@ -252,7 +253,7 @@ router.put('/:name', async (req: Request, res: Response) => {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to update domain',
       message: error.message,
     });
@@ -289,7 +290,7 @@ router.delete('/:name', async (req: Request, res: Response) => {
 
     logger.info(`Domain removed via API: ${sanitizeString(name)}`);
 
-    res.json({
+    return res.json({
       message: 'Domain removed successfully',
       domain: name,
     });
@@ -303,7 +304,7 @@ router.delete('/:name', async (req: Request, res: Response) => {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to remove domain',
       message: error.message,
     });
@@ -345,7 +346,7 @@ router.post('/:name/enable', async (req: Request, res: Response) => {
 
     logger.info(`Domain enabled via API: ${sanitizeString(safeDomainForLog)}`);
 
-    res.json(domain);
+    return res.json(domain);
   } catch (error: any) {
     logger.error('Failed to enable domain', { error: error.message });
 
@@ -356,7 +357,7 @@ router.post('/:name/enable', async (req: Request, res: Response) => {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to enable domain',
       message: error.message,
     });
@@ -399,7 +400,7 @@ router.post('/:name/disable', async (req: Request, res: Response) => {
 
     logger.info(`Domain disabled via API: ${sanitizedDomainForLog}`);
 
-    res.json(domain);
+    return res.json(domain);
   } catch (error: any) {
     logger.error('Failed to disable domain', { error: error.message });
 
@@ -410,7 +411,7 @@ router.post('/:name/disable', async (req: Request, res: Response) => {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to disable domain',
       message: error.message,
     });
@@ -434,13 +435,13 @@ router.get('/certificates', async (req: Request, res: Response) => {
     const domainManager = getDomainManager();
     const certificates = await domainManager.getCertificates();
 
-    res.json({
+    return res.json({
       certificates,
       count: certificates.length,
     });
   } catch (error: any) {
     logger.error('Failed to list certificates', { error: error.message });
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to list certificates',
       message: error.message,
     });

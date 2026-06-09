@@ -187,6 +187,7 @@ export function withContext<TArgs extends any[], TReturn>(
  * Augment Express Request type with logger
  */
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       log: Logger;
