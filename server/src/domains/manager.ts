@@ -6,7 +6,9 @@
  */
 
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
+import crypto from 'crypto';
 import logger from '../logging/logger.js';
 import { sanitizePath, sanitizeString } from '../logging/sanitizer.js';
 import { CaddyClient, generateDomainBlock, generateHttpRedirect } from './caddy.js';
@@ -68,6 +70,14 @@ export class DomainManager {
       options.caddyfileTemplatePath ||
       process.env.CADDYFILE_TEMPLATE_PATH ||
       path.resolve(process.cwd(), '../caddy/Caddyfile.template');
+
+    const tempDir = path.resolve(os.tmpdir());
+    if (path.resolve(this.caddyfilePath).startsWith(`${tempDir}${path.sep}`)) {
+      throw new Error('Insecure caddyfilePath: paths under OS temp directory are not allowed');
+    }
+    if (path.resolve(this.caddyfileTemplatePath).startsWith(`${tempDir}${path.sep}`)) {
+      throw new Error('Insecure caddyfileTemplatePath: paths under OS temp directory are not allowed');
+    }
 
     logger.info('DomainManager initialized', {
       caddyfilePath: sanitizePath(this.caddyfilePath),
@@ -238,8 +248,26 @@ export class DomainManager {
         throw new Error(`Invalid Caddyfile: ${validation.errors.join(', ')}`);
       }
 
-      // Write to file
-      await fs.writeFile(this.caddyfilePath, caddyfile, 'utf-8');
+      // Write to file atomically using a securely created temp file in the same directory
+      const caddyfileDir = path.dirname(this.caddyfilePath);
+      const tmpPath = path.join(
+        caddyfileDir,
+        `.Caddyfile.tmp-${process.pid}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`
+      );
+
+      let tmpHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
+      try {
+        tmpHandle = await fs.open(tmpPath, 'wx', 0o600);
+        await tmpHandle.writeFile(caddyfile, 'utf-8');
+        await tmpHandle.close();
+        tmpHandle = null;
+        await fs.rename(tmpPath, this.caddyfilePath);
+      } finally {
+        if (tmpHandle) {
+          await tmpHandle.close().catch(() => {});
+        }
+        await fs.unlink(tmpPath).catch(() => {});
+      }
 
       logger.info('Caddyfile updated', {
         path: sanitizePath(this.caddyfilePath),

@@ -42,8 +42,8 @@ describe('DomainManager', () => {
   beforeEach(() => {
     manager = new DomainManager({
       caddyAdminUrl: 'http://localhost:2019',
-      caddyfilePath: '/tmp/Caddyfile',
-      caddyfileTemplatePath: '/tmp/Caddyfile.template',
+      caddyfilePath: '/var/lib/mcp-gateway/Caddyfile',
+      caddyfileTemplatePath: '/var/lib/mcp-gateway/Caddyfile.template',
     });
   });
 
