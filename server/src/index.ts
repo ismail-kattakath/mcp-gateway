@@ -196,7 +196,7 @@ async function initializeServer(): Promise<HttpServer | null> {
     });
 
     // Initialize Passport.js with all auth strategies
-    const passportInstance = initializePassport();
+    const passportInstance = await initializePassport();
     app.use(passportInstance.initialize());
 
     // Auth + IP allowlist. Reads from auth config file (.mcp-gateway.json).

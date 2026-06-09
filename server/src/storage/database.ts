@@ -13,6 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from '../logging/logger.js';
 import { sanitizePath, sanitizeString } from '../logging/sanitizer.js';
+import { runMigrations } from './migrations/runner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,6 +81,20 @@ export function initDatabase(dbPath?: string): Database.Database {
 
     // Create tables if they don't exist
     createTables();
+
+    // Run pending migrations
+    try {
+      const count = runMigrations();
+      if (count > 0) {
+        logger.info(`Applied ${count} database migrations`);
+      }
+    } catch (error) {
+      const err = error as Error;
+      logger.debug('Migrations not available or failed', {
+        error: sanitizeString(err.message),
+      });
+      // Don't fail initialization if migrations don't exist yet
+    }
 
     logger.info('Database initialization complete');
 

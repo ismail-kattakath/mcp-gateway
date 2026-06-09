@@ -13,13 +13,14 @@ import passport from 'passport';
 import { jwtStrategy } from './strategies/jwt.js';
 import { basicStrategy } from './strategies/basic.js';
 import { apikeyStrategy } from './strategies/apikey.js';
+import { initOAuthStrategies } from './strategies/oauth/index.js';
 import logger from '../logging/logger.js';
 
 /**
  * Initialize Passport.js with all authentication strategies
  */
-export function initializePassport(): typeof passport {
-  // Register strategies
+export async function initializePassport(): Promise<typeof passport> {
+  // Register basic strategies
   passport.use('jwt', jwtStrategy);
   passport.use('basic', basicStrategy);
   passport.use('apikey', apikeyStrategy);
@@ -27,6 +28,17 @@ export function initializePassport(): typeof passport {
   logger.info('Passport.js initialized', {
     strategies: ['jwt', 'basic', 'apikey'],
   });
+
+  // Initialize OAuth strategies (async, loads from database)
+  try {
+    await initOAuthStrategies();
+  } catch (error) {
+    const err = error as Error;
+    logger.warn('Failed to initialize OAuth strategies', {
+      error: err.message,
+    });
+    // Don't fail server startup if OAuth init fails
+  }
 
   return passport;
 }

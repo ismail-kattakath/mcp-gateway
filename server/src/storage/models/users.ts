@@ -31,6 +31,11 @@ export interface UserRecord {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  // OAuth fields (Epic #18)
+  github_id: string | null;
+  google_id: string | null;
+  oauth_provider: string | null;
+  oauth_id: string | null;
 }
 
 /**
@@ -459,6 +464,199 @@ export class UsersModel {
       throw err;
     }
   }
+
+  /**
+   * Find user by OAuth ID (GitHub)
+   *
+   * @param githubId - GitHub user ID
+   * @returns User or null if not found
+   */
+  findByGitHubId(githubId: string): UserPublic | null {
+    try {
+      const user = this.db.prepare('SELECT * FROM users WHERE github_id = ?').get(githubId) as
+        | UserRecord
+        | undefined;
+
+      if (!user) {
+        return null;
+      }
+
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to find user by GitHub ID', {
+        githubId: sanitizeString(githubId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Find user by OAuth ID (Google)
+   *
+   * @param googleId - Google user ID
+   * @returns User or null if not found
+   */
+  findByGoogleId(googleId: string): UserPublic | null {
+    try {
+      const user = this.db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as
+        | UserRecord
+        | undefined;
+
+      if (!user) {
+        return null;
+      }
+
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to find user by Google ID', {
+        googleId: sanitizeString(googleId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Find user by generic OAuth ID
+   *
+   * @param provider - OAuth provider name
+   * @param oauthId - OAuth user ID
+   * @returns User or null if not found
+   */
+  findByOAuthId(provider: string, oauthId: string): UserPublic | null {
+    try {
+      const user = this.db
+        .prepare('SELECT * FROM users WHERE oauth_provider = ? AND oauth_id = ?')
+        .get(provider, oauthId) as UserRecord | undefined;
+
+      if (!user) {
+        return null;
+      }
+
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to find user by OAuth ID', {
+        provider: sanitizeString(provider),
+        oauthId: sanitizeString(oauthId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Find user by email
+   *
+   * @param email - User email
+   * @returns User or null if not found
+   */
+  findByEmail(email: string): UserPublic | null {
+    try {
+      const user = this.db.prepare('SELECT * FROM users WHERE email = ?').get(email) as
+        | UserRecord
+        | undefined;
+
+      if (!user) {
+        return null;
+      }
+
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to find user by email', {
+        email: sanitizeString(email),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Link GitHub account to existing user
+   *
+   * @param userId - User ID
+   * @param githubId - GitHub user ID
+   */
+  linkGitHub(userId: string, githubId: string): void {
+    try {
+      const now = new Date().toISOString();
+      this.db
+        .prepare('UPDATE users SET github_id = ?, updated_at = ? WHERE id = ?')
+        .run(githubId, now, userId);
+
+      logger.info('Linked GitHub account to user', {
+        userId: sanitizeString(userId),
+        githubId: sanitizeString(githubId),
+      });
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to link GitHub account', {
+        userId: sanitizeString(userId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Link Google account to existing user
+   *
+   * @param userId - User ID
+   * @param googleId - Google user ID
+   */
+  linkGoogle(userId: string, googleId: string): void {
+    try {
+      const now = new Date().toISOString();
+      this.db
+        .prepare('UPDATE users SET google_id = ?, updated_at = ? WHERE id = ?')
+        .run(googleId, now, userId);
+
+      logger.info('Linked Google account to user', {
+        userId: sanitizeString(userId),
+        googleId: sanitizeString(googleId),
+      });
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to link Google account', {
+        userId: sanitizeString(userId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Link generic OAuth account to existing user
+   *
+   * @param userId - User ID
+   * @param provider - OAuth provider name
+   * @param oauthId - OAuth user ID
+   */
+  linkOAuth(userId: string, provider: string, oauthId: string): void {
+    try {
+      const now = new Date().toISOString();
+      this.db
+        .prepare('UPDATE users SET oauth_provider = ?, oauth_id = ?, updated_at = ? WHERE id = ?')
+        .run(provider, oauthId, now, userId);
+
+      logger.info('Linked OAuth account to user', {
+        userId: sanitizeString(userId),
+        provider: sanitizeString(provider),
+        oauthId: sanitizeString(oauthId),
+      });
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to link OAuth account', {
+        userId: sanitizeString(userId),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
 }
 
 // Lazy singleton instance (only created when accessed)
@@ -475,12 +673,23 @@ export const usersModel = {
   create: (options: CreateUserOptions) => usersModel.instance.create(options),
   findById: (id: string) => usersModel.instance.findById(id),
   findByUsername: (username: string) => usersModel.instance.findByUsername(username),
+  findByEmail: (email: string) => usersModel.instance.findByEmail(email),
+  findByGitHubId: (githubId: string) => usersModel.instance.findByGitHubId(githubId),
+  findByGoogleId: (googleId: string) => usersModel.instance.findByGoogleId(googleId),
+  findByOAuthId: (provider: string, oauthId: string) =>
+    usersModel.instance.findByOAuthId(provider, oauthId),
   authenticate: (username: string, password: string) =>
     usersModel.instance.authenticate(username, password),
   update: (id: string, options: UpdateUserOptions) => usersModel.instance.update(id, options),
   delete: (id: string) => usersModel.instance.delete(id),
   list: (filter?: ListUsersFilter) => usersModel.instance.list(filter),
   count: () => usersModel.instance.count(),
+  linkGitHub: (userId: string, githubId: string) =>
+    usersModel.instance.linkGitHub(userId, githubId),
+  linkGoogle: (userId: string, googleId: string) =>
+    usersModel.instance.linkGoogle(userId, googleId),
+  linkOAuth: (userId: string, provider: string, oauthId: string) =>
+    usersModel.instance.linkOAuth(userId, provider, oauthId),
 };
 
 export default usersModel;

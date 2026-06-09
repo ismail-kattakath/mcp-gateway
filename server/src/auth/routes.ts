@@ -504,4 +504,167 @@ router.get(
   }
 );
 
+/**
+ * OAuth 2.0 Routes (Epic #18)
+ */
+
+// Import OAuth handlers
+import {
+  createOAuthInitiateHandler,
+  createOAuthCallbackHandler,
+  oauthSuccessHandler,
+  oauthFailureHandler,
+} from './strategies/oauth/callback.js';
+import { isOAuthProviderAvailable } from './strategies/oauth/index.js';
+
+/**
+ * GET /auth/oauth/github
+ *
+ * Initiate GitHub OAuth flow.
+ * Redirects to GitHub authorization page.
+ */
+router.get('/oauth/github', (req: Request, res: Response, next) => {
+  if (!isOAuthProviderAvailable('github')) {
+    res.status(404).json({
+      error: 'GitHub OAuth provider not configured',
+    });
+    return;
+  }
+  createOAuthInitiateHandler('github')(req, res, next);
+});
+
+/**
+ * GET /auth/oauth/github/callback
+ *
+ * GitHub OAuth callback endpoint.
+ * Handles authorization code exchange and user provisioning.
+ */
+router.get('/oauth/github/callback', createOAuthCallbackHandler('github'));
+
+/**
+ * GET /auth/oauth/google
+ *
+ * Initiate Google OAuth flow.
+ * Redirects to Google authorization page.
+ */
+router.get('/oauth/google', (req: Request, res: Response, next) => {
+  if (!isOAuthProviderAvailable('google')) {
+    res.status(404).json({
+      error: 'Google OAuth provider not configured',
+    });
+    return;
+  }
+  createOAuthInitiateHandler('google')(req, res, next);
+});
+
+/**
+ * GET /auth/oauth/google/callback
+ *
+ * Google OAuth callback endpoint.
+ * Handles authorization code exchange and user provisioning.
+ */
+router.get('/oauth/google/callback', createOAuthCallbackHandler('google'));
+
+/**
+ * GET /auth/oauth/:provider
+ *
+ * Initiate generic OAuth flow for custom providers.
+ * Redirects to provider's authorization page.
+ */
+router.get('/oauth/:provider', (req: Request, res: Response, next) => {
+  const provider = req.params.provider;
+
+  // Prevent conflict with built-in providers
+  if (
+    provider === 'github' ||
+    provider === 'google' ||
+    provider === 'success' ||
+    provider === 'failure'
+  ) {
+    res.status(400).json({
+      error: 'Invalid provider name',
+    });
+    return;
+  }
+
+  if (!isOAuthProviderAvailable(provider)) {
+    res.status(400).json({
+      error: `OAuth provider '${provider}' not configured`,
+    });
+    return;
+  }
+
+  createOAuthInitiateHandler(`oauth-${provider}`)(req, res, next);
+});
+
+/**
+ * GET /auth/oauth/:provider/callback
+ *
+ * Generic OAuth callback endpoint.
+ * Handles authorization code exchange and user provisioning.
+ */
+router.get('/oauth/:provider/callback', (req: Request, res: Response, next) => {
+  const provider = req.params.provider;
+
+  // Prevent conflict with built-in providers
+  if (provider === 'github' || provider === 'google') {
+    next(); // Let built-in routes handle it
+    return;
+  }
+
+  if (!isOAuthProviderAvailable(provider)) {
+    res.status(404).json({
+      error: `OAuth provider '${provider}' not configured`,
+    });
+    return;
+  }
+
+  createOAuthCallbackHandler(`oauth-${provider}`)(req, res, next);
+});
+
+/**
+ * GET /auth/oauth/success
+ *
+ * OAuth success page.
+ * Displayed after successful OAuth authentication.
+ */
+router.get('/oauth/success', oauthSuccessHandler);
+
+/**
+ * GET /auth/oauth/failure
+ *
+ * OAuth failure page.
+ * Displayed after failed OAuth authentication.
+ */
+router.get('/oauth/failure', oauthFailureHandler);
+
+/**
+ * GET /auth/oauth/providers
+ *
+ * List available OAuth providers.
+ * Public endpoint (no auth required).
+ */
+router.get('/oauth/providers', async (req: Request, res: Response) => {
+  try {
+    const { oauthProvidersModel } = await import('../storage/models/oauth-providers.js');
+    const providers = oauthProvidersModel.list(true); // enabled only
+
+    const publicProviders = providers.map((p) => ({
+      name: p.name,
+      type: p.type,
+      enabled: p.enabled,
+    }));
+
+    return res.json(publicProviders);
+  } catch (error) {
+    const err = error as Error;
+    logger.error('OAuth providers list error', {
+      error: sanitizeString(err.message),
+    });
+    return res.status(500).json({
+      error: 'Internal server error',
+    });
+  }
+});
+
 export default router;
