@@ -131,7 +131,6 @@ export function getRootDomain(domain: string): string {
 
   // Handle country code TLDs (e.g., .co.uk, .com.au)
   const ccTLDs = ['co', 'com', 'org', 'net', 'ac', 'gov'];
-  const tld = parts[parts.length - 1];
   const sld = parts[parts.length - 2];
 
   if (parts.length >= 3 && ccTLDs.includes(sld)) {
