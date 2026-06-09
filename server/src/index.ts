@@ -42,7 +42,6 @@ import {
   livenessHandler,
   readinessHandler,
   detailedHealthHandler,
-  markShuttingDown,
 } from './metrics/health.js';
 import {
   updateActiveConnections,
@@ -57,6 +56,12 @@ import { getOrCreateJwtSecret } from './auth/jwt-secret.js';
 import authRoutes from './auth/routes.js';
 import type { JsonRpcRequest } from './mcp/protocol.js';
 import type { ServerLog } from './mcp/backends/base.js';
+// Instance Management (Epic #26)
+import {
+  initializeInstance,
+  registerServer as registerInstanceServer,
+  performGracefulShutdown,
+} from './instance/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -141,6 +146,17 @@ async function initializeServer(): Promise<HttpServer | null> {
     await initRegistry(registryPath);
     const registry = getRegistry();
     const gatewayConfig = getGatewayConfig();
+
+    // Initialize instance management (Epic #26)
+    // This must happen before starting the HTTP server
+    const preferredPort =
+      parseInt(process.env.GATEWAY_PORT || '') || gatewayConfig.server.port || 3000;
+    const instanceInfo = await initializeInstance(preferredPort, registry.version);
+    logger.info('Instance management initialized', {
+      port: instanceInfo.port,
+      pid: instanceInfo.pid,
+      lockAcquired: instanceInfo.lockAcquired,
+    });
 
     // Load or generate API key (persisted in ~/.mcp/gateway-api-key)
     const apiKey = await getOrCreateApiKey();
@@ -496,7 +512,8 @@ async function initializeServer(): Promise<HttpServer | null> {
         .json({ error: err.message || 'Internal server error', path: req.path });
     });
 
-    const port = parseInt(process.env.GATEWAY_PORT || '') || gatewayConfig.server.port || 3000;
+    // Use the port resolved by instance management
+    const port = instanceInfo.port;
     const host = process.env.GATEWAY_HOST || gatewayConfig.server.host || '127.0.0.1';
 
     return new Promise((resolve, reject) => {
@@ -506,6 +523,12 @@ async function initializeServer(): Promise<HttpServer | null> {
           reject(err);
           return;
         }
+
+        // Register server for graceful shutdown (Epic #26)
+        if (server) {
+          registerInstanceServer(server);
+        }
+
         logger.info(`MCP Gateway Server listening on http://${host}:${port}`, {
           port,
           host,
@@ -537,27 +560,18 @@ async function initializeServer(): Promise<HttpServer | null> {
 }
 
 async function shutdown(signal: string): Promise<void> {
+  // Note: This function is now deprecated in favor of performGracefulShutdown
+  // from the instance management module (Epic #26).
+  // Keeping it for backward compatibility, but it delegates to the new handler.
   if (isShuttingDown) return;
   isShuttingDown = true;
-  markShuttingDown();
-  logger.info(`Received ${signal}, shutting down gracefully...`);
 
-  try {
-    if (server) {
-      await new Promise<void>((resolve) => server!.close(() => resolve()));
-      logger.info('HTTP server closed');
-    }
-    const serverManager = getServerManager();
-    await serverManager.stopAll();
-    logger.info('Shutdown complete');
-    process.exit(0);
-  } catch (error) {
-    const err = error as Error;
-    logger.error('Error during shutdown', { error: err.message, stack: err.stack });
-    process.exit(1);
-  }
+  // Delegate to the new graceful shutdown handler
+  await performGracefulShutdown(signal);
 }
 
+// Note: Shutdown handlers are now registered by instance management (Epic #26)
+// The following lines are kept for backward compatibility but are redundant
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 

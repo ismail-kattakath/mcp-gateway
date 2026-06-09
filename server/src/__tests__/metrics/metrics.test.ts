@@ -7,10 +7,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { register, resetMetrics } from '../../metrics/index.js';
 import {
-  toolCallsTotal,
-  toolCallDuration,
-  serverStatus,
-  activeConnections,
   recordToolCall,
   updateServerStatus,
   updateActiveConnections,
