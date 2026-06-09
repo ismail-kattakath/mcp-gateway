@@ -112,9 +112,7 @@ describe('Database', () => {
 
       // Check all tables exist
       const tables = db
-        .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
-        )
+        .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
         .all() as { name: string }[];
 
       const tableNames = tables.map((t) => t.name);
@@ -131,9 +129,7 @@ describe('Database', () => {
       const db = initDatabase(testDbPath);
 
       const indexes = db
-        .prepare(
-          `SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'`
-        )
+        .prepare(`SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'`)
         .all() as { name: string }[];
 
       const indexNames = indexes.map((i) => i.name);
@@ -169,9 +165,7 @@ describe('Database', () => {
       expect(result).toBe('success');
 
       // Verify data was committed
-      const setting = db
-        .prepare(`SELECT * FROM settings WHERE key = ?`)
-        .get('test.key') as any;
+      const setting = db.prepare(`SELECT * FROM settings WHERE key = ?`).get('test.key') as any;
       expect(setting).toBeDefined();
       expect(setting.value).toBe('test-value');
     });
@@ -191,9 +185,7 @@ describe('Database', () => {
       }).toThrow('Test error');
 
       // Verify data was not committed
-      const setting = db
-        .prepare(`SELECT * FROM settings WHERE key = ?`)
-        .get('test.key');
+      const setting = db.prepare(`SELECT * FROM settings WHERE key = ?`).get('test.key');
       expect(setting).toBeUndefined();
     });
 
@@ -268,7 +260,11 @@ describe('Database', () => {
       const uniqueDbPath = path.join('/tmp', `test-backup2-${Date.now()}-${Math.random()}.db`);
       initDatabase(uniqueDbPath);
 
-      const backupPath = path.join('/tmp', `backup-dir-${Date.now()}-${Math.random()}`, 'backup.db');
+      const backupPath = path.join(
+        '/tmp',
+        `backup-dir-${Date.now()}-${Math.random()}`,
+        'backup.db'
+      );
 
       await backupDatabase(backupPath);
 

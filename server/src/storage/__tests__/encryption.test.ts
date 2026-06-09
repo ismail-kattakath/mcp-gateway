@@ -382,11 +382,7 @@ describe('decryptServerConfig', () => {
     const config = {
       image: 'my-image',
       build: {
-        args: [
-          'SECRET_KEY=my-secret',
-          'API_TOKEN=token123',
-          '--flag',
-        ],
+        args: ['SECRET_KEY=my-secret', 'API_TOKEN=token123', '--flag'],
       },
     };
 

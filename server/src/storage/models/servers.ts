@@ -102,7 +102,10 @@ export class ServerModel {
     logger.info(`Creating server: ${sanitizeServerName(options.name)}`);
 
     // Encrypt sensitive fields in config
-    const encryptedConfig = encryptServerConfig(options.config as unknown as Record<string, unknown>, this.encryptor!);
+    const encryptedConfig = encryptServerConfig(
+      options.config as unknown as Record<string, unknown>,
+      this.encryptor!
+    );
     const configJson = JSON.stringify(encryptedConfig);
 
     const db = getDatabase();
@@ -227,13 +230,17 @@ export class ServerModel {
 
     const records = db.prepare(query).all(...params) as ServerRecord[];
 
-    return Promise.all(records.map(record => this.decryptRecord(record)));
+    return Promise.all(records.map((record) => this.decryptRecord(record)));
   }
 
   /**
    * Update server by name
    */
-  async update(name: string, options: UpdateServerOptions, tenant?: string | null): Promise<ServerWithConfig> {
+  async update(
+    name: string,
+    options: UpdateServerOptions,
+    tenant?: string | null
+  ): Promise<ServerWithConfig> {
     await this.initEncryption();
 
     const db = getDatabase();
@@ -256,7 +263,10 @@ export class ServerModel {
     }
 
     if (options.config) {
-      const encryptedConfig = encryptServerConfig(options.config as unknown as Record<string, unknown>, this.encryptor!);
+      const encryptedConfig = encryptServerConfig(
+        options.config as unknown as Record<string, unknown>,
+        this.encryptor!
+      );
       updates.push('config = ?');
       params.push(JSON.stringify(encryptedConfig));
     }

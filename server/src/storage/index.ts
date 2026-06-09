@@ -33,18 +33,11 @@ export {
 } from './encryption.js';
 
 // Migration
-export {
-  needsMigration,
-  migrateFromRegistryJson,
-  getMigrationStatus,
-} from './migration.js';
+export { needsMigration, migrateFromRegistryJson, getMigrationStatus } from './migration.js';
 export type { MigrationResult } from './migration.js';
 
 // Models
-export {
-  serverModel,
-  ServerModel,
-} from './models/servers.js';
+export { serverModel, ServerModel } from './models/servers.js';
 export type {
   ServerRecord,
   ServerWithConfig,
@@ -53,15 +46,8 @@ export type {
   ListServersFilter,
 } from './models/servers.js';
 
-export {
-  settingsModel,
-  SettingsModel,
-} from './models/settings.js';
-export type {
-  SettingRecord,
-  Setting,
-  SetSettingOptions,
-} from './models/settings.js';
+export { settingsModel, SettingsModel } from './models/settings.js';
+export type { SettingRecord, Setting, SetSettingOptions } from './models/settings.js';
 
 // Re-export types from registry.d.ts for convenience
 export type { Server, Registry, GatewayConfig } from '../types/registry.js';

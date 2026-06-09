@@ -156,12 +156,12 @@ export async function migrateFromRegistryJson(
     logger.info('Migration completed successfully!');
 
     // Log warning about default admin credentials
-    logger.warn('=' .repeat(70));
+    logger.warn('='.repeat(70));
     logger.warn('⚠️  DEFAULT ADMIN USER CREATED:');
     logger.warn(`   Username: ${DEFAULT_ADMIN_USERNAME}`);
     logger.warn(`   Password: ${DEFAULT_ADMIN_PASSWORD}`);
     logger.warn('   PLEASE CHANGE THIS PASSWORD IMMEDIATELY!');
-    logger.warn('=' .repeat(70));
+    logger.warn('='.repeat(70));
 
     return result;
   } catch (error) {
@@ -212,10 +212,7 @@ function createDefaultAdminUser(): void {
 /**
  * Migrate servers from registry.json
  */
-function migrateServers(
-  servers: Record<string, Server>,
-  encryptor: FieldEncryption
-): number {
+function migrateServers(servers: Record<string, Server>, encryptor: FieldEncryption): number {
   if (!servers) {
     logger.warn('No servers to migrate');
     return 0;
@@ -251,7 +248,7 @@ function migrateServers(
         server.lifecycle || 'on-demand',
         server.enabled !== false ? 1 : 0,
         null, // tenant (NULL = default)
-        null  // created_by (NULL = system)
+        null // created_by (NULL = system)
       );
 
       count++;
@@ -277,10 +274,7 @@ function migrateServers(
 /**
  * Migrate gateway settings from registry.json
  */
-function migrateGatewaySettings(
-  gateway: Registry['gateway'],
-  encryptor: FieldEncryption
-): number {
+function migrateGatewaySettings(gateway: Registry['gateway'], encryptor: FieldEncryption): number {
   if (!gateway) return 0;
 
   const db = getDatabase();
@@ -312,7 +306,8 @@ function migrateGatewaySettings(
     const server = gw.server as Record<string, unknown>;
     if (server.port !== undefined) insertSetting('server.port', server.port, 'server');
     if (server.host !== undefined) insertSetting('server.host', server.host, 'server');
-    if (server.transport !== undefined) insertSetting('server.transport', server.transport, 'server');
+    if (server.transport !== undefined)
+      insertSetting('server.transport', server.transport, 'server');
     if (server.cors !== undefined) insertSetting('server.cors', server.cors, 'server');
 
     if (gw.storage && typeof gw.storage === 'object') {
@@ -326,7 +321,8 @@ function migrateGatewaySettings(
       const logging = gw.logging as Record<string, unknown>;
       if (logging.level !== undefined) insertSetting('logging.level', logging.level, 'logging');
       if (logging.format !== undefined) insertSetting('logging.format', logging.format, 'logging');
-      if (logging.outputs !== undefined) insertSetting('logging.outputs', logging.outputs, 'logging');
+      if (logging.outputs !== undefined)
+        insertSetting('logging.outputs', logging.outputs, 'logging');
     }
   } else {
     // Simplified format: { port: 3000, host: "0.0.0.0", ... }
@@ -342,10 +338,7 @@ function migrateGatewaySettings(
 /**
  * Migrate auth settings from .mcp-gateway.json
  */
-function migrateAuthSettings(
-  authConfigPath: string,
-  encryptor: FieldEncryption
-): number {
+function migrateAuthSettings(authConfigPath: string, encryptor: FieldEncryption): number {
   const db = getDatabase();
   const stmt = db.prepare(`
     INSERT INTO settings (key, value, encrypted, category, tenant)

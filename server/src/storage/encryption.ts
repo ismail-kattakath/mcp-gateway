@@ -116,7 +116,11 @@ export class FieldEncryption {
       const [ivHex, authTagHex, ciphertext] = parts;
 
       // Validate hex strings (ciphertext can be empty for empty plaintext)
-      if (!this.isValidHex(ivHex) || !this.isValidHex(authTagHex) || (ciphertext.length > 0 && !this.isValidHex(ciphertext))) {
+      if (
+        !this.isValidHex(ivHex) ||
+        !this.isValidHex(authTagHex) ||
+        (ciphertext.length > 0 && !this.isValidHex(ciphertext))
+      ) {
         throw new EncryptionError('Invalid encrypted format: contains non-hex characters');
       }
 
@@ -126,7 +130,9 @@ export class FieldEncryption {
 
       // Validate lengths
       if (iv.length !== IV_LENGTH) {
-        throw new EncryptionError(`Invalid IV length: expected ${IV_LENGTH} bytes, got ${iv.length}`);
+        throw new EncryptionError(
+          `Invalid IV length: expected ${IV_LENGTH} bytes, got ${iv.length}`
+        );
       }
       if (authTag.length !== AUTH_TAG_LENGTH) {
         throw new EncryptionError(
@@ -185,11 +191,7 @@ export class FieldEncryption {
 
     // Check if all parts are valid hex
     const hexPattern = /^[0-9a-fA-F]+$/;
-    return (
-      hexPattern.test(ivHex) &&
-      hexPattern.test(authTagHex) &&
-      hexPattern.test(ciphertext)
-    );
+    return hexPattern.test(ivHex) && hexPattern.test(authTagHex) && hexPattern.test(ciphertext);
   }
 }
 
@@ -228,7 +230,7 @@ export async function getEncryptionKey(): Promise<Buffer> {
   // For now, throw error if no key is available
   throw new EncryptionError(
     'No encryption key found. Set STORAGE_ENCRYPTION_KEY environment variable.\n' +
-    'Generate a key with: node -e "console.log(crypto.randomBytes(32).toString(\'base64\'))"'
+      'Generate a key with: node -e "console.log(crypto.randomBytes(32).toString(\'base64\'))"'
   );
 }
 
@@ -248,14 +250,8 @@ export function generateEncryptionKey(): string {
  * Settings ending with _secret, _key, or _token should be encrypted
  */
 export function shouldEncryptSettingKey(key: string): boolean {
-  const sensitivePatterns = [
-    /_secret$/i,
-    /_key$/i,
-    /_token$/i,
-    /^password$/i,
-    /^passwd$/i,
-  ];
-  return sensitivePatterns.some(pattern => pattern.test(key));
+  const sensitivePatterns = [/_secret$/i, /_key$/i, /_token$/i, /^password$/i, /^passwd$/i];
+  return sensitivePatterns.some((pattern) => pattern.test(key));
 }
 
 /**
@@ -270,7 +266,10 @@ export function shouldEncryptSettingKey(key: string): boolean {
  * @param encryptor - FieldEncryption instance
  * @returns Config with encrypted sensitive fields
  */
-export function encryptServerConfig(config: Record<string, unknown>, encryptor: FieldEncryption): Record<string, unknown> {
+export function encryptServerConfig(
+  config: Record<string, unknown>,
+  encryptor: FieldEncryption
+): Record<string, unknown> {
   const result = { ...config };
 
   // Encrypt env values
@@ -344,7 +343,10 @@ export function encryptServerConfig(config: Record<string, unknown>, encryptor: 
  * @returns Config with decrypted sensitive fields
  * @throws {EncryptionError} If decryption fails
  */
-export function decryptServerConfig(config: Record<string, unknown>, encryptor: FieldEncryption): Record<string, unknown> {
+export function decryptServerConfig(
+  config: Record<string, unknown>,
+  encryptor: FieldEncryption
+): Record<string, unknown> {
   const result = { ...config };
 
   // Decrypt env values

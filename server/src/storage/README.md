@@ -52,11 +52,13 @@ See `schema.sql` for full schema with indexes.
 ### Encrypted Fields
 
 **servers.config**:
+
 - `env` values (all environment variables)
 - `headers` values (for RemoteServer)
 - `build.args` values (for ContainerServer, args with `=`)
 
 **settings.value** (when key matches):
+
 - `*_secret`, `*_key`, `*_token`
 - `password`, `passwd`
 
@@ -176,7 +178,7 @@ import { needsMigration, migrateFromRegistryJson } from './storage/index.js';
 if (needsMigration('/path/to/registry.json')) {
   // Migrate (automatic on first startup)
   const result = await migrateFromRegistryJson('/path/to/registry.json');
-  
+
   console.log(`Migrated ${result.serversCount} servers`);
   console.log(`Migrated ${result.settingsCount} settings`);
   console.log(`Backup created: ${result.backupPath}`);

@@ -6,11 +6,7 @@
  */
 
 import { getDatabase } from '../database.js';
-import {
-  getEncryptionKey,
-  FieldEncryption,
-  shouldEncryptSettingKey,
-} from '../encryption.js';
+import { getEncryptionKey, FieldEncryption, shouldEncryptSettingKey } from '../encryption.js';
 import logger from '../../logging/logger.js';
 import { sanitizeString } from '../../logging/sanitizer.js';
 
@@ -106,7 +102,7 @@ export class SettingsModel {
 
     const records = stmt.all(category, tenant || null, tenant || null) as SettingRecord[];
 
-    return Promise.all(records.map(record => this.decryptRecord(record)));
+    return Promise.all(records.map((record) => this.decryptRecord(record)));
   }
 
   /**
@@ -124,7 +120,7 @@ export class SettingsModel {
 
     const records = stmt.all(tenant || null, tenant || null) as SettingRecord[];
 
-    return Promise.all(records.map(record => this.decryptRecord(record)));
+    return Promise.all(records.map((record) => this.decryptRecord(record)));
   }
 
   /**

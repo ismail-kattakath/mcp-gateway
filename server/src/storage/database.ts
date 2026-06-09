@@ -18,10 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Default database path
-const DEFAULT_DB_PATH = path.resolve(
-  process.env.HOME || '/tmp',
-  '.mcp/gateway.db'
-);
+const DEFAULT_DB_PATH = path.resolve(process.env.HOME || '/tmp', '.mcp/gateway.db');
 
 /**
  * Database instance singleton
@@ -133,8 +130,8 @@ function createTables(): void {
     // This is a simple split that works for our schema (no ; inside strings)
     const statements = cleanedSchema
       .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
     // Execute each statement
     for (const statement of statements) {
@@ -286,15 +283,13 @@ export function getDatabaseStats(): {
 
   // Get table row counts
   const tables = database
-    .prepare(
-      `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
-    )
+    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
     .all() as { name: string }[];
 
   const tableStats = tables.map((table) => {
-    const result = database
-      .prepare(`SELECT COUNT(*) as count FROM ${table.name}`)
-      .get() as { count: number };
+    const result = database.prepare(`SELECT COUNT(*) as count FROM ${table.name}`).get() as {
+      count: number;
+    };
 
     return {
       name: table.name,
