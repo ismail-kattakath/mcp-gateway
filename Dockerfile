@@ -37,8 +37,11 @@ RUN npm run build
 # Stage 3: production runtime (security hardened)
 FROM node:20-alpine
 
-# Create non-root user and group
-RUN addgroup -g 1000 gateway && \
+# Create non-root user and group. node:20-alpine ships with a `node` user at
+# UID/GID 1000 — remove it so we can reuse those IDs for `gateway`.
+RUN (deluser --remove-home node 2>/dev/null || true) && \
+    (delgroup node 2>/dev/null || true) && \
+    addgroup -g 1000 gateway && \
     adduser -D -u 1000 -G gateway gateway
 
 WORKDIR /app
