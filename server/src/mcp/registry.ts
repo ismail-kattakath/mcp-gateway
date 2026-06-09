@@ -200,8 +200,14 @@ function autoUpgradeRegistry(registry: any): Registry {
     logger.warn(
       'Detected v2.0 registry.json. Auto-upgrading to v3.0 in-memory. Run "mcp migrate from-v2" to persist.'
     );
-    // v2.0 used "mcpServers", v3.0 uses "servers"
-    registry.servers = registry.mcpServers;
+    // v2.0 used "mcpServers", v3.0 uses "servers".
+    // Only rename if "servers" isn't already present — some v2.0 docs in the
+    // wild were authored with the v2.1+ "servers" key but kept the "2.0"
+    // version string. Don't clobber a populated "servers" with an undefined
+    // "mcpServers" in that case.
+    if (registry.mcpServers !== undefined && registry.servers === undefined) {
+      registry.servers = registry.mcpServers;
+    }
     delete registry.mcpServers;
     registry.version = '3.0';
   } else if (version === '2.1') {

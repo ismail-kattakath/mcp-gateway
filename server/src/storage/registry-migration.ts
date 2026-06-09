@@ -220,7 +220,8 @@ export async function migrateFromRegistryJson(
     // Migrate auth config if provided
     if (authConfigPath) {
       try {
-        await fs.access(authConfigPath);
+        // No fs.access check — let readFile throw ENOENT to avoid a TOCTOU
+        // race between the existence check and the subsequent read.
         const authContent = await fs.readFile(authConfigPath, 'utf-8');
         const authConfig = JSON.parse(authContent) as any;
 
