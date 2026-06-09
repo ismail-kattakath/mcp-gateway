@@ -115,6 +115,7 @@ jobs:
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "HIGH,CRITICAL"
+          trivyignores: ".trivyignore"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -129,6 +130,7 @@ jobs:
           format: "table"
           severity: "HIGH,CRITICAL"
           exit-code: "1"
+          trivyignores: ".trivyignore"
 
   sast-analysis:
     name: Static Application Security Testing
