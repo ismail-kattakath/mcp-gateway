@@ -6,8 +6,10 @@
 FROM node:20-alpine AS server-builder
 WORKDIR /app
 
-# Install build tools for native dependencies (better-sqlite3)
-RUN apk add --no-cache python3 make g++
+# Install build tools for native dependencies:
+#  - better-sqlite3: python3, make, g++
+#  - kerberos: krb5-dev (gssapi headers)
+RUN apk add --no-cache python3 make g++ krb5-dev
 
 # Copy type definitions needed by server
 COPY types/ ./types/
@@ -52,7 +54,7 @@ WORKDIR /app
 #   python3+uv — `source: "pkg"` with uvx / pipx commands
 #   bash       — for `source: "local"` shell-script wrappers
 #   curl       — HEALTHCHECK
-RUN apk add --no-cache git docker-cli python3 py3-pip curl bash && \
+RUN apk add --no-cache git docker-cli python3 py3-pip curl bash krb5-libs && \
     pip3 install --no-cache-dir --break-system-packages uv
 
 # Copy compiled server code and runtime dependencies with correct ownership
