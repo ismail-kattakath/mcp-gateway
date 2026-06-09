@@ -16,7 +16,7 @@
 
 import { Router, Request, Response } from 'express';
 import logger from '../logging/logger.js';
-import { sanitizeString } from '../logging/sanitizer.js';
+import { sanitizeDomainForLog, sanitizeString } from '../logging/sanitizer.js';
 import { getDomainManager, DomainOptions } from './manager.js';
 import { isValidDomain, isValidWildcardDomain, normalizeDomain } from './validation.js';
 
@@ -240,7 +240,7 @@ router.put('/:name', async (req: Request, res: Response) => {
 
     const updatedDomain = await domainManager.updateDomain(name, options);
 
-    logger.info(`Domain updated via API: ${sanitizeString(name)}`);
+    logger.info(`Domain updated via API: ${sanitizeDomainForLog(name)}`);
 
     return res.json(updatedDomain);
   } catch (error: any) {

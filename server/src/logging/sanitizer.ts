@@ -87,6 +87,25 @@ export function sanitizeServerName(serverName: unknown): string {
 }
 
 /**
+ * Sanitizes domain names for logging.
+ * Returns a constant marker for invalid/unexpected input.
+ */
+export function sanitizeDomainForLog(domain: unknown): string {
+  if (typeof domain !== 'string') {
+    return '[INVALID_DOMAIN]';
+  }
+
+  const sanitized = domain.replace(DANGEROUS_CHARS, '').trim().toLowerCase().substring(0, 253);
+
+  // Allow standard domain and wildcard domain characters only
+  if (!/^(?:\*\.)?[a-z0-9.-]+$/.test(sanitized) || sanitized.length === 0) {
+    return '[INVALID_DOMAIN]';
+  }
+
+  return sanitized;
+}
+
+/**
  * Sanitizes URLs by removing credentials and query parameters
  */
 export function sanitizeUrl(url: unknown): string {
