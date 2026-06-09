@@ -7,6 +7,7 @@ const api: AxiosInstance = axios.create({
 
 export const getStatus = async (): Promise<any> => (await api.get('/status')).data;
 export const getRegistry = async (): Promise<any> => (await api.get('/config')).data;
+export const getVersion = async (): Promise<any> => (await api.get('/version')).data;
 
 export const startServer = async (name: string): Promise<any> =>
   (await api.post(`/servers/${name}/start`)).data;

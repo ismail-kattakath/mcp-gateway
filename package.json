@@ -1,6 +1,6 @@
 {
   "name": "mcp-gateway",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "**Zero-setup aggregator for Model Context Protocol servers** — Just paste config and go.",
   "main": "index.js",
   "directories": {

@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard';
 import ServerConfig from './components/BackendConfig';
 import LogsViewer from './components/LogsViewer';
 import UnauthorizedHelp from './components/UnauthorizedHelp';
+import VersionFooter from './components/VersionFooter';
+import SecurityBanner from './components/SecurityBanner';
 import { setAuthErrorCallback } from './utils/authInterceptor';
 
 interface NavigationItem {
@@ -13,9 +15,21 @@ interface NavigationItem {
   icon: LucideIcon;
 }
 
+interface VersionInfo {
+  source: string;
+}
+
+interface StatusResponse {
+  gateway: {
+    authEnabled: boolean;
+  };
+}
+
 function App(): JSX.Element {
   const location = useLocation();
   const [showUnauthorized, setShowUnauthorized] = useState<boolean>(false);
+  const [authEnabled, setAuthEnabled] = useState<boolean>(true);
+  const [repoUrl, setRepoUrl] = useState<string>('https://github.com/ismail-kattakath/mcp-gateway');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -27,6 +41,19 @@ function App(): JSX.Element {
     setAuthErrorCallback(() => {
       setShowUnauthorized(true);
     });
+
+    // Fetch auth status and version metadata
+    Promise.all([
+      fetch('/api/status').then((r) => r.json() as Promise<StatusResponse>),
+      fetch('/api/version').then((r) => r.json() as Promise<VersionInfo>),
+    ])
+      .then(([status, version]) => {
+        setAuthEnabled(status.gateway.authEnabled);
+        setRepoUrl(version.source || 'https://github.com/ismail-kattakath/mcp-gateway');
+      })
+      .catch((err) => {
+        console.error('Failed to fetch gateway metadata:', err);
+      });
   }, []);
 
   if (showUnauthorized) {
@@ -68,13 +95,12 @@ function App(): JSX.Element {
           })}
         </nav>
 
-        <div className="p-4 border-t border-dark-border">
-          <div className="text-xs text-gray-500">Version 2.0</div>
-        </div>
+        <VersionFooter />
       </div>
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-7xl mx-auto p-8">
+          {!authEnabled && <SecurityBanner repoUrl={repoUrl} />}
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/servers" element={<ServerConfig />} />
