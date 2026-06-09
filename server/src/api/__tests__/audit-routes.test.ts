@@ -31,7 +31,7 @@ describe('Audit API Routes', () => {
     // Create test users
     adminUser = await usersModel.create({
       username: 'admin',
-      password: 'admin123456',
+      password: 'admin123456abc',
       email: 'admin@test.com',
       role: 'admin',
       status: 'active',
@@ -39,7 +39,7 @@ describe('Audit API Routes', () => {
 
     normalUser = await usersModel.create({
       username: 'user',
-      password: 'user123456',
+      password: 'user123456abc',
       email: 'user@test.com',
       role: 'user',
       status: 'active',

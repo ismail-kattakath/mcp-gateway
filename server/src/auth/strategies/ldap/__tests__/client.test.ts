@@ -9,18 +9,33 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { LDAPProviderPublic } from '../../../../storage/models/ldap-providers.js';
 
-// Mock ldapjs
-vi.mock('ldapjs', () => ({
-  default: {
-    createClient: vi.fn(() => ({
-      on: vi.fn(),
-      bind: vi.fn(),
+// Mock ldapjs — emit 'connect' synchronously so LDAPConnectionPool.createConnection
+// resolves immediately. Without this the test times out waiting for the event.
+vi.mock('ldapjs', () => {
+  const createClient = vi.fn(() => {
+    const handlers: Record<string, ((...args: unknown[]) => void)[]> = {};
+    const client: Record<string, unknown> = {
+      on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+        handlers[event] ??= [];
+        handlers[event].push(cb);
+        if (event === 'connect') {
+          // Fire the 'connect' event on the next microtask so the Promise resolves.
+          queueMicrotask(() => cb());
+        }
+        return client;
+      }),
+      bind: vi.fn((_dn: string, _pw: string, cb: (err: Error | null) => void) => cb(null)),
       search: vi.fn(),
-      unbind: vi.fn(),
+      unbind: vi.fn((cb?: (err: Error | null) => void) => cb?.(null)),
       destroy: vi.fn(),
-    })),
-  },
-}));
+    };
+    return client;
+  });
+  return {
+    default: { createClient },
+    createClient,
+  };
+});
 
 describe('LDAP Client', () => {
   let mockProvider: LDAPProviderPublic;
@@ -174,11 +189,10 @@ describe('LDAP Client', () => {
         return '\\' + char.charCodeAt(0).toString(16).padStart(2, '0');
       });
 
-      // Should escape special characters
-      expect(sanitized).not.toContain('*');
-      expect(sanitized).not.toContain('(');
-      expect(sanitized).not.toContain(')');
-      expect(sanitized).not.toContain('\\');
+      // Should hex-encode LDAP special characters (RFC 4515: \HH)
+      expect(sanitized).toBe('user\\2a\\28\\29\\5c');
+      // Raw special characters must not appear unescaped
+      expect(sanitized).not.toMatch(/(?<!\\)[*()]/);
     });
 
     it('should not modify safe usernames', () => {

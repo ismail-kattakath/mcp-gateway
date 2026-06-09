@@ -146,14 +146,32 @@ export async function migrateFromRegistryJson(
 
         // Server settings
         if (gw.server) {
-          await settingsModel.set('server.port', { value: gw.server.port?.toString() || '3000', category: 'server' });
-          await settingsModel.set('server.host', { value: gw.server.host || '0.0.0.0', category: 'server' });
-          await settingsModel.set('server.transport', { value: gw.server.transport || 'sse', category: 'server' });
+          await settingsModel.set('server.port', {
+            value: gw.server.port?.toString() || '3000',
+            category: 'server',
+          });
+          await settingsModel.set('server.host', {
+            value: gw.server.host || '0.0.0.0',
+            category: 'server',
+          });
+          await settingsModel.set('server.transport', {
+            value: gw.server.transport || 'sse',
+            category: 'server',
+          });
 
           if (gw.server.cors) {
-            await settingsModel.set('server.cors.enabled', { value: gw.server.cors.enabled?.toString() || 'true', category: 'server' });
-            await settingsModel.set('server.cors.origins', { value: JSON.stringify(gw.server.cors.origins || ['*']), category: 'server' });
-            await settingsModel.set('server.cors.credentials', { value: gw.server.cors.credentials?.toString() || 'true', category: 'server' });
+            await settingsModel.set('server.cors.enabled', {
+              value: gw.server.cors.enabled?.toString() || 'true',
+              category: 'server',
+            });
+            await settingsModel.set('server.cors.origins', {
+              value: JSON.stringify(gw.server.cors.origins || ['*']),
+              category: 'server',
+            });
+            await settingsModel.set('server.cors.credentials', {
+              value: gw.server.cors.credentials?.toString() || 'true',
+              category: 'server',
+            });
           }
 
           result.settingsCount += 6;
@@ -161,17 +179,32 @@ export async function migrateFromRegistryJson(
 
         // Storage settings
         if (gw.storage) {
-          await settingsModel.set('storage.repos', { value: gw.storage.repos, category: 'storage' });
-          await settingsModel.set('storage.cache', { value: gw.storage.cache, category: 'storage' });
+          await settingsModel.set('storage.repos', {
+            value: gw.storage.repos,
+            category: 'storage',
+          });
+          await settingsModel.set('storage.cache', {
+            value: gw.storage.cache,
+            category: 'storage',
+          });
           await settingsModel.set('storage.logs', { value: gw.storage.logs, category: 'storage' });
           result.settingsCount += 3;
         }
 
         // Logging settings
         if (gw.logging) {
-          await settingsModel.set('logging.level', { value: gw.logging.level, category: 'logging' });
-          await settingsModel.set('logging.format', { value: gw.logging.format, category: 'logging' });
-          await settingsModel.set('logging.outputs', { value: JSON.stringify(gw.logging.outputs), category: 'logging' });
+          await settingsModel.set('logging.level', {
+            value: gw.logging.level,
+            category: 'logging',
+          });
+          await settingsModel.set('logging.format', {
+            value: gw.logging.format,
+            category: 'logging',
+          });
+          await settingsModel.set('logging.outputs', {
+            value: JSON.stringify(gw.logging.outputs),
+            category: 'logging',
+          });
           result.settingsCount += 3;
         }
 
@@ -192,12 +225,18 @@ export async function migrateFromRegistryJson(
         const authConfig = JSON.parse(authContent) as any;
 
         if (authConfig.disableAuth !== undefined) {
-          await settingsModel.set('auth.enabled', { value: (!authConfig.disableAuth).toString(), category: 'auth' });
+          await settingsModel.set('auth.enabled', {
+            value: (!authConfig.disableAuth).toString(),
+            category: 'auth',
+          });
           result.settingsCount++;
         }
 
         if (authConfig.allowedIPs && Array.isArray(authConfig.allowedIPs)) {
-          await settingsModel.set('auth.ip_allowlist', { value: JSON.stringify(authConfig.allowedIPs), category: 'auth' });
+          await settingsModel.set('auth.ip_allowlist', {
+            value: JSON.stringify(authConfig.allowedIPs),
+            category: 'auth',
+          });
           result.settingsCount++;
         }
 
@@ -273,24 +312,46 @@ export async function exportToRegistryJson(outputPath: string): Promise<Migratio
       servers: serversObj,
       gateway: {
         server: {
-          port: parseInt(serverSettings.find(s => s.key === 'server.port')?.value || '3000'),
-          host: serverSettings.find(s => s.key === 'server.host')?.value || '0.0.0.0',
-          transport: serverSettings.find(s => s.key === 'server.transport')?.value as 'sse' | 'http' | 'both' || 'sse',
+          port: parseInt(serverSettings.find((s) => s.key === 'server.port')?.value || '3000'),
+          host: serverSettings.find((s) => s.key === 'server.host')?.value || '0.0.0.0',
+          transport:
+            (serverSettings.find((s) => s.key === 'server.transport')?.value as
+              | 'sse'
+              | 'http'
+              | 'both') || 'sse',
           cors: {
-            enabled: serverSettings.find(s => s.key === 'server.cors.enabled')?.value === 'true',
-            origins: JSON.parse(serverSettings.find(s => s.key === 'server.cors.origins')?.value || '["*"]'),
-            credentials: serverSettings.find(s => s.key === 'server.cors.credentials')?.value === 'true',
+            enabled: serverSettings.find((s) => s.key === 'server.cors.enabled')?.value === 'true',
+            origins: JSON.parse(
+              serverSettings.find((s) => s.key === 'server.cors.origins')?.value || '["*"]'
+            ),
+            credentials:
+              serverSettings.find((s) => s.key === 'server.cors.credentials')?.value === 'true',
           },
         },
         storage: {
-          repos: storageSettings.find(s => s.key === 'storage.repos')?.value || path.resolve(process.env.HOME || '/tmp', '.mcp/repos'),
-          cache: storageSettings.find(s => s.key === 'storage.cache')?.value || path.resolve(process.env.HOME || '/tmp', '.mcp/cache'),
-          logs: storageSettings.find(s => s.key === 'storage.logs')?.value || path.resolve(process.env.HOME || '/tmp', '.mcp/logs'),
+          repos:
+            storageSettings.find((s) => s.key === 'storage.repos')?.value ||
+            path.resolve(process.env.HOME || '/tmp', '.mcp/repos'),
+          cache:
+            storageSettings.find((s) => s.key === 'storage.cache')?.value ||
+            path.resolve(process.env.HOME || '/tmp', '.mcp/cache'),
+          logs:
+            storageSettings.find((s) => s.key === 'storage.logs')?.value ||
+            path.resolve(process.env.HOME || '/tmp', '.mcp/logs'),
         },
         logging: {
-          level: loggingSettings.find(s => s.key === 'logging.level')?.value as 'debug' | 'info' | 'warn' | 'error' || 'info',
-          format: loggingSettings.find(s => s.key === 'logging.format')?.value as 'json' | 'text' || 'json',
-          outputs: JSON.parse(loggingSettings.find(s => s.key === 'logging.outputs')?.value || '["console","file"]'),
+          level:
+            (loggingSettings.find((s) => s.key === 'logging.level')?.value as
+              | 'debug'
+              | 'info'
+              | 'warn'
+              | 'error') || 'info',
+          format:
+            (loggingSettings.find((s) => s.key === 'logging.format')?.value as 'json' | 'text') ||
+            'json',
+          outputs: JSON.parse(
+            loggingSettings.find((s) => s.key === 'logging.outputs')?.value || '["console","file"]'
+          ),
         },
       },
     };

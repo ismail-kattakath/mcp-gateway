@@ -55,7 +55,9 @@ vi.mock('../../mcp/registry.js', async () => {
     ...actual,
     reloadFromDatabase: vi.fn(async () => {
       // This will be set to update the mockRegistry in tests
-      return mockReloadFromDatabase ? await mockReloadFromDatabase() : { version: '2.0', servers: {}, gateway: {} };
+      return mockReloadFromDatabase
+        ? await mockReloadFromDatabase()
+        : { version: '2.0', servers: {}, gateway: {} };
     }),
   };
 });

@@ -136,6 +136,10 @@ function createTables(): void {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
 
+    if (typeof schema !== 'string' || schema.length === 0) {
+      throw new Error(`Schema file is empty or unreadable: ${schemaPath}`);
+    }
+
     // Remove comments (both -- and /* */ style)
     const cleanedSchema = schema
       .replace(/--[^\n]*/g, '') // Remove -- comments

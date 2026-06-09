@@ -18,13 +18,20 @@ vi.mock('../../../../storage/models/users.js', () => ({
   },
 }));
 
+// Persistent mock statement so tests can assert get/run via the same spy instances.
+const mockStatement = {
+  get: vi.fn(),
+  run: vi.fn(),
+  all: vi.fn(() => []),
+};
+const mockDb = {
+  prepare: vi.fn(() => mockStatement),
+};
 vi.mock('../../../../storage/database.js', () => ({
-  getDatabase: vi.fn(() => ({
-    prepare: vi.fn(() => ({
-      get: vi.fn(),
-      run: vi.fn(),
-    })),
-  })),
+  initDatabase: vi.fn(),
+  closeDatabase: vi.fn(),
+  isDatabaseInitialized: vi.fn(() => true),
+  getDatabase: vi.fn(() => mockDb),
 }));
 
 vi.mock('bcrypt', () => ({

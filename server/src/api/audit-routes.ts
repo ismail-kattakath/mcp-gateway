@@ -54,9 +54,11 @@ export function createAuditRouter(): Router {
     const authReq = req as RequestWithAudit;
 
     try {
-      // Check permission (admin only)
+      // Check permission (admin only — CASL conditional rules allow regular
+      // users to read their own logs; admin endpoints require unrestricted
+      // access, so check role explicitly.)
       const ability = defineAbilitiesFor(authReq.user!);
-      if (!ability.can('read', 'audit')) {
+      if (authReq.user?.role !== 'admin' || !ability.can('read', 'audit')) {
         logger.warn('Unauthorized audit log access attempt', {
           userId: authReq.user?.id,
           role: authReq.user?.role,
@@ -128,9 +130,11 @@ export function createAuditRouter(): Router {
     const authReq = req as RequestWithAudit;
 
     try {
-      // Check permission (admin only)
+      // Check permission (admin only — CASL conditional rules allow regular
+      // users to read their own logs; admin endpoints require unrestricted
+      // access, so check role explicitly.)
       const ability = defineAbilitiesFor(authReq.user!);
-      if (!ability.can('read', 'audit')) {
+      if (authReq.user?.role !== 'admin' || !ability.can('read', 'audit')) {
         return res.status(403).json({
           error: 'Forbidden',
           message: 'Insufficient permissions to export audit logs',
@@ -205,9 +209,11 @@ export function createAuditRouter(): Router {
     const authReq = req as RequestWithAudit;
 
     try {
-      // Check permission (admin only)
+      // Check permission (admin only — CASL conditional rules allow regular
+      // users to read their own logs; admin endpoints require unrestricted
+      // access, so check role explicitly.)
       const ability = defineAbilitiesFor(authReq.user!);
-      if (!ability.can('read', 'audit')) {
+      if (authReq.user?.role !== 'admin' || !ability.can('read', 'audit')) {
         return res.status(403).json({
           error: 'Forbidden',
           message: 'Insufficient permissions to verify audit logs',
@@ -251,9 +257,11 @@ export function createAuditRouter(): Router {
     const authReq = req as RequestWithAudit;
 
     try {
-      // Check permission (admin only)
+      // Check permission (admin only — CASL conditional rules allow regular
+      // users to read their own logs; admin endpoints require unrestricted
+      // access, so check role explicitly.)
       const ability = defineAbilitiesFor(authReq.user!);
-      if (!ability.can('read', 'audit')) {
+      if (authReq.user?.role !== 'admin' || !ability.can('read', 'audit')) {
         return res.status(403).json({
           error: 'Forbidden',
           message: 'Insufficient permissions to view audit log statistics',

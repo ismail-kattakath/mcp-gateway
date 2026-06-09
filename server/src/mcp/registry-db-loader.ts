@@ -31,7 +31,7 @@ export async function loadServersFromDatabase(
 
     logger.info('Loaded servers from database', {
       count: servers.length,
-      enabled: servers.filter(s => s.enabled === 1).length,
+      enabled: servers.filter((s) => s.enabled === 1).length,
     });
 
     return serversObj;
@@ -55,7 +55,7 @@ export async function loadGatewayConfigFromDatabase(): Promise<GatewayConfig> {
 
     // Helper to get setting value with default
     const getSetting = (settings: any[], key: string, defaultValue: string): string => {
-      const setting = settings.find(s => s.key === key);
+      const setting = settings.find((s) => s.key === key);
       return setting?.value || defaultValue;
     };
 

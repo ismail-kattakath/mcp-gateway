@@ -38,11 +38,13 @@ describe('Rate Limit Middleware', () => {
     });
 
     it('should block requests exceeding limit', async () => {
+      // Auth rate limiter only counts failed attempts (skipSuccessfulRequests),
+      // so simulate failed logins (401) to trip the limit.
       app.post('/auth/login', authRateLimiter, (req: Request, res: Response) => {
-        res.json({ success: true });
+        res.status(401).json({ error: 'invalid credentials' });
       });
 
-      // Make 10 requests (at limit)
+      // Make 10 failed requests (at limit)
       for (let i = 0; i < 10; i++) {
         await request(app).post('/auth/login');
       }
@@ -55,7 +57,7 @@ describe('Rate Limit Middleware', () => {
 
     it('should include Retry-After header', async () => {
       app.post('/auth/login', authRateLimiter, (req: Request, res: Response) => {
-        res.json({ success: true });
+        res.status(401).json({ error: 'invalid credentials' });
       });
 
       for (let i = 0; i < 10; i++) {

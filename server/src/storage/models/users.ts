@@ -91,10 +91,16 @@ export interface ListUsersFilter {
  * Users Model
  */
 export class UsersModel {
-  private db: Database.Database;
+  private readonly _injectedDb?: Database.Database;
 
   constructor(database?: Database.Database) {
-    this.db = database || getDatabase();
+    this._injectedDb = database;
+  }
+
+  // Always fetch the current DB instance so this works across initDatabase/
+  // closeDatabase cycles (important for tests that swap in :memory: DBs).
+  private get db(): Database.Database {
+    return this._injectedDb ?? getDatabase();
   }
 
   /**
