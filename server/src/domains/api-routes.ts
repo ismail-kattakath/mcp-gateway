@@ -16,7 +16,7 @@
 
 import { Router, Request, Response } from 'express';
 import logger from '../logging/logger.js';
-import { sanitizeDomainForLog } from '../logging/sanitizer.js';
+import { sanitizeDomainForLog, sanitizeString } from '../logging/sanitizer.js';
 import { getDomainManager, DomainOptions } from './manager.js';
 import { isValidDomain, isValidWildcardDomain, normalizeDomain } from './validation.js';
 
