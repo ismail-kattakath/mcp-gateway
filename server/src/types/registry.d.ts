@@ -123,6 +123,31 @@ export interface GatewayConfig {
  * Simplified gateway config (v2.1+)
  * Flattened server settings, removed auth/storage/logging
  */
+export interface TLSConfig {
+  enabled: boolean;
+  mode: 'letsencrypt' | 'custom' | 'disabled';
+  domains?: string[];
+  letsencrypt?: {
+    email: string;
+    staging: boolean;
+    renewWithin: number;
+  };
+  custom?: {
+    cert: string;
+    key: string;
+    ca?: string;
+  };
+  redirect: boolean;
+  minVersion?: string;
+  maxVersion?: string;
+}
+
+export interface MDNSConfig {
+  enabled: boolean;
+  name?: string;
+  port?: number;
+}
+
 export interface SimplifiedGatewayConfig {
   /** Server port. Default: 3000 */
   port?: number;
@@ -136,6 +161,10 @@ export interface SimplifiedGatewayConfig {
     origins?: string[];
     credentials?: boolean;
   };
+  /** TLS/HTTPS configuration */
+  tls?: TLSConfig;
+  /** mDNS/Bonjour configuration */
+  mdns?: MDNSConfig;
 }
 
 export interface Registry {
