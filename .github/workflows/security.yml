@@ -174,9 +174,18 @@ jobs:
       - name: Start server
         working-directory: server
         run: |
-          GATEWAY_DISABLE_AUTH=true node dist/index.js &
+          # DISABLE_STDIO=true forces HTTP mode — backgrounding with `&`
+          # leaves stdin pipe-readable, which would otherwise switch the
+          # server into stdio transport and exit immediately.
+          GATEWAY_DISABLE_AUTH=true DISABLE_STDIO=true \
+            node dist/index.js > server.log 2>&1 &
           echo $! > server.pid
-          sleep 5
+          # Wait for /health to come up (cap at ~30s)
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/health > /dev/null && break
+            sleep 1
+          done
+          curl -s http://localhost:3000/health || (cat server.log; exit 1)
 
       - name: Check security headers
         run: |
