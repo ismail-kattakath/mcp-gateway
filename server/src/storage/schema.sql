@@ -335,5 +335,37 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked ON refresh_tokens(revoked)
 --    Don't cache token validity beyond 1 minute
 --
 -- ============================================================
+-- 7. FIREWALL_RULES TABLE
+-- ============================================================
+-- IP filtering rules for network security (Epic #23)
+
+CREATE TABLE IF NOT EXISTS firewall_rules (
+  -- Identity
+  id TEXT PRIMARY KEY,                      -- UUID v4
+
+  -- Rule configuration
+  ip_range TEXT NOT NULL,                   -- IP or CIDR (192.168.1.0/24, 10.0.0.1)
+  rule_type TEXT NOT NULL CHECK(rule_type IN ('allow', 'deny')),
+  description TEXT,                         -- Human-readable description
+
+  -- Status
+  enabled INTEGER DEFAULT 1,                -- Boolean (1=enabled, 0=disabled)
+
+  -- Multi-tenancy
+  tenant TEXT,                              -- Multi-tenancy support
+
+  -- Audit
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT                           -- User ID
+);
+
+-- Indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_firewall_rules_rule_type ON firewall_rules(rule_type);
+CREATE INDEX IF NOT EXISTS idx_firewall_rules_enabled ON firewall_rules(enabled);
+CREATE INDEX IF NOT EXISTS idx_firewall_rules_tenant ON firewall_rules(tenant);
+CREATE INDEX IF NOT EXISTS idx_firewall_rules_ip_range ON firewall_rules(ip_range);
+
+-- ============================================================
 -- END OF SCHEMA
 -- ============================================================

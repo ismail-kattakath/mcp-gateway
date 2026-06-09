@@ -37,7 +37,10 @@ import { createAuthMiddleware } from './middleware/auth.js';
 import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './security/apikey.js';
 import { startStdioTransport } from './mcp/stdio-transport.js';
 import { createApiRouter } from './api/routes.js';
+import { createFirewallRouter } from './api/firewall-routes.js';
 import { swaggerSpec, swaggerUi, swaggerUiOptions } from './api/swagger.js';
+// Firewall (Epic #23)
+import { initializeFirewall, createFirewallMiddleware } from './security/firewall/index.js';
 // Metrics & Monitoring (Epic #3)
 import { getMetrics } from './metrics/index.js';
 import { httpMetricsMiddleware } from './metrics/middleware.js';
@@ -159,6 +162,14 @@ async function initializeServer(): Promise<HttpServer | null> {
     const registry = getRegistry();
     const gatewayConfig = getGatewayConfig();
 
+    // Initialize firewall system (Epic #23)
+    // This must happen after registry initialization
+    logger.info('Initializing firewall system...');
+    const firewallPort =
+      parseInt(process.env.GATEWAY_PORT || '') || gatewayConfig.server.port || 3000;
+    await initializeFirewall(registryPath, undefined, firewallPort);
+    logger.info('Firewall system initialized');
+
     // Initialize instance management (Epic #26)
     // This must happen before starting the HTTP server
     const preferredPort =
@@ -210,6 +221,10 @@ async function initializeServer(): Promise<HttpServer | null> {
     // Initialize Passport.js with all auth strategies
     const passportInstance = await initializePassport();
     app.use(passportInstance.initialize());
+
+    // Firewall middleware (IP filtering) - MUST come before auth
+    // This provides defense-in-depth: firewall -> auth -> routes
+    app.use(createFirewallMiddleware());
 
     // Auth + IP allowlist. Reads from auth config file (.mcp-gateway.json).
     // Throws at construction if auth is enabled but key generation failed.
@@ -434,6 +449,10 @@ async function initializeServer(): Promise<HttpServer | null> {
     // ===== REST API Routes =====
     const apiRouter = createApiRouter({ serverManager, registry });
     app.use('/api', apiRouter);
+
+    // ===== Firewall Management Routes =====
+    const firewallRouter = createFirewallRouter();
+    app.use('/api/firewall', firewallRouter);
 
     // ===== Domain Management Routes =====
     // Import dynamically to handle optional Caddy integration
