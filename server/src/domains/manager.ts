@@ -119,7 +119,7 @@ export class DomainManager {
     // Add to in-memory store
     this.domains.set(normalized, newDomain);
 
-    logger.info(`Domain added: ${sanitizeString(normalized)}`);
+    logger.info('Domain added', { domain: sanitizeString(normalized) });
 
     // Regenerate Caddyfile and reload
     await this.syncCaddyfile();
