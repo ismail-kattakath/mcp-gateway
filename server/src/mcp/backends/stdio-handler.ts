@@ -5,7 +5,7 @@
  * Parses JSON-RPC messages and separates them from regular log output
  */
 
-import logger from '../../logging/logger.js';
+import logger, { sanitizeServerName, sanitizeString } from '../../logging/logger.js';
 
 interface JsonRpcMessage {
   jsonrpc: '2.0';
@@ -57,7 +57,8 @@ export function createStdoutHandler(
         if (message.jsonrpc === '2.0') {
           // Emit as MCP message
           server.emit('message', message);
-          logger.debug(`[${serverName}] JSON-RPC message:`, {
+          logger.debug('JSON-RPC message received', {
+            server: sanitizeServerName(serverName),
             id: message.id,
             method: message.method,
             hasResult: !!message.result,
@@ -66,12 +67,18 @@ export function createStdoutHandler(
         } else {
           // Not JSON-RPC, treat as log
           server.addLog('stdout', trimmed);
-          logger.debug(`[${serverName}] stdout: ${trimmed}`);
+          logger.debug('Server stdout output', {
+            server: sanitizeServerName(serverName),
+            output: sanitizeString(trimmed),
+          });
         }
       } catch (parseError) {
         // Not JSON, treat as regular log output
         server.addLog('stdout', trimmed);
-        logger.debug(`[${serverName}] stdout: ${trimmed}`);
+        logger.debug('Server stdout output', {
+          server: sanitizeServerName(serverName),
+          output: sanitizeString(trimmed),
+        });
       }
     }
   };
@@ -94,9 +101,15 @@ export function createStderrHandler(
       server.addLog('stderr', message);
       // Only log as error if it looks like an error
       if (message.toLowerCase().includes('error') || message.toLowerCase().includes('fatal')) {
-        logger.error(`[${serverName}] stderr: ${message}`);
+        logger.error('Server stderr error output', {
+          server: sanitizeServerName(serverName),
+          output: sanitizeString(message),
+        });
       } else {
-        logger.debug(`[${serverName}] stderr: ${message}`);
+        logger.debug('Server stderr output', {
+          server: sanitizeServerName(serverName),
+          output: sanitizeString(message),
+        });
       }
     }
   };

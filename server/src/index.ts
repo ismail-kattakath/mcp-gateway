@@ -302,6 +302,18 @@ async function initializeServer(): Promise<HttpServer | null> {
     const apiRouter = createApiRouter({ serverManager, registry });
     app.use('/api', apiRouter);
 
+    // ===== Domain Management Routes =====
+    // Import dynamically to handle optional Caddy integration
+    try {
+      const { domainRouter } = await import('./domains/api-routes.js');
+      app.use('/api/domains', domainRouter);
+      logger.info('Domain management API enabled');
+    } catch (error) {
+      logger.warn('Domain management API not available (Caddy integration disabled)', {
+        error: (error as Error).message,
+      });
+    }
+
     // ===== Status / config / logs (legacy endpoints, kept for backward compat) =====
     app.get('/api/status', (req: Request, res: Response) => {
       // Check if auth is disabled
