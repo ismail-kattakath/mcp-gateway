@@ -15,8 +15,12 @@
  * ```
  */
 
-// Main logger
-export { default as logger, LOG_DIR } from './logger.js';
+// Main logger (Winston-compatible wrapper for easier migration)
+export { default as logger } from './winston-compat.js';
+export { LOG_DIR } from './logger.js';
+
+// Pure Pino logger (for new code)
+export { default as pinoLogger } from './logger.js';
 
 // Logger utilities
 export {
@@ -51,6 +55,7 @@ export type { RequestContext } from './context.js';
 // Sanitization
 export {
   // Base sanitizers
+  sanitizeString,
   sanitizeServerName,
   sanitizeUrl,
   sanitizeArgs,
@@ -58,6 +63,7 @@ export {
   sanitizeIp,
   sanitizePath,
   sanitizeObject,
+  sanitizeError,
   // Enhanced sanitizers
   sanitizeStringEnhanced,
   sanitizeRequest,
@@ -67,5 +73,5 @@ export {
   createPinoSerializers,
 } from './sanitizer.js';
 
-// Re-export default
-export { default } from './logger.js';
+// Re-export default (Winston-compatible for easier migration)
+export { default } from './winston-compat.js';

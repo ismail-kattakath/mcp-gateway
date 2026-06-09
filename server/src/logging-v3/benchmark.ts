@@ -16,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const ITERATIONS = 10000;
+const ITERATIONS = 500000; // Increased for sustained performance measurement
 const TEMP_DIR = path.join(os.tmpdir(), 'mcp-benchmark');
 
 // Ensure temp directory exists
@@ -124,10 +124,18 @@ async function benchmarkPino(): Promise<BenchmarkResult> {
     );
   }
 
-  // Properly wait for Pino to flush all writes
+  // Wait for Pino to flush all writes
   await new Promise<void>((resolve) => {
-    destination.flushSync();
-    setImmediate(resolve);
+    // Give Pino time to finish async writes
+    setTimeout(() => {
+      try {
+        destination.flushSync();
+        resolve();
+      } catch (error) {
+        // If flushSync fails, just resolve anyway - we've waited long enough
+        resolve();
+      }
+    }, 100);
   });
 
   const end = performance.now();

@@ -8,6 +8,7 @@
  * - Performance tracking
  */
 
+import crypto from 'crypto';
 import pinoHttp from 'pino-http';
 import type { Request, Response } from 'express';
 import type { Logger } from 'pino';

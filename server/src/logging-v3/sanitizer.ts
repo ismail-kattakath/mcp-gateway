@@ -257,11 +257,13 @@ import {
 } from '../logging/sanitizer.js';
 
 export {
+  sanitizeString,
   sanitizeString as sanitizeStringBase,
   sanitizeServerName,
   sanitizeUrl,
   sanitizeArgs,
   sanitizeEnv,
+  sanitizeError,
   sanitizeError as sanitizeErrorBase,
   sanitizeIp,
   sanitizePath,
