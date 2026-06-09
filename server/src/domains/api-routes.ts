@@ -16,7 +16,6 @@
 
 import { Router, Request, Response } from 'express';
 import logger from '../logging/logger.js';
-import { sanitizeString } from '../logging/sanitizer.js';
 import { getDomainManager, DomainOptions } from './manager.js';
 import { isValidDomain, isValidWildcardDomain, normalizeDomain } from './validation.js';
 
@@ -338,8 +337,13 @@ router.post('/:name/enable', async (req: Request, res: Response) => {
     const domainManager = getDomainManager();
 
     const domain = await domainManager.toggleDomain(name, true);
+    const normalizedName = normalizeDomain(name);
+    const safeDomainForLog =
+      isValidDomain(normalizedName) || isValidWildcardDomain(normalizedName)
+        ? normalizedName
+        : '[INVALID_DOMAIN]';
 
-    logger.info(`Domain enabled via API: ${sanitizeString(name)}`);
+    logger.info(`Domain enabled via API: ${safeDomainForLog}`);
 
     res.json(domain);
   } catch (error: any) {
@@ -386,8 +390,13 @@ router.post('/:name/disable', async (req: Request, res: Response) => {
     const domainManager = getDomainManager();
 
     const domain = await domainManager.toggleDomain(name, false);
+    const normalizedName = normalizeDomain(name);
+    const safeDomainForLog =
+      isValidDomain(normalizedName) || isValidWildcardDomain(normalizedName)
+        ? normalizedName
+        : '[INVALID_DOMAIN]';
 
-    logger.info(`Domain disabled via API: ${sanitizeString(name)}`);
+    logger.info(`Domain disabled via API: ${safeDomainForLog}`);
 
     res.json(domain);
   } catch (error: any) {
