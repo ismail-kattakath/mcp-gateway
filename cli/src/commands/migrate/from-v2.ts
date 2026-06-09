@@ -6,7 +6,6 @@
 import { Command, Flags } from "@oclif/core";
 import fs from "fs/promises";
 import path from "path";
-import Ajv from "ajv";
 import chalk from "chalk";
 
 interface ServerConfig {

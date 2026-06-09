@@ -225,7 +225,7 @@ export default class DbRollback extends Command {
 
         runInTransaction();
         this.log(chalk.green(`  ✓ Rolled back: v${migration.version}`));
-      } catch (error) {
+      } catch {
         this.warn(
           chalk.yellow(
             `  ⚠ Rollback script not found for v${migration.version}, removing record only`,
@@ -238,7 +238,11 @@ export default class DbRollback extends Command {
     }
   }
 
-  private removeMigrationRecords(db: DatabaseType, from: number, to: number): void {
+  private removeMigrationRecords(
+    db: DatabaseType,
+    from: number,
+    to: number,
+  ): void {
     const migrations = db
       .prepare(
         "SELECT * FROM migrations WHERE version > ? ORDER BY version DESC",

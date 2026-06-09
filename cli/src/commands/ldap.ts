@@ -14,7 +14,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { existsSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import { resolve } from "path";
 import axios from "axios";
 
