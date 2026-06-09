@@ -75,18 +75,24 @@ export async function getOrCreateApiKey(forceRotate = false): Promise<string> {
 export async function printApiKeyAndExit(): Promise<void> {
   try {
     const key = await getOrCreateApiKey(false);
+    // lgtm[js/clear-text-logging]
+    // Intentional: This is the CLI command to display the API key to the user
     // eslint-disable-next-line no-console
     console.log(`\nGATEWAY_API_KEY=${key}\n`);
     // eslint-disable-next-line no-console
     console.log('Copy this key to use in client configurations:\n');
     // eslint-disable-next-line no-console
     console.log('  "headers": {');
+    // lgtm[js/clear-text-logging]
+    // Intentional: This is the CLI command to display the API key to the user
     // eslint-disable-next-line no-console
     console.log(`    "Authorization": "Bearer ${key}"`);
     // eslint-disable-next-line no-console
     console.log('  }\n');
     // eslint-disable-next-line no-console
     console.log("Or for SSE endpoints that don't support headers:");
+    // lgtm[js/clear-text-logging]
+    // Intentional: This is the CLI command to display the API key to the user
     // eslint-disable-next-line no-console
     console.log(`  http://localhost:3000/sse?access_token=${key}\n`);
     process.exit(0);
@@ -107,6 +113,8 @@ export async function rotateApiKeyAndExit(): Promise<void> {
     const key = await getOrCreateApiKey(true);
     // eslint-disable-next-line no-console
     console.log('\nAPI key rotated successfully!\n');
+    // lgtm[js/clear-text-logging]
+    // Intentional: This is the CLI command to display the rotated API key to the user
     // eslint-disable-next-line no-console
     console.log(`GATEWAY_API_KEY=${key}\n`);
     // eslint-disable-next-line no-console

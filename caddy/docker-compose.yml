@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # MCP Gateway Server
+  gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: mcp-gateway
+    environment:
+      - NODE_ENV=production
+      - GATEWAY_PORT=3000
+      # Disable auth for internal communication (Caddy handles it)
+      - GATEWAY_DISABLE_AUTH=true
+      # Enable debug logging if needed
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      # Mount registry and storage
+      - ../registry.json:/app/registry.json:ro
+      - gateway-repos:/root/.mcp/repos
+      - gateway-cache:/root/.mcp/cache
+      - gateway-logs:/root/.mcp/logs
+      # Docker socket for container sources (optional, security risk)
+      # Uncomment if you use source: "container"
+      # - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gateway-net
+    # Not exposed to host - only accessible via Caddy
+    expose:
+      - "3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Caddy Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: mcp-caddy
+    ports:
+      - "80:80"       # HTTP (redirects to HTTPS when domains configured)
+      - "443:443"     # HTTPS
+      - "443:443/udp" # HTTP/3 (QUIC)
+      - "2019:2019"   # Caddy Admin API (for dynamic config updates)
+    environment:
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+    volumes:
+      # Caddyfile
+      - ./Caddyfile.template:/etc/caddy/Caddyfile:ro
+      # Persistent storage for TLS certificates
+      - caddy-data:/data
+      - caddy-config:/config
+      # Log directory
+      - caddy-logs:/var/log/caddy
+    networks:
+      - gateway-net
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  gateway-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  # Gateway storage
+  gateway-repos:
+    driver: local
+  gateway-cache:
+    driver: local
+  gateway-logs:
+    driver: local
+
+  # Caddy storage (TLS certificates, config)
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+  caddy-logs:
+    driver: local
