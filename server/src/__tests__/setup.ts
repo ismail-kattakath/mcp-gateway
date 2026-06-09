@@ -1,6 +1,16 @@
 import { beforeAll, afterAll, afterEach } from 'vitest';
 import fs from 'fs/promises';
+import { webcrypto } from 'node:crypto';
 import path from 'path';
+
+// Polyfill `globalThis.crypto` for Node 18: it's available but not exposed as
+// a global until Node 19. `uuid` v14 calls `crypto.getRandomValues` directly.
+if (typeof globalThis.crypto === 'undefined') {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: webcrypto,
+    configurable: true,
+  });
+}
 
 // Set test environment
 process.env.NODE_ENV = 'test';
