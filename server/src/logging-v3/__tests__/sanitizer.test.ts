@@ -50,8 +50,9 @@ describe('Enhanced Sanitization', () => {
     });
 
     it('should redact Stripe API keys', () => {
-      const liveKey = 'sk_live_FAKE1234567890TESTKEY';
-      const testKey = 'sk_test_FAKE1234567890TESTKEY';
+      // Construct keys to avoid triggering GitHub secret scanning
+      const liveKey = ['sk', 'live', 'FAKEabcdefghijklmnopqrstuvwxyz'].join('_');
+      const testKey = ['sk', 'test', 'FAKEabcdefghijklmnopqrstuvwxyz'].join('_');
 
       expect(sanitizeStringEnhanced(liveKey)).toContain('[REDACTED_STRIPE_SECRET]');
       expect(sanitizeStringEnhanced(testKey)).toContain('[REDACTED_STRIPE_TEST]');
@@ -229,7 +230,9 @@ MIIEpAIBAAKCAQEA1234567890
     });
 
     it('should detect API keys', () => {
-      expect(containsSensitiveData('sk_live_FAKE1234567890TESTKEY')).toBe(true);
+      // Construct key to avoid triggering GitHub secret scanning
+      const stripeKey = ['sk', 'live', 'FAKEabcdefghijklmnopqrstuvwxyz'].join('_');
+      expect(containsSensitiveData(stripeKey)).toBe(true);
       expect(containsSensitiveData('contains api_key here')).toBe(true);
     });
 
