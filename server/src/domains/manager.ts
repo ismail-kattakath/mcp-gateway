@@ -17,7 +17,6 @@ import {
   isValidWildcardDomain,
   isLocalDomain,
   normalizeDomain,
-  getRootDomain,
 } from './validation.js';
 
 export interface Domain {
