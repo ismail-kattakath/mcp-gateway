@@ -54,7 +54,7 @@ WORKDIR /app
 #   python3+uv — `source: "pkg"` with uvx / pipx commands
 #   bash       — for `source: "local"` shell-script wrappers
 #   curl       — HEALTHCHECK
-RUN apk add --no-cache git docker-cli python3 py3-pip curl bash krb5-libs && \
+RUN apk add --no-cache git docker-cli python3 py3-pip curl bash krb5-libs libsecret && \
     pip3 install --no-cache-dir --break-system-packages uv
 
 # Copy compiled server code and runtime dependencies with correct ownership
