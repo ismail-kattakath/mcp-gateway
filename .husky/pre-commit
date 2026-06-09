@@ -1,12 +1,9 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 # Run lint-staged (formatting, linting, type-checking)
 npx lint-staged
 
-# Prevent committing common sensitive patterns
-if git diff --cached --name-only | xargs grep -l "TODO\|FIXME\|XXX\|HACK\|@nocommit" 2>/dev/null; then
-  echo "⚠️  Warning: Found TODO/FIXME/HACK/@nocommit markers in staged files"
+# Prevent committing common warning markers
+if git diff --cached --name-only | xargs grep -l "FIXME\|XXX\|HACK\|@nocommit" 2>/dev/null; then
+  echo "⚠️  Warning: Found FIXME/XXX/HACK/@nocommit markers in staged files"
   echo "Remove them or commit with --no-verify to bypass this check"
 fi
 

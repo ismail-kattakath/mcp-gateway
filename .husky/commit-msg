@@ -1,6 +1,3 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 # Conventional Commits validation
 commit_msg_file=$1
 commit_msg=$(cat "$commit_msg_file")
