@@ -13,6 +13,8 @@ import chokidar, { FSWatcher } from 'chokidar';
 import { validateRegistry } from '../validation/index.js';
 import logger from '../logging/logger.js';
 import type { Registry, Server, GatewayConfig } from '../types/registry.js';
+import { loadRegistryFromDatabase } from './registry-db-loader.js';
+import { needsMigration, migrateFromRegistryJson } from '../storage/registry-migration.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -235,9 +237,70 @@ async function loadRegistry(filePath: string): Promise<Registry> {
   return resolved;
 }
 
-export async function initRegistry(filePath: string): Promise<Registry> {
+export async function initRegistry(
+  filePath?: string,
+  preferDatabase: boolean = true
+): Promise<Registry> {
+  // Check if we should use database-first approach
+  const useDatabase =
+    preferDatabase &&
+    process.env.MCP_REGISTRY_SOURCE !== 'file' &&
+    process.env.MCP_DISABLE_DATABASE !== 'true';
+
+  if (useDatabase) {
+    try {
+      // Try loading from database first
+      logger.info('Attempting to load registry from database');
+      currentRegistry = await loadRegistryFromDatabase();
+
+      // If we got servers from DB, we're done
+      if (Object.keys(currentRegistry.servers).length > 0) {
+        logger.info('Registry loaded from database successfully', {
+          serverCount: Object.keys(currentRegistry.servers).length,
+        });
+        return currentRegistry;
+      }
+
+      // Database is empty, check if we should auto-migrate
+      if (filePath && !process.env.MCP_DISABLE_AUTO_MIGRATION) {
+        const shouldMigrate = await needsMigration(filePath);
+
+        if (shouldMigrate) {
+          logger.info('Database empty, auto-migrating from registry.json');
+          const authConfigPath = path.resolve(path.dirname(filePath), '.mcp-gateway.json');
+          const result = await migrateFromRegistryJson(filePath, authConfigPath);
+
+          if (result.success) {
+            logger.info('Auto-migration completed successfully', {
+              serversCount: result.serversCount,
+              settingsCount: result.settingsCount,
+            });
+
+            // Reload from database after migration
+            currentRegistry = await loadRegistryFromDatabase();
+            return currentRegistry;
+          } else {
+            logger.error('Auto-migration failed, falling back to file', {
+              errors: result.errors,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      const err = error as Error;
+      logger.warn('Failed to load from database, falling back to file', {
+        error: err.message,
+      });
+    }
+  }
+
+  // Fallback to file-based loading
+  if (!filePath) {
+    filePath = path.resolve(__dirname, '../../registry.json');
+  }
+
   registryPath = path.resolve(filePath);
-  logger.info(`Initializing registry from: ${registryPath}`);
+  logger.info(`Initializing registry from file: ${registryPath}`);
   currentRegistry = await loadRegistry(registryPath);
   return currentRegistry;
 }
@@ -341,6 +404,22 @@ export async function reloadRegistry(): Promise<Registry> {
   return newRegistry;
 }
 
+export async function reloadFromDatabase(): Promise<Registry> {
+  logger.info('Reloading registry from database');
+  const newRegistry = await loadRegistryFromDatabase();
+  const oldRegistry = currentRegistry!;
+  currentRegistry = newRegistry;
+  for (const cb of watchCallbacks) {
+    try {
+      await cb(newRegistry, oldRegistry);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Registry watch callback failed', { error: err.message });
+    }
+  }
+  return newRegistry;
+}
+
 export default {
   initRegistry,
   getRegistry,
@@ -350,4 +429,5 @@ export default {
   watchRegistry,
   stopWatching,
   reloadRegistry,
+  reloadFromDatabase,
 };
