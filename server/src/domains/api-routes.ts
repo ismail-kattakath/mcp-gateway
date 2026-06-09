@@ -339,7 +339,12 @@ router.post('/:name/enable', async (req: Request, res: Response) => {
     const domain = await domainManager.toggleDomain(name, true);
     const normalizedName = normalizeDomain(name);
     const safeDomainForLog =
+    const normalizedName = normalizeDomain(name);
+    const safeNameForLog =
       isValidDomain(normalizedName) || isValidWildcardDomain(normalizedName)
+        ? normalizedName
+        : '[INVALID_DOMAIN]';
+    logger.info(`Domain enabled via API: ${safeNameForLog}`);
         ? normalizedName
         : '[INVALID_DOMAIN]';
 
