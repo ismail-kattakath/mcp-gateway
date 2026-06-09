@@ -268,15 +268,23 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "lint-staged": {
-    "server/src/**/*.{ts,tsx}": [
+    "server/**/*.{ts,tsx,js,jsx,json,md}": [
       "cd server && npm run lint:fix",
       "cd server && npm run format",
       "cd server && npm run type-check"
     ],
-    "ui/src/**/*.{ts,tsx}": [
+    "ui/**/*.{ts,tsx,js,jsx,json,md}": [
       "cd ui && npm run lint:fix",
       "cd ui && npm run format",
       "cd ui && npm run type-check"
+    ],
+    "cli/**/*.{ts,tsx,js,jsx,json,md}": [
+      "cd cli && npm run lint:fix",
+      "cd cli && npm run format",
+      "cd cli && npm run type-check"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
     ]
   },
   "repository": {

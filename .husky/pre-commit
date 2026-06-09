@@ -1,1 +1,17 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Run lint-staged (formatting, linting, type-checking)
 npx lint-staged
+
+# Prevent committing common sensitive patterns
+if git diff --cached --name-only | xargs grep -l "TODO\|FIXME\|XXX\|HACK\|@nocommit" 2>/dev/null; then
+  echo "⚠️  Warning: Found TODO/FIXME/HACK/@nocommit markers in staged files"
+  echo "Remove them or commit with --no-verify to bypass this check"
+fi
+
+# Check for obvious secrets (backup check - GitHub also scans)
+if git diff --cached | grep -iE "password\s*=|api[_-]?key\s*=|secret\s*=" 2>/dev/null; then
+  echo "⚠️  Warning: Possible secrets detected in staged changes"
+  echo "Review carefully before committing"
+fi
