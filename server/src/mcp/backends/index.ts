@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'events';
 import logger, { sanitizeServerName } from '../../logging/logger.js';
+import { updateServerStatus, recordServerRestart, recordError } from '../../metrics/custom.js';
 import { createPkgServer } from './pkg.js';
 import { createGitServer } from './git.js';
 import { createContainerServer } from './container.js';
@@ -116,18 +117,22 @@ export class ServerManager extends EventEmitter {
     server.on('started', (pid: number | null) => {
       logger.info(`Server ${sanitizeServerName(serverName)} started`, { pid });
       this.emit('server:started', serverName, pid);
+      updateServerStatus(serverName, config.source, config.lifecycle || 'on-demand', 'running');
     });
 
     server.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       logger.info(`Server ${sanitizeServerName(serverName)} exited`, { code, signal });
       this.emit('server:exit', serverName, code, signal);
+      updateServerStatus(serverName, config.source, config.lifecycle || 'on-demand', 'stopped');
       if (config.lifecycle === 'persistent') {
         logger.info(`Restarting persistent server: ${sanitizeServerName(serverName)}`);
+        recordServerRestart(serverName, config.source);
         setTimeout(() => {
           this.startServer(serverName, config).catch((error: Error) => {
             logger.error(`Failed to restart server ${sanitizeServerName(serverName)}`, {
               error: error.message,
             });
+            recordError('server_start', serverName);
           });
         }, 2000);
       }
@@ -136,11 +141,14 @@ export class ServerManager extends EventEmitter {
     server.on('error', (error: Error) => {
       logger.error(`Server ${sanitizeServerName(serverName)} error`, { error: error.message });
       this.emit('server:error', serverName, error);
+      recordError('server_start', serverName);
     });
 
     server.on('failed', (error: string) => {
       logger.error(`Server ${sanitizeServerName(serverName)} failed`, { error });
       this.emit('server:failed', serverName, error);
+      updateServerStatus(serverName, config.source, config.lifecycle || 'on-demand', 'failed');
+      recordError('server_start', serverName);
     });
 
     server.on('log', (entry: ServerLog) => this.emit('server:log', serverName, entry));

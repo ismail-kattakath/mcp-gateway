@@ -6,6 +6,7 @@
  */
 
 import logger from '../logging/logger.js';
+import { recordToolCall } from '../metrics/custom.js';
 import type { Registry, Server } from '../types/registry.js';
 import type { ServerManager } from './backends/index.js';
 import type { BaseServer } from './backends/base.js';
@@ -79,7 +80,22 @@ export async function routeToolCall(
   if (!server.isRunning()) throw new Error(`Server ${serverName} failed to start`);
 
   logger.info('Tool call routed', { toolName: actualToolName, serverName });
-  return await callToolOnServer(server, actualToolName, args);
+
+  // Track tool call metrics
+  const startTime = Date.now();
+  let success = false;
+
+  try {
+    const result = await callToolOnServer(server, actualToolName, args);
+    success = true;
+    return result;
+  } catch (error) {
+    success = false;
+    throw error;
+  } finally {
+    const duration = Date.now() - startTime;
+    recordToolCall(serverName, actualToolName, duration, success);
+  }
 }
 
 async function callToolOnServer(

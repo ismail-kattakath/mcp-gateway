@@ -34,6 +34,21 @@ import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './se
 import { startStdioTransport } from './mcp/stdio-transport.js';
 import { createApiRouter } from './api/routes.js';
 import { swaggerSpec, swaggerUi, swaggerUiOptions } from './api/swagger.js';
+import { getMetrics } from './metrics/index.js';
+import { httpMetricsMiddleware } from './metrics/middleware.js';
+import {
+  healthHandler,
+  livenessHandler,
+  readinessHandler,
+  detailedHealthHandler,
+  markShuttingDown,
+} from './metrics/health.js';
+import {
+  updateActiveConnections,
+  recordConnection,
+  recordRegistryReload,
+  updateRegistryServerCount,
+} from './metrics/custom.js';
 import type { JsonRpcRequest } from './mcp/protocol.js';
 import type { ServerLog } from './mcp/backends/base.js';
 
@@ -80,6 +95,9 @@ async function initializeServer(): Promise<HttpServer | null> {
     app.set('trust proxy', 'loopback');
     app.use(express.json());
 
+    // Initialize metrics middleware (before auth so we track all requests)
+    app.use(httpMetricsMiddleware);
+
     if (gatewayConfig.server.cors?.enabled) {
       const corsOptions = {
         origin: gatewayConfig.server.cors.origins || '*',
@@ -112,6 +130,11 @@ async function initializeServer(): Promise<HttpServer | null> {
     const serverManager = getServerManager();
     await serverManager.initialize(registry);
 
+    // Initialize registry metrics
+    const enabledServers = Object.values(registry.servers).filter((s) => s.enabled);
+    const disabledServers = Object.values(registry.servers).filter((s) => !s.enabled);
+    updateRegistryServerCount(enabledServers.length, disabledServers.length);
+
     // Check if stdin is a pipe (docker run -i) → enable stdio transport
     // Only enable if stdin is readable AND not explicitly disabled
     const stdioDisabled =
@@ -132,6 +155,12 @@ async function initializeServer(): Promise<HttpServer | null> {
     watchRegistry(async (newRegistry, oldRegistry) => {
       logger.info('Registry changed, reloading servers');
       await serverManager.reload(newRegistry, oldRegistry);
+
+      // Update registry metrics
+      recordRegistryReload('file_change');
+      const enabled = Object.values(newRegistry.servers).filter((s) => s.enabled);
+      const disabled = Object.values(newRegistry.servers).filter((s) => !s.enabled);
+      updateRegistryServerCount(enabled.length, disabled.length);
 
       // Tell every connected client that the tools list may have changed.
       // Per MCP spec, this is a parameter-less notification — clients re-call
@@ -156,6 +185,10 @@ async function initializeServer(): Promise<HttpServer | null> {
         (req.query.sessionId as string) ||
         `session_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
       logger.info('SSE connection established', { ip: req.ip, sessionId });
+
+      // Record connection metrics
+      recordConnection('sse');
+      updateActiveConnections(sseConnections.size + 1);
 
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
@@ -211,6 +244,7 @@ async function initializeServer(): Promise<HttpServer | null> {
         clearInterval(keepAlive);
         serverManager.off('server:log', logHandler);
         sseConnections.delete(sessionId);
+        updateActiveConnections(sseConnections.size);
         logger.info('SSE connection closed', { ip: req.ip, sessionId });
       });
     });
@@ -254,22 +288,30 @@ async function initializeServer(): Promise<HttpServer | null> {
       }
     });
 
-    // ===== Health =====
-    app.get('/health', (req: Request, res: Response) => {
-      const running = serverManager.getRunningServers();
-      res.json({
-        status: 'ok',
-        uptime: process.uptime(),
-        version: registry.version,
-        servers: {
-          total: Object.keys(registry.servers).length,
-          enabled: Object.values(registry.servers).filter((s) => s.enabled).length,
-          running: running.length,
-          list: running,
-        },
-        timestamp: new Date().toISOString(),
-      });
+    // ===== Metrics Endpoint =====
+    app.get('/metrics', async (req: Request, res: Response) => {
+      try {
+        res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+        res.end(await getMetrics());
+      } catch (error) {
+        const err = error as Error;
+        logger.error('Failed to collect metrics', { error: err.message });
+        res.status(500).send('Failed to collect metrics');
+      }
     });
+
+    // ===== Health Check Endpoints =====
+    // Simple health check (always returns 200 if process is alive)
+    app.get('/health', healthHandler);
+
+    // Kubernetes liveness probe (is process functional?)
+    app.get('/healthz', livenessHandler);
+
+    // Kubernetes readiness probe (can accept traffic?)
+    app.get('/readyz', readinessHandler(serverManager, registry));
+
+    // Detailed health check (for monitoring dashboards)
+    app.get('/health/detailed', detailedHealthHandler(serverManager, registry));
 
     // ===== OpenAPI Documentation (public endpoint) =====
     // Note: /docs is NOT behind auth middleware (public access)
@@ -410,7 +452,11 @@ async function initializeServer(): Promise<HttpServer | null> {
         logger.info('Available endpoints:', {
           docs: `/docs`,
           sse: `/sse`,
+          metrics: `/metrics`,
           health: `/health`,
+          healthz: `/healthz`,
+          readyz: `/readyz`,
+          healthDetailed: `/health/detailed`,
           status: `/api/status`,
           config: `/api/config`,
           servers: `/api/servers`,
@@ -430,6 +476,7 @@ async function initializeServer(): Promise<HttpServer | null> {
 async function shutdown(signal: string): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  markShuttingDown();
   logger.info(`Received ${signal}, shutting down gracefully...`);
 
   try {
