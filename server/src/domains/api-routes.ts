@@ -395,8 +395,9 @@ router.post('/:name/disable', async (req: Request, res: Response) => {
       isValidDomain(normalizedName) || isValidWildcardDomain(normalizedName)
         ? normalizedName
         : '[INVALID_DOMAIN]';
+    const sanitizedDomainForLog = safeDomainForLog.replace(/[\r\n]/g, '');
 
-    logger.info(`Domain disabled via API: ${safeDomainForLog}`);
+    logger.info(`Domain disabled via API: ${sanitizedDomainForLog}`);
 
     res.json(domain);
   } catch (error: any) {
