@@ -270,7 +270,7 @@ MIIEpAIBAAKCAQEA1234567890
 
     it('should handle mixed sensitive patterns', () => {
       const mixed =
-        'User user@example.com has credit card 1234-5678-9012-3456 and token ghp_abc123';
+        'User user@example.com has credit card 1234-5678-9012-3456 and token ghp_12345678901234567890';
       const result = sanitizeStringEnhanced(mixed);
       expect(result).toContain('[REDACTED_EMAIL]');
       expect(result).toContain('[REDACTED_CREDIT_CARD]');
