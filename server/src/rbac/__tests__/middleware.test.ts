@@ -6,7 +6,7 @@
  * Related: Epic #17 (RBAC & Multi-Tenancy)
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Response, NextFunction } from 'express';
 import {
   tenantIsolation,
@@ -15,11 +15,23 @@ import {
   type AuthenticatedRequest,
 } from '../middleware.js';
 import type { UserPublic } from '../../storage/models/users.js';
+import { usersModel } from '../../storage/models/users.js';
+
+// Mock usersModel
+vi.mock('../../storage/models/users.js', () => ({
+  usersModel: {
+    findById: vi.fn(),
+  },
+}));
 
 describe('RBAC Middleware', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('tenantIsolation', () => {
     it('should add tenant context for authenticated user', () => {
-      const user: UserPublic = {
+      const userPublic: UserPublic = {
         id: 'user-1',
         username: 'alice',
         email: 'alice@example.com',
@@ -31,8 +43,11 @@ describe('RBAC Middleware', () => {
         last_login_at: null,
       };
 
+      // Mock findById to return user
+      vi.mocked(usersModel.findById).mockReturnValue(userPublic);
+
       const req = {
-        user,
+        user: { id: 'user-1', username: 'alice', role: 'user', tenant: 'tenant-a' },
       } as AuthenticatedRequest;
 
       const res = {} as Response;
@@ -43,11 +58,12 @@ describe('RBAC Middleware', () => {
       expect(req.tenant).toBeDefined();
       expect(req.tenant?.id).toBe('tenant-a');
       expect(req.tenant?.canAccessAll).toBe(false);
+      expect(req.userDetails).toBeDefined();
       expect(next).toHaveBeenCalled();
     });
 
     it('should allow all tenant access for admin', () => {
-      const adminUser: UserPublic = {
+      const adminUserPublic: UserPublic = {
         id: 'admin-1',
         username: 'admin',
         email: 'admin@example.com',
@@ -59,8 +75,11 @@ describe('RBAC Middleware', () => {
         last_login_at: null,
       };
 
+      // Mock findById to return admin user
+      vi.mocked(usersModel.findById).mockReturnValue(adminUserPublic);
+
       const req = {
-        user: adminUser,
+        user: { id: 'admin-1', username: 'admin', role: 'admin', tenant: null },
       } as AuthenticatedRequest;
 
       const res = {} as Response;
@@ -69,6 +88,7 @@ describe('RBAC Middleware', () => {
       tenantIsolation(req, res, next);
 
       expect(req.tenant?.canAccessAll).toBe(true);
+      expect(req.userDetails).toBeDefined();
       expect(next).toHaveBeenCalled();
     });
 
@@ -92,7 +112,7 @@ describe('RBAC Middleware', () => {
 
   describe('requirePermission', () => {
     it('should allow access when user has permission', () => {
-      const adminUser: UserPublic = {
+      const adminUserPublic: UserPublic = {
         id: 'admin-1',
         username: 'admin',
         email: 'admin@example.com',
@@ -105,10 +125,15 @@ describe('RBAC Middleware', () => {
       };
 
       const req = {
-        user: adminUser,
+        user: { id: 'admin-1', username: 'admin', role: 'admin', tenant: null },
+        userDetails: adminUserPublic,
       } as AuthenticatedRequest;
 
-      const res = {} as Response;
+      const res = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn(),
+      } as unknown as Response;
+
       const next = vi.fn() as NextFunction;
 
       const middleware = requirePermission('read', 'server');
@@ -118,7 +143,7 @@ describe('RBAC Middleware', () => {
     });
 
     it('should deny access when user lacks permission', () => {
-      const readonlyUser: UserPublic = {
+      const readonlyUserPublic: UserPublic = {
         id: 'readonly-1',
         username: 'observer',
         email: 'observer@example.com',
@@ -131,7 +156,8 @@ describe('RBAC Middleware', () => {
       };
 
       const req = {
-        user: readonlyUser,
+        user: { id: 'readonly-1', username: 'observer', role: 'readonly', tenant: null },
+        userDetails: readonlyUserPublic,
       } as AuthenticatedRequest;
 
       const res = {
