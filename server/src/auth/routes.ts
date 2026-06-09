@@ -26,6 +26,12 @@ import { authenticate } from './index.js';
 import logger from '../logging/logger.js';
 import { sanitizeString } from '../logging/sanitizer.js';
 import type { AuthenticatedUser } from './strategies/jwt.js';
+// RBAC Middleware (Epic #17)
+import {
+  requirePermission,
+  tenantIsolation,
+  type AuthenticatedRequest,
+} from '../rbac/middleware.js';
 
 const router = Router();
 
@@ -304,46 +310,52 @@ router.get('/me', authenticate(), (req: Request, res: Response) => {
  *   "name": "CI/CD Key"
  * }
  */
-router.post('/apikey', authenticate(), async (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        error: 'Not authenticated',
+router.post(
+  '/apikey',
+  authenticate(),
+  tenantIsolation,
+  requirePermission('create', 'apikey'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+        });
+      }
+
+      const { name } = req.body;
+
+      // Generate JWT-based API key
+      const apiKey = generateApiKey({
+        sub: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        tenant: req.user.tenant,
+      });
+
+      logger.info('API key created', {
+        userId: sanitizeString(req.user.id),
+        username: sanitizeString(req.user.username),
+        keyName: name ? sanitizeString(name) : 'unnamed',
+      });
+
+      return res.json({
+        apiKey,
+        name: name || 'Unnamed API Key',
+        expiresIn: 315360000, // 10 years in seconds
+      });
+    } catch (error) {
+      const err = error as Error;
+      logger.error('API key creation error', {
+        error: sanitizeString(err.message),
+        ip: req.ip,
+      });
+      return res.status(500).json({
+        error: 'Internal server error',
       });
     }
-
-    const { name } = req.body;
-
-    // Generate JWT-based API key
-    const apiKey = generateApiKey({
-      sub: req.user.id,
-      username: req.user.username,
-      role: req.user.role,
-      tenant: req.user.tenant,
-    });
-
-    logger.info('API key created', {
-      userId: sanitizeString(req.user.id),
-      username: sanitizeString(req.user.username),
-      keyName: name ? sanitizeString(name) : 'unnamed',
-    });
-
-    return res.json({
-      apiKey,
-      name: name || 'Unnamed API Key',
-      expiresIn: 315360000, // 10 years in seconds
-    });
-  } catch (error) {
-    const err = error as Error;
-    logger.error('API key creation error', {
-      error: sanitizeString(err.message),
-      ip: req.ip,
-    });
-    return res.status(500).json({
-      error: 'Internal server error',
-    });
   }
-});
+);
 
 /**
  * POST /auth/users
@@ -367,67 +379,62 @@ router.post('/apikey', authenticate(), async (req: Request, res: Response) => {
  *   "status": "active"
  * }
  */
-router.post('/users', authenticate(), async (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        error: 'Not authenticated',
+router.post(
+  '/users',
+  authenticate(),
+  tenantIsolation,
+  requirePermission('create', 'user'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+        });
+      }
+
+      const { username, password, email, role = 'user' } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({
+          error: 'Missing username or password',
+        });
+      }
+
+      // Create user in same tenant as creator
+      const user = await usersModel.create({
+        username,
+        password,
+        email,
+        role,
+        tenant: req.user.tenant,
+      });
+
+      logger.info('User created by admin', {
+        adminId: sanitizeString(req.user.id),
+        newUserId: sanitizeString(user.id),
+        newUsername: sanitizeString(user.username),
+      });
+
+      return res.status(201).json(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('User creation error', {
+        error: sanitizeString(err.message),
+        ip: req.ip,
+      });
+
+      if (err.message.includes('already exists')) {
+        return res.status(409).json({
+          error: err.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal server error',
       });
     }
-
-    // Check admin role
-    if (req.user.role !== 'admin') {
-      logger.warn('User creation denied: not admin', {
-        userId: sanitizeString(req.user.id),
-        username: sanitizeString(req.user.username),
-      });
-      return res.status(403).json({
-        error: 'Forbidden: admin role required',
-      });
-    }
-
-    const { username, password, email, role = 'user' } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({
-        error: 'Missing username or password',
-      });
-    }
-
-    // Create user
-    const user = await usersModel.create({
-      username,
-      password,
-      email,
-      role,
-      tenant: req.user.tenant,
-    });
-
-    logger.info('User created by admin', {
-      adminId: sanitizeString(req.user.id),
-      newUserId: sanitizeString(user.id),
-      newUsername: sanitizeString(user.username),
-    });
-
-    return res.status(201).json(user);
-  } catch (error) {
-    const err = error as Error;
-    logger.error('User creation error', {
-      error: sanitizeString(err.message),
-      ip: req.ip,
-    });
-
-    if (err.message.includes('already exists')) {
-      return res.status(409).json({
-        error: err.message,
-      });
-    }
-
-    return res.status(500).json({
-      error: 'Internal server error',
-    });
   }
-});
+);
 
 /**
  * GET /auth/users
@@ -449,51 +456,52 @@ router.post('/users', authenticate(), async (req: Request, res: Response) => {
  *   }
  * ]
  */
-router.get('/users', authenticate(), (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        error: 'Not authenticated',
+router.get(
+  '/users',
+  authenticate(),
+  tenantIsolation,
+  requirePermission('read', 'user'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+        });
+      }
+
+      // Parse filters
+      const filter: any = {};
+
+      // For non-admin users, enforce tenant filter
+      if (req.user.role !== 'admin') {
+        filter.tenant = req.user.tenant;
+      } else if (req.query.tenant) {
+        // Admins can optionally filter by tenant
+        filter.tenant = req.query.tenant as string;
+      }
+
+      if (req.query.role) {
+        filter.role = req.query.role as string;
+      }
+
+      if (req.query.status) {
+        filter.status = req.query.status as string;
+      }
+
+      const users = usersModel.list(filter);
+
+      return res.json(users);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('User list error', {
+        error: sanitizeString(err.message),
+        ip: req.ip,
+      });
+      return res.status(500).json({
+        error: 'Internal server error',
       });
     }
-
-    // Check admin role
-    if (req.user.role !== 'admin') {
-      logger.warn('User list denied: not admin', {
-        userId: sanitizeString(req.user.id),
-        username: sanitizeString(req.user.username),
-      });
-      return res.status(403).json({
-        error: 'Forbidden: admin role required',
-      });
-    }
-
-    // Parse filters
-    const filter: any = {
-      tenant: req.user.tenant,
-    };
-
-    if (req.query.role) {
-      filter.role = req.query.role as string;
-    }
-
-    if (req.query.status) {
-      filter.status = req.query.status as string;
-    }
-
-    const users = usersModel.list(filter);
-
-    return res.json(users);
-  } catch (error) {
-    const err = error as Error;
-    logger.error('User list error', {
-      error: sanitizeString(err.message),
-      ip: req.ip,
-    });
-    return res.status(500).json({
-      error: 'Internal server error',
-    });
   }
-});
+);
 
 export default router;

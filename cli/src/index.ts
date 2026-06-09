@@ -6,6 +6,7 @@ import { createServersCommand } from "./commands/servers.js";
 import { createLogsCommand } from "./commands/logs.js";
 import { createAuthCommand } from "./commands/auth.js";
 import { createStatusCommand } from "./commands/status.js";
+import { createRoleCommand } from "./commands/role.js";
 
 const program = new Command();
 
@@ -40,6 +41,7 @@ program.addCommand(
 );
 program.addCommand(createAuthCommand());
 program.addCommand(createStatusCommand());
+program.addCommand(createRoleCommand());
 
 // Health check command
 program
