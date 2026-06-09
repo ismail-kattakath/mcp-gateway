@@ -2,7 +2,7 @@
  * Tests for Pino Logger
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
