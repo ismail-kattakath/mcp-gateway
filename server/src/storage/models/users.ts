@@ -36,6 +36,9 @@ export interface UserRecord {
   google_id: string | null;
   oauth_provider: string | null;
   oauth_id: string | null;
+  // Advanced auth fields (Epic #21)
+  kerberos_principal: string | null;
+  certificate_dn: string | null;
 }
 
 /**
@@ -715,10 +718,173 @@ export class UsersModel {
       throw err;
     }
   }
+
+  /**
+   * Find user by Kerberos principal
+   *
+   * @param principal - Kerberos principal (e.g., user@REALM)
+   * @returns User or null if not found
+   */
+  findByKerberosPrincipal(principal: string): UserPublic | null {
+    try {
+      const user = this.db
+        .prepare('SELECT * FROM users WHERE kerberos_principal = ?')
+        .get(principal) as UserRecord | undefined;
+
+      if (!user) {
+        return null;
+      }
+
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to find user by Kerberos principal', {
+        principal: sanitizeString(principal),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Create user from Kerberos principal (JIT provisioning)
+   *
+   * @param options - User creation options
+   * @returns Created user
+   */
+  createFromKerberos(options: {
+    username: string;
+    kerberosPrincipal: string;
+    role?: 'admin' | 'user' | 'readonly';
+    status?: 'active' | 'disabled' | 'locked';
+  }): UserPublic {
+    try {
+      const id = uuidv4();
+      const now = new Date().toISOString();
+      const { username, kerberosPrincipal, role = 'user', status = 'active' } = options;
+
+      this.db
+        .prepare(
+          `INSERT INTO users (id, username, password_hash, kerberos_principal, role, status, created_at, updated_at, last_login_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          id,
+          username,
+          '', // Empty password hash (Kerberos-only auth)
+          kerberosPrincipal,
+          role,
+          status,
+          now,
+          now,
+          now
+        );
+
+      logger.info('User created from Kerberos', {
+        userId: sanitizeString(id),
+        username: sanitizeString(username),
+        principal: sanitizeString(kerberosPrincipal),
+      });
+
+      const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRecord;
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to create user from Kerberos', {
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Find user by certificate DN
+   *
+   * @param certificateDN - Certificate Distinguished Name
+   * @returns User or null if not found
+   */
+  findByCertificateDN(certificateDN: string): UserPublic | null {
+    try {
+      const user = this.db
+        .prepare('SELECT * FROM users WHERE certificate_dn = ?')
+        .get(certificateDN) as UserRecord | undefined;
+
+      if (!user) {
+        return null;
+      }
+
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to find user by certificate DN', {
+        certificateDN: sanitizeString(certificateDN),
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Create user from certificate (JIT provisioning)
+   *
+   * @param options - User creation options
+   * @returns Created user
+   */
+  createFromCertificate(options: {
+    username: string;
+    certificateDN: string;
+    role?: 'admin' | 'user' | 'readonly';
+    status?: 'active' | 'disabled' | 'locked';
+  }): UserPublic {
+    try {
+      const id = uuidv4();
+      const now = new Date().toISOString();
+      const { username, certificateDN, role = 'user', status = 'active' } = options;
+
+      this.db
+        .prepare(
+          `INSERT INTO users (id, username, password_hash, certificate_dn, role, status, created_at, updated_at, last_login_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          id,
+          username,
+          '', // Empty password hash (certificate-only auth)
+          certificateDN,
+          role,
+          status,
+          now,
+          now,
+          now
+        );
+
+      logger.info('User created from certificate', {
+        userId: sanitizeString(id),
+        username: sanitizeString(username),
+        certificateDN: sanitizeString(certificateDN),
+      });
+
+      const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRecord;
+      return this.toPublic(user);
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to create user from certificate', {
+        error: sanitizeString(err.message),
+      });
+      throw err;
+    }
+  }
 }
 
 // Lazy singleton instance (only created when accessed)
 let _usersModelInstance: UsersModel | null = null;
+
+export function getUsersModel(): UsersModel {
+  if (!_usersModelInstance) {
+    _usersModelInstance = new UsersModel();
+  }
+  return _usersModelInstance;
+}
 
 export const usersModel = {
   get instance(): UsersModel {
@@ -752,6 +918,22 @@ export const usersModel = {
     usersModel.instance.linkOAuth(userId, provider, oauthId),
   linkSAML: (userId: string, provider: string, nameId: string) =>
     usersModel.instance.linkSAML(userId, provider, nameId),
+  findByKerberosPrincipal: (principal: string) =>
+    usersModel.instance.findByKerberosPrincipal(principal),
+  createFromKerberos: (options: {
+    username: string;
+    kerberosPrincipal: string;
+    role?: 'admin' | 'user' | 'readonly';
+    status?: 'active' | 'disabled' | 'locked';
+  }) => usersModel.instance.createFromKerberos(options),
+  findByCertificateDN: (certificateDN: string) =>
+    usersModel.instance.findByCertificateDN(certificateDN),
+  createFromCertificate: (options: {
+    username: string;
+    certificateDN: string;
+    role?: 'admin' | 'user' | 'readonly';
+    status?: 'active' | 'disabled' | 'locked';
+  }) => usersModel.instance.createFromCertificate(options),
 };
 
 export default usersModel;

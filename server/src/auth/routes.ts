@@ -24,6 +24,7 @@ import {
 } from './tokens.js';
 import { authenticate } from './index.js';
 import logger from '../logging/logger.js';
+import passport from 'passport';
 import { sanitizeString } from '../logging/sanitizer.js';
 import type { AuthenticatedUser } from './strategies/jwt.js';
 // RBAC Middleware (Epic #17)
@@ -671,7 +672,6 @@ router.get('/oauth/providers', async (req: Request, res: Response) => {
  * SAML 2.0 Routes (Epic #19)
  */
 
-import passport from 'passport';
 import { samlProvidersModel } from '../storage/models/saml-providers.js';
 
 /**
@@ -1071,6 +1071,90 @@ router.post('/ldap/:provider/login', (req: Request, res: Response, next) => {
         const tokenErr = error as Error;
         logger.error('LDAP token generation error', {
           provider: sanitizeString(provider),
+          error: sanitizeString(tokenErr.message),
+        });
+        return res.status(500).json({
+          error: 'Token generation failed',
+        });
+      }
+    }
+  )(req, res, next);
+});
+
+/**
+ * POST /auth/kerberos/login
+ *
+ * Authenticate with Kerberos/SPNEGO token.
+ * Client must send Authorization: Negotiate <base64-token> header.
+ *
+ * Response:
+ * {
+ *   "accessToken": "eyJhbGc...",
+ *   "refreshToken": "abc123...",
+ *   "expiresIn": 900,
+ *   "user": { "id": "...", "username": "alice", "role": "user" }
+ * }
+ */
+router.post('/kerberos/login', (req: Request, res: Response, next) => {
+  passport.authenticate(
+    'kerberos',
+    { session: false },
+    async (err: Error | null, user: AuthenticatedUser | false, info: { message?: string }) => {
+      if (err) {
+        logger.error('Kerberos authentication error', {
+          error: sanitizeString(err.message),
+        });
+        return res.status(500).json({
+          error: 'Authentication failed',
+        });
+      }
+
+      if (!user) {
+        logger.warn('Kerberos authentication failed', {
+          reason: sanitizeString(info?.message || 'Unknown'),
+        });
+        return res.status(401).json({
+          error: info?.message || 'Authentication failed',
+        });
+      }
+
+      try {
+        // Generate tokens
+        const accessToken = generateAccessToken({
+          sub: user.id,
+          username: user.username,
+          role: user.role,
+          tenant: user.tenant,
+        });
+
+        const refreshTokenData = generateRefreshToken();
+
+        // Store refresh token
+        refreshTokensModel.create({
+          userId: user.id,
+          tokenHash: hashRefreshToken(refreshTokenData.token),
+          expiresAt: refreshTokenData.expiresAt,
+        });
+
+        logger.info('Kerberos authentication successful', {
+          userId: sanitizeString(user.id),
+          username: sanitizeString(user.username),
+        });
+
+        return res.json({
+          accessToken,
+          refreshToken: refreshTokenData.token,
+          expiresIn: 900, // 15 minutes
+          user: {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            tenant: user.tenant,
+          },
+        });
+      } catch (error) {
+        const tokenErr = error as Error;
+        logger.error('Kerberos token generation error', {
           error: sanitizeString(tokenErr.message),
         });
         return res.status(500).json({

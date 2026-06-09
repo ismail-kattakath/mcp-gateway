@@ -17,6 +17,8 @@ import { initOAuthStrategies } from './strategies/oauth/index.js';
 import { registerSAMLStrategies } from './strategies/saml/strategy.js';
 import { initializeValidation as initSAMLValidation } from './strategies/saml/validation.js';
 import { registerLDAPStrategies } from './strategies/ldap/strategy.js';
+import { registerKerberosStrategy } from './strategies/kerberos/strategy.js';
+import { registerMtlsStrategy } from './strategies/mtls/strategy.js';
 import logger from '../logging/logger.js';
 
 /**
@@ -64,6 +66,28 @@ export async function initializePassport(): Promise<typeof passport> {
       error: err.message,
     });
     // Don't fail server startup if LDAP init fails
+  }
+
+  // Initialize Kerberos strategy (async, loads from database)
+  try {
+    await registerKerberosStrategy(passport);
+  } catch (error) {
+    const err = error as Error;
+    logger.warn('Failed to initialize Kerberos strategy', {
+      error: err.message,
+    });
+    // Don't fail server startup if Kerberos init fails
+  }
+
+  // Initialize mTLS strategy (async, loads from database)
+  try {
+    await registerMtlsStrategy(passport);
+  } catch (error) {
+    const err = error as Error;
+    logger.warn('Failed to initialize mTLS strategy', {
+      error: err.message,
+    });
+    // Don't fail server startup if mTLS init fails
   }
 
   return passport;
