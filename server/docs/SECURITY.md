@@ -161,6 +161,51 @@ npm audit
 npm audit fix
 ```
 
+## Responsible Disclosure Program
+
+Security researchers are encouraged to report MCP Gateway vulnerabilities through responsible disclosure. Reports should focus on supported project components and include enough detail for maintainers to reproduce and assess impact.
+
+### Scope
+
+In scope:
+
+- MCP Gateway server, REST API, SSE/HTTP transports, and authentication middleware
+- Official Docker images and deployment defaults documented in this repository
+- Web UI surfaces that interact with authenticated gateway APIs
+- Registry validation, server lifecycle handling, and logging/sanitization paths
+
+Out of scope:
+
+- Third-party MCP servers, packages, or container images not maintained by this project
+- Social engineering, physical attacks, spam, phishing, or denial-of-service testing
+- Dependency-only reports without an exploitable MCP Gateway impact
+- Issues that require already having local administrator or root access
+
+### Report Requirements
+
+A useful report should include:
+
+- Affected component, version, commit, or container image tag
+- Reproduction steps with commands, requests, or a minimal proof of concept
+- Expected and actual behavior, including security impact
+- Any relevant logs, screenshots, or sanitized payloads
+- Suggested remediation, if known
+
+Do not include secrets, customer data, or destructive payloads. If a proof of concept requires a token, use a dummy value and clearly mark it as test-only.
+
+### Severity Guide
+
+- **Critical**: unauthenticated remote code execution, authentication bypass, or arbitrary secret disclosure
+- **High**: privilege escalation, access to another user's configured servers, or sensitive data exposure
+- **Medium**: limited information disclosure, security control bypass with prerequisites, or unsafe defaults
+- **Low**: hardening gaps, missing documentation, or low-impact behavior that does not expose data
+
+Maintainers may adjust severity based on exploitability, affected deployment mode, and whether the issue affects default configuration.
+
+### Coordinated Disclosure
+
+Please report security vulnerabilities privately to the maintainers rather than opening a public issue. Maintainers will acknowledge valid reports, investigate the impact, prepare a fix when appropriate, and coordinate disclosure timing with the reporter. Public discussion is welcome after a fix or mitigation is available.
+
 ## Reporting Security Issues
 
 Please report security vulnerabilities privately to the maintainers. Do not open public issues for security vulnerabilities.
