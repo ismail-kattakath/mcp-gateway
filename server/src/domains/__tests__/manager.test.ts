@@ -23,6 +23,12 @@ vi.mock('fs/promises', () => ({
   default: {
     readFile: vi.fn().mockResolvedValue('# Mock Caddyfile template\n'),
     writeFile: vi.fn().mockResolvedValue(undefined),
+    unlink: vi.fn().mockResolvedValue(undefined),
+    rename: vi.fn().mockResolvedValue(undefined),
+    open: vi.fn().mockResolvedValue({
+      writeFile: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    }),
   },
 }));
 
