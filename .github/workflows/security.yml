@@ -129,7 +129,7 @@ jobs:
           image-ref: "mcp-gateway:test"
           format: "table"
           severity: "HIGH,CRITICAL"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
 
   sast-analysis:
