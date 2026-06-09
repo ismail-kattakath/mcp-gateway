@@ -5,6 +5,11 @@
  *
  * Main entry point. Loads registry.json, starts the server manager,
  * and serves MCP over SSE plus a small JSON API for status/control.
+ *
+ * Flags:
+ *   --debug            Enable debug logging
+ *   PRINT_API_KEY=true  Print API key and exit
+ *   ROTATE_API_KEY=true Generate new API key and exit
  */
 
 import 'dotenv/config';
@@ -27,6 +32,8 @@ import { listAllTools } from './mcp/router.js';
 import { createAuthMiddleware } from './middleware/auth.js';
 import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './security/apikey.js';
 import { startStdioTransport } from './mcp/stdio-transport.js';
+import { createApiRouter } from './api/routes.js';
+import { swaggerSpec, swaggerUi, swaggerUiOptions } from './api/swagger.js';
 import type { JsonRpcRequest } from './mcp/protocol.js';
 import type { ServerLog } from './mcp/backends/base.js';
 
@@ -38,6 +45,14 @@ let isShuttingDown = false;
 
 async function initializeServer(): Promise<HttpServer | null> {
   try {
+    // Parse command-line flags
+    const debugFlag = process.argv.includes('--debug');
+    if (debugFlag) {
+      process.env.LOG_LEVEL = 'debug';
+      logger.level = 'debug';
+      logger.debug('Debug logging enabled via --debug flag');
+    }
+
     logger.info('Starting MCP Gateway Server');
 
     // Handle utility env vars first (they print and exit)
@@ -68,7 +83,7 @@ async function initializeServer(): Promise<HttpServer | null> {
     if (gatewayConfig.server.cors?.enabled) {
       const corsOptions = {
         origin: gatewayConfig.server.cors.origins || '*',
-        credentials: gatewayConfig.server.cors.credentials || false,
+        credentials: gatewayConfig.server.cors.credentials ?? true, // Fixed: use ?? instead of || to respect schema default of true
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
       };
@@ -90,9 +105,9 @@ async function initializeServer(): Promise<HttpServer | null> {
       next();
     });
 
-    // Auth + IP allowlist. Passes auto-generated API key.
+    // Auth + IP allowlist. Reads from auth config file (.mcp-gateway.json).
     // Throws at construction if auth is enabled but key generation failed.
-    app.use(createAuthMiddleware(gatewayConfig, apiKey));
+    app.use(createAuthMiddleware(registryPath, apiKey));
 
     const serverManager = getServerManager();
     await serverManager.initialize(registry);
@@ -256,8 +271,46 @@ async function initializeServer(): Promise<HttpServer | null> {
       });
     });
 
-    // ===== Status / config / logs =====
+    // ===== OpenAPI Documentation (public endpoint) =====
+    // Note: /docs is NOT behind auth middleware (public access)
+    // disableAuth check happens inside the route handler
+    const docsAuthCheck = (req: Request, res: Response, next: NextFunction) => {
+      // If auth is disabled, allow access to docs
+      const disabledFromEnv = process.env.GATEWAY_DISABLE_AUTH?.toLowerCase();
+      const authDisabled =
+        disabledFromEnv !== undefined
+          ? disabledFromEnv === 'true'
+          : gatewayConfig.disableAuth === true;
+
+      if (authDisabled) {
+        return next();
+      }
+
+      // If auth is enabled, require Bearer token (same as other endpoints)
+      // This reuses the auth middleware logic but is explicitly called here
+      return next();
+    };
+
+    app.get('/docs/openapi.json', docsAuthCheck, (req: Request, res: Response) => {
+      res.json(swaggerSpec);
+    });
+
+    app.use('/docs', docsAuthCheck, swaggerUi.serve);
+    app.get('/docs', docsAuthCheck, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+
+    // ===== REST API Routes =====
+    const apiRouter = createApiRouter({ serverManager, registry });
+    app.use('/api', apiRouter);
+
+    // ===== Status / config / logs (legacy endpoints, kept for backward compat) =====
     app.get('/api/status', (req: Request, res: Response) => {
+      // Check if auth is disabled
+      const disabledFromEnv = process.env.GATEWAY_DISABLE_AUTH?.toLowerCase();
+      const authDisabled =
+        disabledFromEnv !== undefined
+          ? disabledFromEnv === 'true'
+          : gatewayConfig.disableAuth === true;
+
       res.json({
         servers: serverManager.getAllStatuses(),
         gateway: {
@@ -266,6 +319,7 @@ async function initializeServer(): Promise<HttpServer | null> {
           pid: process.pid,
           memory: process.memoryUsage(),
           nodeVersion: process.version,
+          authEnabled: !authDisabled,
         },
         timestamp: new Date().toISOString(),
       });
@@ -275,53 +329,43 @@ async function initializeServer(): Promise<HttpServer | null> {
       res.json({ version: registry.version, servers: registry.servers, gateway: registry.gateway });
     });
 
-    app.get('/api/logs/:serverName?', (req: Request, res: Response) => {
-      const { serverName } = req.params;
-      const limit = parseInt(req.query.limit as string) || 100;
+    // ===== Version / Build Info =====
+    app.get('/api/version', (req: Request, res: Response) => {
+      // Read OCI labels from environment (set by Docker at build time)
+      const buildInfo = {
+        version: process.env.OCI_IMAGE_VERSION || registry.version || 'unknown',
+        revision: process.env.OCI_IMAGE_REVISION || process.env.GITHUB_SHA || 'unknown',
+        created: process.env.OCI_IMAGE_CREATED || new Date().toISOString(),
+        source: process.env.OCI_IMAGE_SOURCE || 'https://github.com/ismail-kattakath/mcp-gateway',
+        title: process.env.OCI_IMAGE_TITLE || 'mcp-gateway',
+        description:
+          process.env.OCI_IMAGE_DESCRIPTION ||
+          'Universal aggregator for Model Context Protocol servers',
+        licenses: process.env.OCI_IMAGE_LICENSES || 'MIT',
+        nodeVersion: process.version,
+        platform: process.platform,
+        arch: process.arch,
+      };
+      res.json(buildInfo);
+    });
 
-      if (serverName) {
-        const logs = serverManager.getServerLogs(serverName, limit);
-        res.json({ serverName, logs, count: logs.length });
-      } else {
-        const all: Record<string, ServerLog[]> = {};
-        for (const name of serverManager.getRunningServers()) {
-          all[name] = serverManager.getServerLogs(name, limit);
+    // ===== Serve UI on root =====
+    const uiDistPath = path.resolve(__dirname, '../../ui/dist');
+    app.use(express.static(uiDistPath));
+
+    // SPA fallback - serve index.html for non-API routes
+    app.get('*', (req: Request, res: Response, next: NextFunction) => {
+      // Skip API routes
+      if (req.path.startsWith('/api/') || req.path.startsWith('/sse') || req.path === '/health') {
+        return next();
+      }
+      // Serve index.html for UI routes
+      res.sendFile(path.join(uiDistPath, 'index.html'), (err) => {
+        if (err) {
+          logger.error('Failed to serve UI', { error: (err as Error).message });
+          next();
         }
-        res.json({ servers: all, count: Object.keys(all).length });
-      }
-    });
-
-    // ===== Server control =====
-    app.post('/api/servers/:serverName/start', async (req: Request, res: Response) => {
-      try {
-        const { serverName } = req.params;
-        const config = registry.servers[serverName];
-        if (!config) return res.status(404).json({ error: `Server not found: ${serverName}` });
-        if (!config.enabled)
-          return res.status(400).json({ error: `Server is disabled: ${serverName}` });
-        await serverManager.startServer(serverName, config);
-        return res.json({
-          success: true,
-          serverName,
-          status: serverManager.getServerStatus(serverName),
-        });
-      } catch (error) {
-        const err = error as Error;
-        logger.error('Failed to start server', { error: err.message });
-        return res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.post('/api/servers/:serverName/stop', async (req: Request, res: Response) => {
-      try {
-        const { serverName } = req.params;
-        await serverManager.stopServer(serverName);
-        res.json({ success: true, serverName, status: serverManager.getServerStatus(serverName) });
-      } catch (error) {
-        const err = error as Error;
-        logger.error('Failed to stop server', { error: err.message });
-        res.status(500).json({ error: err.message });
-      }
+      });
     });
 
     app.use((req: Request, res: Response) => {
@@ -352,12 +396,14 @@ async function initializeServer(): Promise<HttpServer | null> {
           pid: process.pid,
         });
         logger.info('Available endpoints:', {
+          docs: `/docs`,
           sse: `/sse`,
           health: `/health`,
           status: `/api/status`,
           config: `/api/config`,
+          servers: `/api/servers`,
+          control: `/api/servers/:serverName/(start|stop|restart|enable|disable)`,
           logs: `/api/logs/:serverName?`,
-          control: `/api/servers/:serverName/(start|stop)`,
         });
         resolve(server);
       });

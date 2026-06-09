@@ -75,14 +75,99 @@ function resolveEnvVarsRecursive(obj: unknown, context: Record<string, string> =
 
 /**
  * Apply BaseServer defaults to each server entry.
+ * Also applies gateway config defaults for v2.1+ simplified format.
  */
 function applyDefaults(registry: Registry): Registry {
+  // Apply server defaults
   for (const server of Object.values(registry.servers || {})) {
     const s = server as unknown as Record<string, unknown>;
     if (s.lifecycle === undefined) s.lifecycle = DEFAULTS.lifecycle;
     if (s.enabled === undefined) s.enabled = DEFAULTS.enabled;
     if (s.timeout === undefined) s.timeout = DEFAULTS.timeout;
   }
+
+  // Apply gateway defaults for v2.1+ simplified format or missing gateway object
+  if (!registry.gateway) {
+    // No gateway object - use hardcoded defaults (v2.1+)
+    (registry as unknown as Record<string, unknown>).gateway = {
+      server: {
+        port: 3000,
+        host: '0.0.0.0',
+        transport: 'sse',
+        cors: {
+          enabled: true,
+          origins: ['*'],
+          credentials: true,
+        },
+      },
+      storage: {
+        repos: path.resolve(process.env.HOME || '/tmp', '.mcp/repos'),
+        cache: path.resolve(process.env.HOME || '/tmp', '.mcp/cache'),
+        logs: path.resolve(process.env.HOME || '/tmp', '.mcp/logs'),
+      },
+      logging: {
+        level: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
+        format: 'json',
+        outputs: ['console', 'file'],
+      },
+    };
+  } else {
+    // Gateway object exists - check if it's simplified format or full format
+    const gw = registry.gateway as unknown as Record<string, unknown>;
+
+    // If no server/storage/logging keys, it's simplified format - expand it
+    if (!gw.server && !gw.storage && !gw.logging) {
+      const simplified = registry.gateway as unknown as Record<string, unknown>;
+      (registry as unknown as Record<string, unknown>).gateway = {
+        server: {
+          port: (simplified.port as number) ?? 3000,
+          host: (simplified.host as string) ?? '0.0.0.0',
+          transport: (simplified.transport as string) ?? 'sse',
+          cors: simplified.cors ?? {
+            enabled: true,
+            origins: ['*'],
+            credentials: true,
+          },
+        },
+        storage: {
+          repos: path.resolve(process.env.HOME || '/tmp', '.mcp/repos'),
+          cache: path.resolve(process.env.HOME || '/tmp', '.mcp/cache'),
+          logs: path.resolve(process.env.HOME || '/tmp', '.mcp/logs'),
+        },
+        logging: {
+          level: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
+          format: 'json',
+          outputs: ['console', 'file'],
+        },
+      };
+    }
+
+    // Ensure full format has defaults
+    const fullGw = gw as { server?: unknown; storage?: unknown; logging?: unknown };
+    if (!fullGw.server) {
+      fullGw.server = {
+        port: 3000,
+        host: '0.0.0.0',
+        transport: 'sse',
+        cors: { enabled: true, origins: ['*'], credentials: true },
+      };
+    }
+    if (!fullGw.storage) {
+      fullGw.storage = {
+        repos: path.resolve(process.env.HOME || '/tmp', '.mcp/repos'),
+        cache: path.resolve(process.env.HOME || '/tmp', '.mcp/cache'),
+        logs: path.resolve(process.env.HOME || '/tmp', '.mcp/logs'),
+      };
+    }
+    if (!fullGw.logging) {
+      fullGw.logging = {
+        level: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
+        format: 'json',
+        outputs: ['console', 'file'],
+      };
+    }
+  }
+
   return registry;
 }
 
@@ -135,7 +220,11 @@ export function getEnabledServers(): Record<string, Server> {
 }
 
 export function getGatewayConfig(): GatewayConfig {
-  return getRegistry().gateway;
+  const gateway = getRegistry().gateway;
+  if (!gateway) {
+    throw new Error('Gateway config not available. Registry may not be loaded.');
+  }
+  return gateway as GatewayConfig; // After applyDefaults, it's always fully populated
 }
 
 export function watchRegistry(callback: RegistryWatchCallback): void {

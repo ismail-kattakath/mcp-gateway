@@ -12,6 +12,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Five server sources**: `pkg` (npm/uvx/pipx), `git` (clone+build), `container` (Docker), `remote` (HTTP/SSE), `local` (existing scripts)
 - **Lifecycle modes**: `persistent` (always running) or `on-demand` (lazy-loaded, reaped after 5min idle)
 - **Security**: Auto-generated API keys stored in system keychain, optional IP allowlist
+- **REST API**: Full CRUD operations for server management, OpenAPI 3.0 spec, Swagger UI docs
+
+## REST API
+
+**MCP Gateway provides a comprehensive REST API for server management.**
+
+**Interactive Docs:** [http://localhost:3000/docs](http://localhost:3000/docs) (Swagger UI)  
+**OpenAPI Spec:** [http://localhost:3000/docs/openapi.json](http://localhost:3000/docs/openapi.json)
+
+**Key endpoints:**
+- `GET /api/servers` — List all servers
+- `POST /api/servers` — Create new server
+- `GET /api/servers/{name}` — Get server details
+- `PUT /api/servers/{name}` — Update server config
+- `DELETE /api/servers/{name}` — Delete server
+- `POST /api/servers/{name}/(start|stop|restart|enable|disable)` — Control server lifecycle
+- `GET /api/logs[/{name}]` — Get server logs
+- `GET /health` — Health check (no auth required)
+
+**Authentication:** Bearer token (auto-generated API key stored in system keychain)
+
+```bash
+# Get API key
+PRINT_API_KEY=true npm start
+
+# Use in requests
+curl -H "Authorization: Bearer YOUR_KEY" http://localhost:3000/api/servers
+
+# Disable auth (use CLI instead)
+mcp auth disable --registry /path/to/registry.json
+```
+
+**Full documentation:** See `docs/API.md` for detailed examples, error codes, and best practices.
+
+---
 
 ## Development Commands
 
@@ -59,6 +94,26 @@ npm run preview              # Preview production build
 npm test                     # Run all tests (Vitest)
 npm run test:watch           # Watch mode
 npm run test:coverage        # Generate coverage report
+
+# Code Quality
+npm run lint                 # ESLint check
+npm run lint:fix             # Auto-fix ESLint issues
+npm run format               # Prettier format
+npm run format:check         # Prettier check (CI)
+npm run type-check           # TypeScript type check without emit
+```
+
+### CLI (Command-Line Interface)
+
+```bash
+cd cli
+
+# Development
+npm run dev -- servers list  # Run without building
+
+# Build & Production
+npm run build                # Compile TypeScript → dist/
+npm link                     # Make 'mcp' globally available (optional)
 
 # Code Quality
 npm run lint                 # ESLint check
@@ -150,10 +205,31 @@ The `registry.json` file is the single source of truth for server configuration.
 - `timeout`: milliseconds (default 30000)
 - `env`: Object with `${VAR}` substitution from system env
 
+**Gateway config (v2.1+):**
+The `gateway` object is now **optional**. Omit it to use sensible defaults:
+
+```json
+{
+  "version": "2.0",
+  "servers": { ... }
+}
+```
+
+Defaults: `port=3000`, `host="0.0.0.0"`, `transport="sse"`, CORS enabled.
+
+**Auth config (.mcp-gateway.json):**
+Auth settings moved to separate file in v2.1. Use CLI to manage:
+```bash
+mcp auth enable --registry /path/to/registry.json
+mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
+```
+
 **Schema validation:**
 - Run `cd server && npm run validate` to validate registry.json
 - AJV validates against `schema/registry-v2.schema.json`
 - Semantic checks enforce server name format, env key format, etc.
+
+**See `docs/MIGRATION-v2.1.md` for migration guide from v2.0.**
 
 ## Security Requirements
 
@@ -179,6 +255,7 @@ The `registry.json` file is the single source of truth for server configuration.
 
 5. **Authentication**
    - Bearer token required for SSE/HTTP transports (default enabled)
+   - Auth settings stored in `.mcp-gateway.json` (v2.1+)
    - stdio transport bypasses auth (pipe = inherent authentication)
    - `/health` endpoint always exempt from auth
    - Constant-time token comparison
@@ -187,13 +264,15 @@ The `registry.json` file is the single source of truth for server configuration.
 
 ## Testing
 
-**Server:** 124+ tests with Vitest, including:
+**Server:** 166+ tests with Vitest, including:
 - Unit tests for sanitizers (32 tests)
 - Auth middleware tests (Bearer token, IP allowlist)
-- Registry validation tests
+- Registry validation tests (42 tests)
 - Security tests (API key generation, secure storage)
+- **REST API endpoint tests (26 tests)** — Full CRUD operations for servers
+- **OpenAPI spec validation (10 tests)** — Schema generation and documentation
 
-**Coverage target:** 77%+
+**Coverage target:** 77%+ (current: ~80%)
 
 **Running tests:**
 ```bash
@@ -264,10 +343,12 @@ docker run -i --rm \
 ## Environment Variables
 
 **Gateway behavior:**
-- `GATEWAY_ENABLE_AUTH` — Override `gateway.enableAuth` in registry.json
+- `GATEWAY_DISABLE_AUTH` — Override auth config file (set to `true` to disable auth, dev only)
 - `GATEWAY_PORT` — Override HTTP port (default 3000)
 - `PRINT_API_KEY=true` — Print API key and exit (for daemon mode setup)
 - `ROTATE_API_KEY=true` — Generate new API key and exit
+- `DISABLE_STDIO=true` — Force HTTP mode (useful when stdin is detected as pipe)
+- `--debug` flag — Enable debug logging (alternative to `LOG_LEVEL=debug`)
 
 **Server env substitution:**
 - Registry `env` fields support `${VAR}` substitution from system env
@@ -304,6 +385,8 @@ This spawns 3 parallel validation agents and reports consolidated results in ~2-
 
 - **`README.md`** — User-facing quick start, features, setup modes
 - **`CONTRIBUTING.md`** — Release-please workflow, Conventional Commits guide
-- **`schema/registry-v2.schema.json`** — Canonical registry schema
-- **`docs/`** — Architecture decisions, API reference (if present)
+- **`schema/registry-v2.schema.json`** — Canonical registry schema (v2.0 + v2.1 formats)
+- **`docs/API.md`** — Complete REST API reference
+- **`docs/MIGRATION-v2.1.md`** — Migration guide from v2.0 to v2.1
+- **`cli/README.md`** — CLI usage guide
 - **`.claude/skills/`** — Validation skills for pre-push verification

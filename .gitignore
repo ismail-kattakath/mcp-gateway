@@ -52,3 +52,4 @@ coverage/
 .claude/settings.local.json
 *.local.md
 .claude/worktrees/
+registry.dev.json

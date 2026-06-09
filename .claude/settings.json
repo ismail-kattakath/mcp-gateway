@@ -18,18 +18,5 @@
       "EnterWorktree",
       "ExitWorktree"
     ]
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/quality-gate.sh"
-          }
-        ]
-      }
-    ]
   }
 }

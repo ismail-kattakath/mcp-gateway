@@ -52,7 +52,7 @@ That's it! The gateway auto-downloads and starts with example servers.
 }
 ```
 
-See [schema/registry-v2.schema.json](schema/registry-v2.schema.json) for full registry schema.
+See [REGISTRY-FORMAT.md](REGISTRY-FORMAT.md) for registry format guide and examples.
 
 ## Why Use MCP Gateway?
 
@@ -81,7 +81,7 @@ See [schema/registry-v2.schema.json](schema/registry-v2.schema.json) for full re
 
 **For Developers:**
 - 📊 React dashboard for monitoring
-- 🧪 96 tests with 77% coverage
+- 🧪 124 tests with 77% coverage
 - 📝 TypeScript with strict types
 - 🔍 CodeQL security scanning
 - 🐳 Multi-arch Docker images
@@ -169,7 +169,7 @@ cd ../ui && npm install && npm run dev        # dashboard on :5173
 | Tag | Source | Use |
 |---|---|---|
 | `latest` | latest tagged release | most users |
-| `1.0.0`, `1.0`, `1` | specific release | version pinning |
+| `1.1.0`, `1.1`, `1` | specific release | version pinning |
 | `edge` | every push to `main` | bleeding edge |
 | `sha-<short>` | every build | fully reproducible pin |
 
@@ -177,7 +177,9 @@ Multi-arch: `linux/amd64`, `linux/arm64`. SLSA provenance + SBOM attached.
 
 ## The registry
 
-`registry.json` is the single source of truth. Each entry is keyed by a **server name** (the namespace prefix used in tool calls: `obs/start_recording`) and declares a `source` — one of five values.
+`registry.json` is the single source of truth. **v2.1 uses simplified format** — see [REGISTRY-FORMAT.md](REGISTRY-FORMAT.md) for details.
+
+Each entry is keyed by a **server name** (the namespace prefix used in tool calls: `obs/start_recording`) and declares a `source` — one of five values.
 
 | `source` | Use case | Example |
 |---|---|---|
@@ -202,26 +204,63 @@ Full schema: [`schema/registry-v2.schema.json`](schema/registry-v2.schema.json).
 
 ## Authentication
 
-The gateway is **secure by default** with auto-generated API keys:
+The gateway is **secure by default** with auto-generated API keys.
 
-- **Auto-generated keys**: Stored securely in system keychain (macOS Keychain, Linux libsecret, Windows Credential Manager)
-- **Retrieve key**: `docker run --rm ghcr.io/ismail-kattakath/mcp-gateway env PRINT_API_KEY=true node dist/index.js`
-- **Rotate key**: `docker run --rm ghcr.io/ismail-kattakath/mcp-gateway env ROTATE_API_KEY=true node dist/index.js`
-- **Disable auth**: Set `"enableAuth": false` in `registry.json` (not recommended for remote access)
+### 🔐 Secure by Default
 
-### Configuration
+**Default behavior:** Authentication is **enabled** unless explicitly disabled.
 
+- **Auto-generated keys**: Stored securely (encrypted file or system keychain)
+- **Retrieve key**: `docker exec mcp-gateway sh -c 'PRINT_API_KEY=true node dist/index.js'`
+- **Rotate key**: `docker exec mcp-gateway sh -c 'ROTATE_API_KEY=true node dist/index.js'`
+- **stdio transport**: Bypasses auth automatically (pipe ownership = inherent auth)
+
+### ⚠️ Disable Auth (Development Only)
+
+**WARNING:** Only disable authentication for local development on trusted networks.
+
+**v2.1+:** Use CLI to manage auth settings:
+```bash
+mcp auth disable --registry /path/to/registry.json
+```
+
+This creates `.mcp-gateway.json` in your project root:
 ```json
-"gateway": {
-  "enableAuth": true,
-  "allowedIPs": ["10.0.0.0/8"]
+{
+  "disableAuth": true
 }
 ```
 
-- `enableAuth` defaults to **true** (secure by default)
-- `allowedIPs` is optional (CIDR notation, empty = all IPs allowed)
-- Constant-time token compare, `/health` always exempt
-- **stdio transport bypasses auth** (pipe = inherent authentication)
+**Or manually create** `.mcp-gateway.json`:
+```json
+{
+  "disableAuth": true,
+  "allowedIPs": []
+}
+```
+
+**Legacy (v2.0 format, still works):**
+```json
+{
+  "gateway": {
+    "disableAuth": true
+  }
+}
+```
+
+### Configuration Options (v2.1)
+
+**Auth config** (`.mcp-gateway.json`):
+- `disableAuth`: false (default) — Enable authentication
+- `allowedIPs`: [] — CIDR list, empty = all IPs allowed
+
+**Manage via CLI:**
+```bash
+mcp auth enable --registry /path/to/registry.json
+mcp auth allow add 192.168.1.0/24 --registry /path/to/registry.json
+```
+
+**Environment override:** `GATEWAY_DISABLE_AUTH=true`
 
 ## `source: "container"` and the host Docker socket
 

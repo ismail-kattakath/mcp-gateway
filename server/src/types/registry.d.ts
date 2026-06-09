@@ -113,17 +113,37 @@ export interface GatewayConfig {
   server: ServerConfig;
   storage: StorageConfig;
   logging: LoggingConfig;
-  /** Require Bearer token for SSE/HTTP access. stdio bypasses auth. Default: true. */
-  enableAuth?: boolean;
-  /** CIDR-aware IP allowlist. Empty = no IP filtering. */
+  /** @deprecated Use auth config file (.mcp-gateway.json) instead */
+  disableAuth?: boolean;
+  /** @deprecated Use auth config file (.mcp-gateway.json) instead */
   allowedIPs?: string[];
+}
+
+/**
+ * Simplified gateway config (v2.1+)
+ * Flattened server settings, removed auth/storage/logging
+ */
+export interface SimplifiedGatewayConfig {
+  /** Server port. Default: 3000 */
+  port?: number;
+  /** Server host. Default: '0.0.0.0' */
+  host?: string;
+  /** Transport mode. Default: 'sse' */
+  transport?: 'sse' | 'http' | 'both';
+  /** CORS configuration */
+  cors?: {
+    enabled?: boolean;
+    origins?: string[];
+    credentials?: boolean;
+  };
 }
 
 export interface Registry {
   version: '2.0';
   /** Server entries keyed by server name (lowercase, hyphens allowed). */
   servers: Record<string, Server>;
-  gateway: GatewayConfig;
+  /** Gateway configuration. Optional in v2.1+ (uses defaults if omitted). */
+  gateway?: GatewayConfig | SimplifiedGatewayConfig;
 }
 
 /** Narrow a Server to a specific source variant. */

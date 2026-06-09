@@ -40,9 +40,9 @@ describe('registry-validator', () => {
       expect(() => validateRegistry(invalid as unknown as Registry)).toThrow(/validation failed/i);
     });
 
-    it('should reject missing gateway field', () => {
-      const invalid = { ...minimalValidRegistry, gateway: undefined };
-      expect(() => validateRegistry(invalid as unknown as Registry)).toThrow(/validation failed/i);
+    it('should accept missing gateway field (v2.1+)', () => {
+      const valid = { version: '2.0', servers: {} };
+      expect(() => validateRegistry(valid as Registry)).not.toThrow();
     });
 
     it('should reject server with invalid name', () => {
@@ -394,12 +394,12 @@ describe('registry-validator', () => {
   });
 
   describe('gateway security validation', () => {
-    it('should validate enableAuth as boolean', () => {
+    it('should validate disableAuth as boolean', () => {
       const registry: Registry = {
         ...minimalValidRegistry,
         gateway: {
           ...minimalValidRegistry.gateway,
-          enableAuth: false,
+          disableAuth: true,
         },
       };
       const result = validateRegistry(registry);

@@ -69,9 +69,31 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 ENV NODE_ENV=production
 
-# OCI labels (also applied by the release workflow, kept here for local builds).
-LABEL org.opencontainers.image.source="https://github.com/ismail-kattakath/mcp-gateway"
-LABEL org.opencontainers.image.description="MCP Gateway — universal aggregator for Model Context Protocol servers"
-LABEL org.opencontainers.image.licenses="MIT"
+# OCI Image Spec - Build args and labels
+ARG OCI_IMAGE_VERSION=dev
+ARG OCI_IMAGE_REVISION=unknown
+ARG OCI_IMAGE_CREATED
+ARG OCI_IMAGE_SOURCE=https://github.com/ismail-kattakath/mcp-gateway
+ARG OCI_IMAGE_TITLE=mcp-gateway
+ARG OCI_IMAGE_DESCRIPTION=Universal aggregator for Model Context Protocol servers
+ARG OCI_IMAGE_LICENSES=MIT
+
+# Expose OCI metadata as environment variables for runtime access
+ENV OCI_IMAGE_VERSION=${OCI_IMAGE_VERSION} \
+    OCI_IMAGE_REVISION=${OCI_IMAGE_REVISION} \
+    OCI_IMAGE_CREATED=${OCI_IMAGE_CREATED} \
+    OCI_IMAGE_SOURCE=${OCI_IMAGE_SOURCE} \
+    OCI_IMAGE_TITLE=${OCI_IMAGE_TITLE} \
+    OCI_IMAGE_DESCRIPTION=${OCI_IMAGE_DESCRIPTION} \
+    OCI_IMAGE_LICENSES=${OCI_IMAGE_LICENSES}
+
+# OCI labels (also applied by the release workflow, kept here for local builds)
+LABEL org.opencontainers.image.version="${OCI_IMAGE_VERSION}"
+LABEL org.opencontainers.image.revision="${OCI_IMAGE_REVISION}"
+LABEL org.opencontainers.image.created="${OCI_IMAGE_CREATED}"
+LABEL org.opencontainers.image.source="${OCI_IMAGE_SOURCE}"
+LABEL org.opencontainers.image.title="${OCI_IMAGE_TITLE}"
+LABEL org.opencontainers.image.description="${OCI_IMAGE_DESCRIPTION}"
+LABEL org.opencontainers.image.licenses="${OCI_IMAGE_LICENSES}"
 
 CMD ["node", "server/dist/index.js"]

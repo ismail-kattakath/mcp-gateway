@@ -66,6 +66,14 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            OCI_IMAGE_VERSION=${{ steps.meta.outputs.version }}
+            OCI_IMAGE_REVISION=${{ github.sha }}
+            OCI_IMAGE_CREATED=${{ steps.meta.outputs.json && fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            OCI_IMAGE_SOURCE=https://github.com/${{ github.repository }}
+            OCI_IMAGE_TITLE=mcp-gateway
+            OCI_IMAGE_DESCRIPTION=Universal aggregator for Model Context Protocol servers
+            OCI_IMAGE_LICENSES=MIT
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
