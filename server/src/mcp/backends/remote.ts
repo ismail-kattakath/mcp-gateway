@@ -13,6 +13,7 @@ import { EventEmitter } from 'events';
 import logger, { sanitizeServerName, sanitizeUrl } from '../../logging/logger.js';
 import type { RemoteServer as RemoteServerConfig } from '../../types/registry.js';
 import type { ServerLog, ServerStatus, ServerState } from './base.js';
+import { getConnectionPool } from '../../performance/pool.js';
 
 /**
  * Validate URL to prevent SSRF attacks
@@ -115,10 +116,17 @@ export class RemoteServer extends EventEmitter {
     validateRemoteUrl(this.config.url);
 
     this.abortController = new AbortController();
+
+    // Use connection pool if available
+    const pool = getConnectionPool();
+    const agent = pool?.getAgentForUrl(this.config.url);
+
     const response = await fetch(this.config.url, {
       method: 'GET',
       headers: { Accept: 'text/event-stream', ...(this.config.headers || {}) },
       signal: this.abortController.signal,
+      // @ts-expect-error - agent is valid for node-fetch
+      agent,
     });
 
     if (!response.ok) throw new Error(`SSE connection failed: ${response.status}`);
@@ -212,11 +220,18 @@ export class RemoteServer extends EventEmitter {
     validateRemoteUrl(this.config.url);
 
     const method = this.config.method || 'POST';
+
+    // Use connection pool if available
+    const pool = getConnectionPool();
+    const agent = pool?.getAgentForUrl(this.config.url);
+
     try {
       const response = await fetch(this.config.url, {
         method,
         headers: { 'Content-Type': 'application/json', ...(this.config.headers || {}) },
         body: method === 'POST' ? data : undefined,
+        // @ts-expect-error - agent is valid for node-fetch
+        agent,
       });
       const text = await response.text();
       try {

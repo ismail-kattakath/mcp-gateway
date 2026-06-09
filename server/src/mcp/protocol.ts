@@ -20,6 +20,7 @@ import { routeToolCall, listAllTools } from './router.js';
 import type { Registry } from '../types/registry.js';
 import type { ServerManager } from './backends/index.js';
 import { withToolsListSpan, withToolCallSpan } from '../tracing/spans.js';
+import type { ResponseCache } from '../performance/cache.js';
 
 // JSON-RPC 2.0 Types
 export interface JsonRpcRequest {
@@ -220,6 +221,9 @@ async function handleToolsList(
 
 /**
  * Handle tools/call request
+ *
+ * Note: Response caching is integrated in the main server (index.ts)
+ * This function remains cache-agnostic for modularity
  */
 async function handleToolsCall(
   params: unknown,
@@ -259,6 +263,56 @@ async function handleToolsCall(
       ],
     };
   });
+}
+
+/**
+ * Handle tools/call request with caching
+ * Wrapper that adds response caching to tool calls
+ */
+export async function handleToolsCallWithCache(
+  params: unknown,
+  serverManager: ServerManager,
+  registry: Registry,
+  cache: ResponseCache | null
+): Promise<MCPToolCallResult> {
+  const toolParams = params as MCPToolCallParams;
+
+  if (!toolParams?.name || !cache || !cache.isEnabled()) {
+    return handleToolsCall(params, serverManager, registry);
+  }
+
+  // Parse server and tool name from namespaced format
+  const [serverName, toolName] = toolParams.name.split('/');
+  if (!serverName || !toolName) {
+    return handleToolsCall(params, serverManager, registry);
+  }
+
+  const args = toolParams.arguments || {};
+
+  // Check cache
+  const cached = cache.get(serverName, toolName, args);
+  if (cached) {
+    logger.debug('Cache hit for tool call', {
+      serverName,
+      toolName,
+      cacheKey: `${serverName}:${toolName}`,
+    });
+    return cached as MCPToolCallResult;
+  }
+
+  // Cache miss - execute tool call
+  logger.debug('Cache miss for tool call', {
+    serverName,
+    toolName,
+    cacheKey: `${serverName}:${toolName}`,
+  });
+
+  const result = await handleToolsCall(params, serverManager, registry);
+
+  // Cache the result
+  cache.set(serverName, toolName, args, result);
+
+  return result;
 }
 
 /**
