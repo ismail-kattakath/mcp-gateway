@@ -293,9 +293,36 @@ export async function migrateFromCleartext(oldFilePath: string): Promise<string 
   return null;
 }
 
+/**
+ * SecureStorage class wrapper for keychain operations
+ */
+export class SecureStorage {
+  async setPassword(service: string, account: string, password: string): Promise<void> {
+    if (keytar) {
+      await keytar.setPassword(service, account, password);
+    } else {
+      throw new Error('Keychain not available');
+    }
+  }
+
+  async getPassword(service: string, account: string): Promise<string | null> {
+    if (keytar) {
+      return await keytar.getPassword(service, account);
+    }
+    return null;
+  }
+
+  async deletePassword(service: string, account: string): Promise<void> {
+    if (keytar) {
+      await keytar.deletePassword(service, account);
+    }
+  }
+}
+
 export default {
   storeSecret,
   retrieveSecret,
   deleteSecret,
   migrateFromCleartext,
+  SecureStorage,
 };

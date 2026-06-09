@@ -12,8 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Transport modes**: stdio (spawned clients), SSE, HTTP
 - **Five server sources**: `pkg` (npm/uvx/pipx), `git` (clone+build), `container` (Docker), `remote` (HTTP/SSE), `local` (existing scripts)
 - **Lifecycle modes**: `persistent` (always running) or `on-demand` (lazy-loaded, reaped after 5min idle)
-- **Security**: Auto-generated API keys stored in system keychain, optional IP allowlist
+- **Security**: Auto-generated API keys stored in system keychain, optional IP allowlist, comprehensive security hardening (OWASP Top 10, CWE Top 25)
 - **REST API**: Full CRUD operations for server management, OpenAPI 3.0 spec, Swagger UI docs
+- **Security Hardening**: Input validation, rate limiting, security headers, secrets management, container security
 
 ## REST API
 
@@ -245,6 +246,8 @@ mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
 
 **This project is enterprise-ready and must maintain production-grade security.**
 
+### Core Security Principles
+
 1. **Log Injection Prevention**
    - All user-controlled values MUST be sanitized before logging
    - Use `sanitizeServerName()`, `sanitizeUrl()`, `sanitizePath()`, `sanitizeString()`, `sanitizeArgs()` from `server/src/logging/sanitizer.ts`
@@ -269,6 +272,47 @@ mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
    - stdio transport bypasses auth (pipe = inherent authentication)
    - `/health` endpoint always exempt from auth
    - Constant-time token comparison
+
+### Security Hardening (Epic #31)
+
+**Comprehensive protection against OWASP Top 10 and CWE Top 25 threats:**
+
+1. **Input Validation** (`server/src/validation/input-validator.ts`)
+   - Centralized validator for all user inputs
+   - Prevents: SQL injection, command injection, XSS, path traversal, LDAP injection
+   - Validates: server names, URLs, paths, args, env vars, Docker images, Git repos
+
+2. **Rate Limiting** (`server/src/middleware/rate-limit.ts`)
+   - IP-based: 10/minute, 100/hour on auth endpoints
+   - User-based: 1000/hour on API endpoints
+   - Server-based: 100/minute on MCP tool calls (configurable)
+   - Returns 429 with Retry-After header
+
+3. **Security Headers** (`server/src/middleware/security-headers.ts`)
+   - Helmet.js: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
+   - Permissions-Policy, Referrer-Policy
+   - CORS validation (reject wildcards in production)
+
+4. **Secrets Management** (`server/src/security/secrets-manager.ts`)
+   - Multi-provider: System keychain, Vault, AWS Secrets Manager, Azure Key Vault
+   - CLI commands: `mcp secrets set/get/delete/list`
+   - Environment variable substitution: `${SECRET:KEY}`
+   - Secret detection on startup (warns about plaintext secrets)
+
+5. **Container Security** (`Dockerfile`, `docker-compose.security.yml`)
+   - Non-root user (UID 1000)
+   - Read-only root filesystem
+   - Seccomp profile (restrict syscalls)
+   - Drop all capabilities
+   - Resource limits (CPU, memory)
+
+6. **Dependency Scanning** (`.github/workflows/security.yml`)
+   - NPM audit on every PR
+   - Trivy container scanning
+   - Dependabot auto-PRs
+   - Secret scanning (TruffleHog)
+
+**Full documentation:** See `docs/SECURITY_HARDENING.md`
 
 **CodeQL scanning runs on every PR.** All high-severity findings must be resolved before merge.
 

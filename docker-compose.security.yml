@@ -1,0 +1,87 @@
+# Docker Compose Security Configuration
+# Extends base docker-compose.yml with security hardening
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.security.yml up
+
+version: "3.8"
+
+services:
+  gateway:
+    # Security options
+    security_opt:
+      # Prevent privilege escalation
+      - no-new-privileges:true
+      # AppArmor profile (Linux only)
+      - apparmor:docker-default
+      # Seccomp profile to restrict syscalls
+      - seccomp:./seccomp-profile.json
+
+    # Drop all capabilities and add back only what's needed
+    cap_drop:
+      - ALL
+    cap_add:
+      # Only if binding to ports < 1024
+      # - NET_BIND_SERVICE
+
+    # Read-only root filesystem
+    read_only: true
+
+    # Tmpfs mounts for writable directories
+    tmpfs:
+      - /tmp:mode=1777,size=100m,uid=1000,gid=1000
+      - /home/gateway/.npm:mode=755,size=50m,uid=1000,gid=1000
+
+    # Resource limits (prevent DoS)
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Additional environment variables for security
+    environment:
+      # Enable security features
+      NODE_ENV: production
+      # Disable source maps in production
+      NODE_OPTIONS: "--max-old-space-size=1536"
+      # Secure defaults
+      UV_NO_CACHE: "1"
+
+    # Healthcheck with security considerations
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "-s",
+          "-S",
+          "--max-time",
+          "5",
+          "http://localhost:3000/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+
+    # Labels for metadata
+    labels:
+      - "com.mcp-gateway.security.hardened=true"
+      - "com.mcp-gateway.user=gateway"
+      - "com.mcp-gateway.version=${VERSION:-latest}"

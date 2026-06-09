@@ -34,8 +34,13 @@ COPY ui/ ./
 RUN npm run build
 
 # =====================================
-# Stage 3: production runtime
+# Stage 3: production runtime (security hardened)
 FROM node:20-alpine
+
+# Create non-root user and group
+RUN addgroup -g 1000 gateway && \
+    adduser -D -u 1000 -G gateway gateway
+
 WORKDIR /app
 
 # Runtime deps:
@@ -47,23 +52,30 @@ WORKDIR /app
 RUN apk add --no-cache git docker-cli python3 py3-pip curl bash && \
     pip3 install --no-cache-dir --break-system-packages uv
 
-# Copy compiled server code and runtime dependencies
-COPY --from=server-builder /app/server/dist          ./server/dist
-COPY --from=server-builder /app/server/node_modules  ./server/node_modules
-COPY --from=server-builder /app/server/package*.json ./server/
+# Copy compiled server code and runtime dependencies with correct ownership
+COPY --from=server-builder --chown=gateway:gateway /app/server/dist          ./server/dist
+COPY --from=server-builder --chown=gateway:gateway /app/server/node_modules  ./server/node_modules
+COPY --from=server-builder --chown=gateway:gateway /app/server/package*.json ./server/
 
 # Copy built UI assets
-COPY --from=ui-builder /app/ui/dist ./ui/dist
+COPY --from=ui-builder --chown=gateway:gateway /app/ui/dist ./ui/dist
 
 # Copy the JSON Schema and type definitions
-COPY schema/ ./schema/
-COPY types/ ./types/
+COPY --chown=gateway:gateway schema/ ./schema/
+COPY --chown=gateway:gateway types/ ./types/
 
 # Default registry — overridden by a host bind mount in real deployments.
-COPY registry.example.json ./registry.json
+COPY --chown=gateway:gateway registry.example.json ./registry.json
 
 # Storage dirs (bind-mount these from the host in compose).
-RUN mkdir -p /root/.mcp/repos /root/.mcp/cache /root/.mcp/logs
+RUN mkdir -p /home/gateway/.mcp/repos /home/gateway/.mcp/cache /home/gateway/.mcp/logs && \
+    chown -R gateway:gateway /home/gateway/.mcp
+
+# Create writable tmp directory for tmpfs mount
+RUN mkdir -p /tmp && chown gateway:gateway /tmp
+
+# Switch to non-root user
+USER gateway
 
 EXPOSE 3000
 
