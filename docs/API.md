@@ -17,6 +17,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" http://localhost:3000/api/servers
 ```
 
 **Disable auth (development only):**
+
 ```bash
 GATEWAY_DISABLE_AUTH=true npm start
 ```
@@ -30,6 +31,7 @@ GATEWAY_DISABLE_AUTH=true npm start
 **OpenAPI Spec:** [http://localhost:3000/docs/openapi.json](http://localhost:3000/docs/openapi.json)
 
 The `/docs` endpoint provides an interactive API explorer powered by Swagger UI, where you can:
+
 - View all available endpoints
 - See request/response schemas
 - Test API calls directly from the browser
@@ -42,11 +44,13 @@ The `/docs` endpoint provides an interactive API explorer powered by Swagger UI,
 ### Server Management
 
 #### List All Servers
+
 ```http
 GET /api/servers
 ```
 
 **Response:**
+
 ```json
 {
   "servers": {
@@ -66,11 +70,13 @@ GET /api/servers
 ---
 
 #### Get Server Details
+
 ```http
 GET /api/servers/{serverName}
 ```
 
 **Response:**
+
 ```json
 {
   "name": "obs-mcp",
@@ -93,6 +99,7 @@ GET /api/servers/{serverName}
 ---
 
 #### Create New Server
+
 ```http
 POST /api/servers
 Content-Type: application/json
@@ -110,6 +117,7 @@ Content-Type: application/json
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "success": true,
@@ -119,6 +127,7 @@ Content-Type: application/json
 ```
 
 **Validation:**
+
 - Server name must be lowercase alphanumeric + hyphens
 - Config must include `source` field
 - Name must be unique
@@ -126,6 +135,7 @@ Content-Type: application/json
 ---
 
 #### Update Server Configuration
+
 ```http
 PUT /api/servers/{serverName}
 Content-Type: application/json
@@ -139,6 +149,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -149,6 +160,7 @@ Content-Type: application/json
 ```
 
 **Behavior:**
+
 - If server is running, it will be stopped and restarted with new config
 - If server is stopped, config is updated but server remains stopped
 - Registry is updated in-memory (persists until restart)
@@ -156,11 +168,13 @@ Content-Type: application/json
 ---
 
 #### Delete Server
+
 ```http
 DELETE /api/servers/{serverName}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -169,6 +183,7 @@ DELETE /api/servers/{serverName}
 ```
 
 **Behavior:**
+
 - Stops server if running
 - Removes from registry (in-memory)
 
@@ -177,11 +192,13 @@ DELETE /api/servers/{serverName}
 ### Server Control
 
 #### Start Server
+
 ```http
 POST /api/servers/{serverName}/start
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -191,17 +208,20 @@ POST /api/servers/{serverName}/start
 ```
 
 **Requirements:**
+
 - Server must exist in registry
 - Server must be enabled (`enabled: true`)
 
 ---
 
 #### Stop Server
+
 ```http
 POST /api/servers/{serverName}/stop
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -213,6 +233,7 @@ POST /api/servers/{serverName}/stop
 ---
 
 #### Restart Server
+
 ```http
 POST /api/servers/{serverName}/restart
 ```
@@ -220,6 +241,7 @@ POST /api/servers/{serverName}/restart
 **Equivalent to:** `stop` → `start`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -231,6 +253,7 @@ POST /api/servers/{serverName}/restart
 ---
 
 #### Enable Server
+
 ```http
 POST /api/servers/{serverName}/enable
 ```
@@ -238,6 +261,7 @@ POST /api/servers/{serverName}/enable
 Sets `enabled: true` in config. Does **not** auto-start the server.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -249,6 +273,7 @@ Sets `enabled: true` in config. Does **not** auto-start the server.
 ---
 
 #### Disable Server
+
 ```http
 POST /api/servers/{serverName}/disable
 ```
@@ -256,6 +281,7 @@ POST /api/servers/{serverName}/disable
 Sets `enabled: false` and stops the server.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -269,14 +295,17 @@ Sets `enabled: false` and stops the server.
 ### Logs
 
 #### Get Logs (All Servers)
+
 ```http
 GET /api/logs?limit=100
 ```
 
 **Query Parameters:**
+
 - `limit` (optional): Max entries per server (default: 100, max: 1000)
 
 **Response:**
+
 ```json
 {
   "servers": {
@@ -296,11 +325,13 @@ GET /api/logs?limit=100
 ---
 
 #### Get Logs (Single Server)
+
 ```http
 GET /api/logs/{serverName}?limit=200
 ```
 
 **Response:**
+
 ```json
 {
   "serverName": "obs-mcp",
@@ -314,6 +345,7 @@ GET /api/logs/{serverName}?limit=200
 ### System
 
 #### Health Check
+
 ```http
 GET /health
 ```
@@ -321,6 +353,7 @@ GET /health
 **Authentication:** None (public endpoint)
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -339,11 +372,13 @@ GET /health
 ---
 
 #### Gateway Status
+
 ```http
 GET /api/status
 ```
 
 **Response:**
+
 ```json
 {
   "servers": { ... },
@@ -362,11 +397,13 @@ GET /api/status
 ---
 
 #### Gateway Config
+
 ```http
 GET /api/config
 ```
 
 **Response:**
+
 ```json
 {
   "version": "2.0",
@@ -378,11 +415,13 @@ GET /api/config
 ---
 
 #### Version Info
+
 ```http
 GET /api/version
 ```
 
 **Response:**
+
 ```json
 {
   "version": "2.0.1",
@@ -400,6 +439,7 @@ GET /api/version
 ## Error Responses
 
 ### 400 Bad Request
+
 ```json
 {
   "error": "Invalid server name: must be lowercase alphanumeric + hyphens"
@@ -407,6 +447,7 @@ GET /api/version
 ```
 
 ### 401 Unauthorized
+
 ```json
 {
   "error": "Unauthorized"
@@ -416,6 +457,7 @@ GET /api/version
 **Header:** `WWW-Authenticate: Bearer realm="mcp-gateway"`
 
 ### 403 Forbidden
+
 ```json
 {
   "error": "Forbidden"
@@ -425,6 +467,7 @@ GET /api/version
 Returned when client IP is not in allowlist (if configured).
 
 ### 404 Not Found
+
 ```json
 {
   "error": "Server not found: unknown-server"
@@ -432,6 +475,7 @@ Returned when client IP is not in allowlist (if configured).
 ```
 
 ### 409 Conflict
+
 ```json
 {
   "error": "Server already exists: my-server"
@@ -439,6 +483,7 @@ Returned when client IP is not in allowlist (if configured).
 ```
 
 ### 500 Internal Server Error
+
 ```json
 {
   "error": "Failed to start server: timeout"
@@ -462,6 +507,7 @@ CORS is **enabled by default** with credentials support.
 **Default origins:** `*` (all origins)
 
 **Configure in `registry.json`:**
+
 ```json
 {
   "gateway": {
@@ -544,36 +590,37 @@ http POST localhost:3000/api/servers/test-server/start \
 ### Using JavaScript (fetch)
 
 ```javascript
-const API_BASE = 'http://localhost:3000';
-const API_KEY = 'your-api-key-here';
+const API_BASE = "http://localhost:3000";
+const API_KEY = "your-api-key-here";
 
 const headers = {
-  'Authorization': `Bearer ${API_KEY}`,
-  'Content-Type': 'application/json',
+  Authorization: `Bearer ${API_KEY}`,
+  "Content-Type": "application/json",
 };
 
 // List servers
-const servers = await fetch(`${API_BASE}/api/servers`, { headers })
-  .then(r => r.json());
+const servers = await fetch(`${API_BASE}/api/servers`, { headers }).then((r) =>
+  r.json(),
+);
 
 // Create server
 const newServer = await fetch(`${API_BASE}/api/servers`, {
-  method: 'POST',
+  method: "POST",
   headers,
   body: JSON.stringify({
-    name: 'test-server',
+    name: "test-server",
     config: {
-      source: 'pkg',
-      command: 'npx',
-      args: ['-y', 'test-mcp@latest'],
+      source: "pkg",
+      command: "npx",
+      args: ["-y", "test-mcp@latest"],
       enabled: true,
     },
   }),
-}).then(r => r.json());
+}).then((r) => r.json());
 
 // Start server
 await fetch(`${API_BASE}/api/servers/test-server/start`, {
-  method: 'POST',
+  method: "POST",
   headers,
 });
 ```
@@ -611,6 +658,7 @@ mcp logs obs-mcp --tail 100
 **Schema generation:** Auto-generated from JSDoc annotations in `server/src/api/routes.ts`
 
 **To update spec:**
+
 1. Edit JSDoc comments in routes file
 2. Rebuild: `npm run build`
 3. Spec regenerates automatically on server start
@@ -652,6 +700,7 @@ mcp logs obs-mcp --tail 100
 **Cause:** Missing or invalid API key
 
 **Fix:**
+
 ```bash
 # Get your API key
 PRINT_API_KEY=true npm start
@@ -667,6 +716,7 @@ curl -H "Authorization: Bearer YOUR_KEY" http://localhost:3000/api/servers
 **Cause:** Server might be in registry but not loaded
 
 **Fix:**
+
 ```bash
 # Restart gateway to reload registry
 npm start
@@ -695,3 +745,552 @@ npm start
 - **Documentation:** [https://github.com/ismail-kattakath/mcp-gateway](https://github.com/ismail-kattakath/mcp-gateway)
 - **Issues:** [https://github.com/ismail-kattakath/mcp-gateway/issues](https://github.com/ismail-kattakath/mcp-gateway/issues)
 - **API Reference:** `/docs` (interactive Swagger UI)
+
+## Advanced Examples
+
+### Example 1: Complete Server Lifecycle
+
+```bash
+# Create server
+curl -X POST http://localhost:3000/api/servers \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-server",
+    "config": {
+      "source": "pkg",
+      "command": "npx",
+      "args": ["-y", "my-mcp-server@1.0.0"],
+      "enabled": true,
+      "lifecycle": "on-demand",
+      "timeout": 30000
+    }
+  }'
+
+# Start server
+curl -X POST http://localhost:3000/api/servers/my-server/start \
+  -H "Authorization: Bearer $API_KEY"
+
+# Call tool
+curl -X POST http://localhost:3000/api/tools/call \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "my-server/my_tool",
+    "arguments": {"param": "value"}
+  }'
+
+# View logs
+curl http://localhost:3000/api/logs/my-server?limit=50 \
+  -H "Authorization: Bearer $API_KEY"
+
+# Stop server
+curl -X POST http://localhost:3000/api/servers/my-server/stop \
+  -H "Authorization: Bearer $API_KEY"
+
+# Delete server
+curl -X DELETE http://localhost:3000/api/servers/my-server \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+### Example 2: Bulk Operations
+
+```bash
+# Create multiple servers from file
+cat servers.json | jq -c '.[]' | while read server; do
+  curl -X POST http://localhost:3000/api/servers \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "$server"
+done
+
+# Start all servers
+curl http://localhost:3000/api/servers \
+  -H "Authorization: Bearer $API_KEY" | \
+  jq -r '.servers | keys[]' | \
+  xargs -I {} curl -X POST http://localhost:3000/api/servers/{}/start \
+    -H "Authorization: Bearer $API_KEY"
+```
+
+### Example 3: Health Monitoring Script
+
+```bash
+#!/bin/bash
+# health-check.sh - Monitor gateway health
+
+API_KEY="your-api-key"
+BASE_URL="http://localhost:3000"
+
+while true; do
+  # Check health
+  health=$(curl -s "${BASE_URL}/health")
+  status=$(echo "$health" | jq -r '.status')
+
+  if [ "$status" != "ok" ]; then
+    echo "ALERT: Gateway unhealthy: $health"
+    # Send alert (e.g., Slack, PagerDuty)
+  fi
+
+  # Check server states
+  servers=$(curl -s -H "Authorization: Bearer $API_KEY" \
+    "${BASE_URL}/api/servers")
+
+  failed=$(echo "$servers" | jq -r '.servers | to_entries[] | select(.value.state == "failed") | .key')
+
+  if [ -n "$failed" ]; then
+    echo "ALERT: Failed servers: $failed"
+    # Restart failed servers
+    for server in $failed; do
+      curl -X POST -H "Authorization: Bearer $API_KEY" \
+        "${BASE_URL}/api/servers/${server}/restart"
+    done
+  fi
+
+  sleep 60
+done
+```
+
+## Error Code Reference
+
+### HTTP Status Codes
+
+| Code | Meaning               | When Returned                      |
+| ---- | --------------------- | ---------------------------------- |
+| 200  | OK                    | Successful request                 |
+| 201  | Created               | Server created successfully        |
+| 400  | Bad Request           | Invalid request body or parameters |
+| 401  | Unauthorized          | Missing or invalid authentication  |
+| 403  | Forbidden             | Authenticated but not authorized   |
+| 404  | Not Found             | Server or resource not found       |
+| 409  | Conflict              | Server name already exists         |
+| 422  | Unprocessable Entity  | Validation error                   |
+| 429  | Too Many Requests     | Rate limit exceeded                |
+| 500  | Internal Server Error | Server-side error                  |
+| 502  | Bad Gateway           | Upstream server error              |
+| 503  | Service Unavailable   | Gateway overloaded or restarting   |
+
+### Error Response Format
+
+```json
+{
+  "error": "Human-readable error message",
+  "code": "ERROR_CODE",
+  "details": {
+    "field": "Additional context"
+  },
+  "requestId": "uuid-for-tracking"
+}
+```
+
+### Common Error Codes
+
+| Code               | HTTP | Description              | Solution            |
+| ------------------ | ---- | ------------------------ | ------------------- |
+| `AUTH_MISSING`     | 401  | No Authorization header  | Add Bearer token    |
+| `AUTH_INVALID`     | 401  | Invalid or expired token | Get new token       |
+| `AUTH_IP_BLOCKED`  | 403  | IP not in allowlist      | Add IP to allowlist |
+| `SERVER_NOT_FOUND` | 404  | Server doesn't exist     | Check server name   |
+| `SERVER_DISABLED`  | 403  | Server is disabled       | Enable server       |
+| `SERVER_FAILED`    | 500  | Server crashed           | Check logs, restart |
+| `SERVER_TIMEOUT`   | 500  | Server start timeout     | Increase timeout    |
+| `SERVER_EXISTS`    | 409  | Name already taken       | Use different name  |
+| `VALIDATION_ERROR` | 422  | Invalid config           | Check schema        |
+| `RATE_LIMIT`       | 429  | Too many requests        | Wait and retry      |
+| `TOOL_NOT_FOUND`   | 404  | Tool doesn't exist       | Check tool name     |
+| `TOOL_ERROR`       | 500  | Tool execution failed    | Check tool args     |
+
+## Rate Limiting Details
+
+### Default Limits (v3.0)
+
+| Endpoint Pattern       | Limit    | Window   | Scope  |
+| ---------------------- | -------- | -------- | ------ |
+| `/auth/*`              | 10       | 1 minute | IP     |
+| `/api/servers` (write) | 100      | 1 hour   | User   |
+| `/api/tools/call`      | 1000     | 1 hour   | Server |
+| `/api/logs`            | 100      | 1 minute | User   |
+| All others             | No limit | -        | -      |
+
+### Rate Limit Headers
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640000000
+Retry-After: 3600
+```
+
+### Rate Limit Response
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "code": "RATE_LIMIT",
+  "retryAfter": 3600,
+  "limit": 100,
+  "remaining": 0,
+  "resetAt": "2024-01-01T13:00:00Z"
+}
+```
+
+### Handling Rate Limits
+
+```javascript
+async function callAPIWithRetry(url, options) {
+  const response = await fetch(url, options);
+
+  if (response.status === 429) {
+    const retryAfter = response.headers.get("Retry-After");
+    await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+    return callAPIWithRetry(url, options);
+  }
+
+  return response;
+}
+```
+
+## Authentication Flows
+
+### Flow 1: API Key (Default)
+
+```
+1. Gateway starts → Generates API key → Stores in keychain
+2. Admin retrieves key: PRINT_API_KEY=true npm start
+3. Client includes in requests: Authorization: Bearer <key>
+4. Gateway validates key → Grants access
+```
+
+**Example:**
+
+```bash
+# Get key
+API_KEY=$(PRINT_API_KEY=true npm start | grep "API Key:" | cut -d' ' -f3)
+
+# Use key
+curl -H "Authorization: Bearer $API_KEY" http://localhost:3000/api/servers
+```
+
+### Flow 2: JWT Tokens
+
+```
+1. User logs in with credentials → Gateway validates
+2. Gateway issues JWT access token (15min) + refresh token (7 days)
+3. Client includes access token in requests
+4. When access token expires, use refresh token to get new access token
+```
+
+**Example:**
+
+```bash
+# Login
+LOGIN_RESPONSE=$(curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "alice", "password": "password"}')
+
+ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.accessToken')
+REFRESH_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.refreshToken')
+
+# Use access token
+curl -H "Authorization: Bearer $ACCESS_TOKEN" \
+  http://localhost:3000/api/servers
+
+# Refresh when expired
+NEW_TOKENS=$(curl -X POST http://localhost:3000/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d "{\"refreshToken\": \"$REFRESH_TOKEN\"}")
+```
+
+### Flow 3: OAuth 2.0
+
+```
+1. Client redirects to: /auth/github
+2. Gateway redirects to GitHub authorization
+3. User approves on GitHub
+4. GitHub redirects to: /auth/github/callback?code=...
+5. Gateway exchanges code for GitHub access token
+6. Gateway creates/logs in user
+7. Gateway issues JWT tokens to client
+```
+
+**Example:**
+
+```html
+<!-- Login button -->
+<a href="http://localhost:3000/auth/github">Login with GitHub</a>
+
+<!-- Callback handler -->
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+  if (token) {
+    localStorage.setItem("accessToken", token);
+    window.location.href = "/dashboard";
+  }
+</script>
+```
+
+### Flow 4: SAML SSO
+
+```
+1. Client accesses: /auth/saml
+2. Gateway generates SAML request
+3. Gateway redirects to IDP
+4. User authenticates at IDP
+5. IDP redirects to: /auth/saml/callback with SAML assertion
+6. Gateway validates assertion
+7. Gateway creates/logs in user
+8. Gateway issues JWT tokens
+```
+
+### Flow 5: mTLS
+
+```
+1. Client connects with TLS client certificate
+2. Gateway validates certificate against CA
+3. Gateway extracts subject DN from certificate
+4. Gateway looks up or creates user
+5. Gateway proceeds with request
+```
+
+**Example nginx config:**
+
+```nginx
+server {
+  listen 443 ssl;
+
+  ssl_client_certificate /etc/ssl/ca.crt;
+  ssl_verify_client on;
+
+  location / {
+    proxy_set_header X-Client-Cert $ssl_client_cert;
+    proxy_set_header X-Client-DN $ssl_client_s_dn;
+    proxy_pass http://gateway:3000;
+  }
+}
+```
+
+## Pagination
+
+### List Endpoints with Pagination
+
+```bash
+# First page
+curl http://localhost:3000/api/servers?limit=10&offset=0 \
+  -H "Authorization: Bearer $API_KEY"
+
+# Next page
+curl http://localhost:3000/api/servers?limit=10&offset=10 \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+**Response:**
+
+```json
+{
+  "servers": { ... },
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "total": 45,
+    "hasMore": true
+  }
+}
+```
+
+## Filtering and Sorting
+
+### Filter by Server State
+
+```bash
+curl "http://localhost:3000/api/servers?state=running" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+### Filter by Lifecycle
+
+```bash
+curl "http://localhost:3000/api/servers?lifecycle=persistent" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+### Sort Results
+
+```bash
+curl "http://localhost:3000/api/servers?sort=name&order=asc" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+## Webhooks (v3.1+)
+
+### Configure Webhooks
+
+```json
+{
+  "webhooks": {
+    "enabled": true,
+    "endpoints": [
+      {
+        "url": "https://your-app.com/webhooks/mcp",
+        "events": ["server.started", "server.failed", "tool.called"],
+        "secret": "${WEBHOOK_SECRET}"
+      }
+    ]
+  }
+}
+```
+
+### Webhook Payload
+
+```json
+{
+  "event": "server.failed",
+  "timestamp": "2024-01-01T12:00:00Z",
+  "data": {
+    "server": "my-server",
+    "error": "Server exited with code 1",
+    "retryCount": 3
+  },
+  "signature": "sha256=..."
+}
+```
+
+### Verify Webhook Signature
+
+```javascript
+const crypto = require("crypto");
+
+function verifyWebhook(payload, signature, secret) {
+  const hash = crypto
+    .createHmac("sha256", secret)
+    .update(JSON.stringify(payload))
+    .digest("hex");
+
+  return `sha256=${hash}` === signature;
+}
+```
+
+## API Versioning
+
+### Current Version: v1
+
+All endpoints are prefixed with `/api/` (implied v1).
+
+### Future Versions
+
+When breaking changes are introduced, new version will be available at `/api/v2/`.
+
+**Version negotiation via header:**
+
+```bash
+curl -H "Accept: application/vnd.mcp-gateway.v2+json" \
+  http://localhost:3000/api/servers
+```
+
+---
+
+## SDK Examples
+
+### Node.js SDK (Future)
+
+```javascript
+const { MCPGatewayClient } = require("@mcp-gateway/client");
+
+const client = new MCPGatewayClient({
+  baseURL: "http://localhost:3000",
+  apiKey: process.env.API_KEY,
+});
+
+// List servers
+const servers = await client.servers.list();
+
+// Create server
+await client.servers.create({
+  name: "my-server",
+  config: {
+    source: "pkg",
+    command: "npx",
+    args: ["-y", "my-mcp-server"],
+  },
+});
+
+// Call tool
+const result = await client.tools.call("my-server/my_tool", {
+  param: "value",
+});
+```
+
+### Python SDK (Future)
+
+```python
+from mcp_gateway import MCPGatewayClient
+
+client = MCPGatewayClient(
+    base_url='http://localhost:3000',
+    api_key=os.environ['API_KEY']
+)
+
+# List servers
+servers = client.servers.list()
+
+# Create server
+client.servers.create(
+    name='my-server',
+    config={
+        'source': 'pkg',
+        'command': 'npx',
+        'args': ['-y', 'my-mcp-server']
+    }
+)
+
+# Call tool
+result = client.tools.call('my-server/my_tool', {
+    'param': 'value'
+})
+```
+
+---
+
+## GraphQL API (Future)
+
+```graphql
+# Query
+query {
+  servers {
+    name
+    state
+    uptime
+    tools {
+      name
+      description
+    }
+  }
+}
+
+# Mutation
+mutation {
+  createServer(
+    input: {
+      name: "my-server"
+      config: { source: PKG, command: "npx", args: ["-y", "my-mcp-server"] }
+    }
+  ) {
+    server {
+      name
+      state
+    }
+  }
+}
+
+# Subscription
+subscription {
+  serverStateChanged {
+    name
+    oldState
+    newState
+  }
+}
+```
+
+---
+
+For complete API reference, see the interactive Swagger UI at http://localhost:3000/docs
