@@ -71,6 +71,15 @@ import {
   registerTracingShutdown,
   performGracefulShutdown,
 } from './instance/index.js';
+// Performance Optimization (Epic #28)
+import {
+  getPerformanceConfig,
+  validatePerformanceConfig,
+  createCompressionMiddleware,
+  ResponseCache,
+  initializeConnectionPool,
+  createETagMiddleware,
+} from './performance/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +87,7 @@ const __dirname = path.dirname(__filename);
 let server: HttpServer | null = null;
 let isShuttingDown = false;
 let shutdownTracing: (() => Promise<void>) | null = null;
+let responseCache: ResponseCache | null = null;
 
 /**
  * Ensure default admin user exists for v3.0 authentication
@@ -133,6 +143,26 @@ async function initializeServer(): Promise<HttpServer | null> {
     logger.info('Distributed tracing initialized');
 
     logger.info('Starting MCP Gateway Server');
+
+    // Initialize performance configuration
+    logger.info('Initializing performance configuration...');
+    const perfConfig = getPerformanceConfig();
+    const configErrors = validatePerformanceConfig(perfConfig);
+    if (configErrors.length > 0) {
+      throw new Error(`Invalid performance configuration: ${configErrors.join(', ')}`);
+    }
+    logger.info('Performance configuration validated', {
+      http2: perfConfig.http2.enabled,
+      compression: perfConfig.compression.enabled,
+      cache: perfConfig.cache.enabled,
+      pool: perfConfig.pool.keepAlive,
+    });
+
+    // Initialize connection pool (for remote servers)
+    initializeConnectionPool(perfConfig.pool);
+
+    // Initialize response cache
+    responseCache = new ResponseCache(perfConfig.cache);
 
     // Initialize database (SQLite)
     logger.info('Initializing database...');
@@ -190,6 +220,13 @@ async function initializeServer(): Promise<HttpServer | null> {
     // req.ip and req.protocol reflect the real client / scheme.
     app.set('trust proxy', 'loopback');
     app.use(express.json());
+
+    // Initialize performance middleware
+    // Compression must come before response handlers
+    app.use(createCompressionMiddleware(perfConfig.compression));
+
+    // ETag support for conditional requests
+    app.use(createETagMiddleware());
 
     // Initialize metrics middleware (before auth so we track all requests)
     app.use(httpMetricsMiddleware);
@@ -262,6 +299,26 @@ async function initializeServer(): Promise<HttpServer | null> {
     watchRegistry(async (newRegistry, oldRegistry) => {
       logger.info('Registry changed, reloading servers');
       await serverManager.reload(newRegistry, oldRegistry);
+
+      // Invalidate cache for changed servers
+      if (responseCache && responseCache.isEnabled()) {
+        const changedServers = new Set<string>();
+
+        // Find servers that changed
+        for (const serverName in newRegistry.servers) {
+          const newConfig = newRegistry.servers[serverName];
+          const oldConfig = oldRegistry?.servers[serverName];
+
+          if (!oldConfig || JSON.stringify(newConfig) !== JSON.stringify(oldConfig)) {
+            changedServers.add(serverName);
+          }
+        }
+
+        // Invalidate cache for each changed server
+        for (const serverName of changedServers) {
+          responseCache.invalidateServer(serverName);
+        }
+      }
 
       // Update registry metrics
       recordRegistryReload('file_change');
