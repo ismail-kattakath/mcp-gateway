@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **MCP Gateway** is a universal aggregator for Model Context Protocol (MCP) servers. It allows AI coding tools to connect to a single gateway instead of managing multiple MCP server configurations. The gateway routes namespaced tool calls (`<server-name>/<tool-name>`) to the appropriate backend server.
 
 **Key Architecture:**
+
 - **Monorepo**: `server/` (Node.js TypeScript gateway) + `ui/` (React dashboard)
 - **Transport modes**: stdio (spawned clients), SSE, HTTP
 - **Five server sources**: `pkg` (npm/uvx/pipx), `git` (clone+build), `container` (Docker), `remote` (HTTP/SSE), `local` (existing scripts)
@@ -22,6 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **OpenAPI Spec:** [http://localhost:3000/docs/openapi.json](http://localhost:3000/docs/openapi.json)
 
 **Key endpoints:**
+
 - `GET /api/servers` — List all servers
 - `POST /api/servers` — Create new server
 - `GET /api/servers/{name}` — Get server details
@@ -160,6 +162,7 @@ MCP Server (obs-mcp, filesystem, etc.)
 ### Key Components
 
 **`server/src/mcp/backends/`** — Server lifecycle management
+
 - `index.ts` — `ServerManager` class: initializes persistent servers, lazy-loads on-demand servers, handles auto-restart and idle reaping
 - `base.ts` — `BaseServer` abstract class: state machine (stopped/starting/running/stopping/failed), retry logic, stdio parsing, event emitter for logs/exit/error
 - `{pkg,git,container,local}.ts` — Concrete adapters extending `BaseServer`, each implements `prepare()` (setup work) and `getSpawnArgs()` (command/args/env)
@@ -167,21 +170,25 @@ MCP Server (obs-mcp, filesystem, etc.)
 - `stdio-handler.ts` — JSON-RPC message parser for stdout/stderr streams
 
 **`server/src/mcp/`** — MCP protocol layer
+
 - `protocol.ts` — JSON-RPC 2.0 handlers: `tools/list`, `tools/call`, SSE streaming (`streamMessage`, `sendNotification`)
 - `router.ts` — Parse `<server>/<tool>`, validate server exists/enabled, dispatch to `ServerManager.getServer()`
 - `registry.ts` — Load/validate/watch `registry.json`, hot-reload on file change, apply defaults, validate schema + semantic checks
 
 **`server/src/validation/`** — Registry validation
+
 - `registry-validator.ts` — AJV schema validator + semantic checks (e.g., detect duplicate env keys, validate git repo URLs)
 - `validate-registry.ts` — CLI tool for standalone validation
 
 **`server/src/middleware/auth.ts`** — Bearer token + IP allowlist middleware (skips stdio transport, always allows `/health`)
 
 **`server/src/security/`** — API key management
+
 - `apikey.ts` — Generate/retrieve/rotate keys using crypto.randomBytes(32)
 - `secure-storage.ts` — Wrapper for `keytar` (system keychain: macOS Keychain, Linux libsecret, Windows Credential Manager)
 
 **`server/src/logging/`** — Winston-based logging
+
 - `logger.ts` — Console + file transport, custom format with automatic sanitization
 - `sanitizer.ts` — Sanitize user-controlled values (serverName, URL, path, args) before logging to prevent log injection (CRLF, control chars, credential leakage)
 
@@ -191,15 +198,16 @@ MCP Server (obs-mcp, filesystem, etc.)
 
 The `registry.json` file is the single source of truth for server configuration. Each server is keyed by a **server name** (lowercase, alphanumeric + hyphens) and declares a `source` field:
 
-| Source | Use Case |
-|--------|----------|
-| `pkg` | Package manager (npx, uvx, pipx) |
-| `git` | Clone repo, auto-detect install/build, spawn |
-| `container` | Docker image (pull or build) |
-| `remote` | Already-running MCP server over SSE/HTTP |
-| `local` | Existing script/binary on disk |
+| Source      | Use Case                                     |
+| ----------- | -------------------------------------------- |
+| `pkg`       | Package manager (npx, uvx, pipx)             |
+| `git`       | Clone repo, auto-detect install/build, spawn |
+| `container` | Docker image (pull or build)                 |
+| `remote`    | Already-running MCP server over SSE/HTTP     |
+| `local`     | Existing script/binary on disk               |
 
 **Common fields** (all optional with defaults):
+
 - `lifecycle`: `"on-demand"` (lazy-loaded) or `"persistent"` (always running)
 - `enabled`: `true` | `false`
 - `timeout`: milliseconds (default 30000)
@@ -219,12 +227,14 @@ Defaults: `port=3000`, `host="0.0.0.0"`, `transport="sse"`, CORS enabled.
 
 **Auth config (.mcp-gateway.json):**
 Auth settings moved to separate file in v2.1. Use CLI to manage:
+
 ```bash
 mcp auth enable --registry /path/to/registry.json
 mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
 ```
 
 **Schema validation:**
+
 - Run `cd server && npm run validate` to validate registry.json
 - AJV validates against `schema/registry-v2.schema.json`
 - Semantic checks enforce server name format, env key format, etc.
@@ -239,7 +249,7 @@ mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
    - All user-controlled values MUST be sanitized before logging
    - Use `sanitizeServerName()`, `sanitizeUrl()`, `sanitizePath()`, `sanitizeString()`, `sanitizeArgs()` from `server/src/logging/sanitizer.ts`
    - Even though Winston format pipeline auto-sanitizes, CodeQL requires explicit call-site sanitization for static analysis
-   - Pattern: `logger.info(\`Starting ${sanitizeServerName(name)}\`)` not `logger.info(\`Starting ${name}\`)`
+   - Pattern: `logger.info(\`Starting ${sanitizeServerName(name)}\`)`not`logger.info(\`Starting ${name}\`)`
 
 2. **Path Traversal Prevention**
    - Validate all user-controlled paths with `path.resolve()` and check they don't escape intended parent directory
@@ -265,6 +275,7 @@ mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
 ## Testing
 
 **Server:** 166+ tests with Vitest, including:
+
 - Unit tests for sanitizers (32 tests)
 - Auth middleware tests (Bearer token, IP allowlist)
 - Registry validation tests (42 tests)
@@ -275,6 +286,7 @@ mcp auth allow add 192.168.1.100 --registry /path/to/registry.json
 **Coverage target:** 77%+ (current: ~80%)
 
 **Running tests:**
+
 ```bash
 cd server && npm test                # Run once
 cd server && npm run test:watch      # Watch mode
@@ -302,6 +314,7 @@ cd server && npm run test:coverage   # With coverage report
 6. **Docker workflow:** Builds multi-arch image (`linux/amd64`, `linux/arm64`), pushes to `ghcr.io/ismail-kattakath/mcp-gateway` with tags `:latest`, `:X.Y.Z`, `:X.Y`, `:X`, `:edge`, `:sha-<short>`
 
 **Never manually:**
+
 - Bump versions in package.json
 - Edit CHANGELOG.md
 - Create git tags
@@ -314,17 +327,20 @@ See `CONTRIBUTING.md` for full release-please setup details.
 **Use Conventional Commits for all PR titles:**
 
 ✅ Good:
+
 - `feat: add support for container build.repo`
 - `fix: prevent on-demand server reaping during active tool call`
 - `chore: bump express to 4.21.3`
 - `feat!: rename backends to servers`
 
 ❌ Bad:
+
 - `Add new feature` — missing type prefix
 - `feat: Add new feature` — subject must start lowercase
 - `Feat: add new feature` — type must be lowercase
 
 **Git hooks:**
+
 - Pre-commit: runs lint-staged (ESLint fix, Prettier format, TypeScript check on staged files)
 - Commit message validation happens in CI via `pr-title.yml`, not locally
 
@@ -343,6 +359,7 @@ docker run -i --rm \
 ## Environment Variables
 
 **Gateway behavior:**
+
 - `GATEWAY_DISABLE_AUTH` — Override auth config file (set to `true` to disable auth, dev only)
 - `GATEWAY_PORT` — Override HTTP port (default 3000)
 - `PRINT_API_KEY=true` — Print API key and exit (for daemon mode setup)
@@ -351,6 +368,7 @@ docker run -i --rm \
 - `--debug` flag — Enable debug logging (alternative to `LOG_LEVEL=debug`)
 
 **Server env substitution:**
+
 - Registry `env` fields support `${VAR}` substitution from system env
 - Example: `"env": {"API_KEY": "${MY_API_KEY}"}` resolves `MY_API_KEY` from process.env
 
@@ -376,10 +394,40 @@ This project includes custom validation skills in `.claude/skills/`:
 - **`/validate-precommit`** — Test git hooks with clean and broken code to ensure ESLint, Prettier, and TypeScript checks work correctly.
 
 **Recommended workflow before pushing:**
+
 ```
 /validate-all
 ```
+
 This spawns 3 parallel validation agents and reports consolidated results in ~2-3 minutes.
+
+## Audit Logging
+
+**Epic #22 - Comprehensive audit trail for security events and administrative actions.**
+
+- **Tamper-proof logging** with SHA256 hash chain integrity
+- **Complete event capture**: auth, authz, server management, user management
+- **Compliance exports** (CSV, JSON) with filtering and pagination
+- **Admin-only access** via RBAC (require `admin` role to view logs)
+- **Retention policies** with auto-purge (default: 90 days)
+
+**Key endpoints:**
+
+- `GET /api/audit-logs` — List logs (with filters)
+- `GET /api/audit-logs/export?format=csv` — Export logs
+- `GET /api/audit-logs/verify` — Verify hash chain integrity
+- `GET /api/audit-logs/stats` — Statistics dashboard
+
+**CLI commands:**
+
+- `mcp audit list [--filters]` — View audit logs
+- `mcp audit export --format csv|json` — Export logs
+- `mcp audit verify` — Check integrity (tamper detection)
+- `mcp audit stats` — Statistics summary
+
+**Database:** `audit_logs` table with hash chain integrity (migration 005)
+
+See `docs/AUDIT_LOGGING.md` for complete documentation.
 
 ## Documentation
 
@@ -387,6 +435,7 @@ This spawns 3 parallel validation agents and reports consolidated results in ~2-
 - **`CONTRIBUTING.md`** — Release-please workflow, Conventional Commits guide
 - **`schema/registry-v2.schema.json`** — Canonical registry schema (v2.0 + v2.1 formats)
 - **`docs/API.md`** — Complete REST API reference
+- **`docs/AUDIT_LOGGING.md`** — Audit logging guide (Epic #22)
 - **`docs/MIGRATION-v2.1.md`** — Migration guide from v2.0 to v2.1
 - **`cli/README.md`** — CLI usage guide
 - **`.claude/skills/`** — Validation skills for pre-push verification

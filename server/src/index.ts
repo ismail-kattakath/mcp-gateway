@@ -39,9 +39,12 @@ import { startStdioTransport } from './mcp/stdio-transport.js';
 import { createApiRouter } from './api/routes.js';
 import { createFirewallRouter } from './api/firewall-routes.js';
 import { createLDAPRouter } from './api/ldap-routes.js';
+import { createAuditRouter } from './api/audit-routes.js';
 import { swaggerSpec, swaggerUi, swaggerUiOptions } from './api/swagger.js';
 // Firewall (Epic #23)
 import { initializeFirewall, createFirewallMiddleware } from './security/firewall/index.js';
+// Audit Logging (Epic #22)
+import { auditMiddleware } from './audit/middleware.js';
 // Metrics & Monitoring (Epic #3)
 import { getMetrics } from './metrics/index.js';
 import { httpMetricsMiddleware } from './metrics/middleware.js';
@@ -267,6 +270,9 @@ async function initializeServer(): Promise<HttpServer | null> {
     // Auth + IP allowlist. Reads from auth config file (.mcp-gateway.json).
     // Throws at construction if auth is enabled but key generation failed.
     app.use(createAuthMiddleware(registryPath, apiKey));
+
+    // Audit logging middleware (capture all authenticated requests)
+    app.use(auditMiddleware() as unknown as express.RequestHandler);
 
     // Mount auth routes (login, token refresh, logout, user management)
     app.use('/auth', authRoutes);
@@ -515,6 +521,10 @@ async function initializeServer(): Promise<HttpServer | null> {
     // ===== LDAP Provider Management Routes =====
     const ldapRouter = createLDAPRouter();
     app.use('/api/ldap', ldapRouter);
+
+    // ===== Audit Logging Routes =====
+    const auditRouter = createAuditRouter();
+    app.use('/api/audit-logs', auditRouter);
 
     // ===== Domain Management Routes =====
     // Import dynamically to handle optional Caddy integration

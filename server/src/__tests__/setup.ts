@@ -7,6 +7,7 @@ process.env.NODE_ENV = 'test';
 process.env.GATEWAY_STORAGE_REPOS = '/tmp/mcp-gateway-test/repos';
 process.env.GATEWAY_STORAGE_CACHE = '/tmp/mcp-gateway-test/cache';
 process.env.GATEWAY_STORAGE_LOGS = '/tmp/mcp-gateway-test/logs';
+process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-purposes-minimum-32-characters';
 
 // Clean up test directories before and after tests
 beforeAll(async () => {

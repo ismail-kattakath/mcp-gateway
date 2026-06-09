@@ -33,6 +33,9 @@ import {
   tenantIsolation,
   type AuthenticatedRequest,
 } from '../rbac/middleware.js';
+// Audit Logging (Epic #22)
+import { createAuditLog } from '../audit/service.js';
+import { AuditActionType } from '../types/audit.js';
 
 const router = Router();
 
@@ -82,6 +85,17 @@ router.post('/login', async (req: Request, res: Response) => {
         username: sanitizeString(username),
         ip: req.ip,
       });
+
+      // Audit failed login
+      await createAuditLog({
+        username: sanitizeString(username),
+        actionType: AuditActionType.AUTH_LOGIN_FAILED,
+        actionResult: 'failure',
+        ipAddress: req.ip || req.socket.remoteAddress,
+        userAgent: req.get('user-agent'),
+        details: { reason: 'invalid_credentials' },
+      });
+
       return res.status(401).json({
         error: 'Invalid credentials',
       });
@@ -111,6 +125,16 @@ router.post('/login', async (req: Request, res: Response) => {
       userId: sanitizeString(user.id),
       username: sanitizeString(user.username),
       ip: req.ip,
+    });
+
+    // Audit successful login
+    await createAuditLog({
+      userId: user.id,
+      username: user.username,
+      actionType: AuditActionType.AUTH_LOGIN,
+      actionResult: 'success',
+      ipAddress: req.ip || req.socket.remoteAddress,
+      userAgent: req.get('user-agent'),
     });
 
     return res.json({
