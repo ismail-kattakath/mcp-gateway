@@ -1,47 +1,93 @@
 {
-  "name": "mcp-gateway-cli",
-  "version": "2.1.0",
+  "name": "@mcp-gateway/cli",
+  "version": "3.0.0",
   "description": "Command-line interface for MCP Gateway",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp": "./dist/index.js"
+    "mcp": "./bin/run.js"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "tsc && npm run postbuild",
+    "postbuild": "npx oclif manifest",
     "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "postpack": "rm -f oclif.manifest.json",
+    "prepack": "npm run build"
   },
   "keywords": [
     "mcp",
     "gateway",
     "cli",
-    "model-context-protocol"
+    "model-context-protocol",
+    "oclif"
   ],
   "author": "ismail-kattakath",
   "license": "MIT",
   "dependencies": {
+    "@oclif/core": "^4.11.4",
+    "@oclif/plugin-help": "^6.2.50",
+    "@oclif/plugin-plugins": "^5.4.73",
     "better-sqlite3": "^12.10.0",
     "chalk": "^5.3.0",
-    "commander": "^12.1.0",
     "keytar": "^7.9.0",
     "ora": "^8.0.1",
     "table": "^6.8.2"
   },
   "devDependencies": {
+    "@oclif/test": "^4.1.18",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^3.2.6",
     "eslint": "^9.17.0",
+    "globals": "^17.6.0",
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.61.0",
+    "vitest": "^3.2.6"
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "oclif": {
+    "bin": "mcp",
+    "dirname": "mcp",
+    "commands": "./dist/commands",
+    "plugins": [
+      "@oclif/plugin-help",
+      "@oclif/plugin-plugins"
+    ],
+    "topicSeparator": " ",
+    "topics": {
+      "servers": {
+        "description": "Manage MCP servers"
+      },
+      "auth": {
+        "description": "Manage authentication and IP allowlist"
+      },
+      "role": {
+        "description": "Manage user roles"
+      },
+      "firewall": {
+        "description": "Manage firewall rules"
+      },
+      "ldap": {
+        "description": "Manage LDAP providers"
+      }
+    }
+  },
+  "files": [
+    "/bin",
+    "/dist",
+    "/oclif.manifest.json"
+  ]
 }

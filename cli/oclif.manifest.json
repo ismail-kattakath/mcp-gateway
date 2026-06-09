@@ -1,0 +1,840 @@
+{
+  "commands": {
+    "health": {
+      "aliases": [],
+      "args": {},
+      "description": "Check gateway health status",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --url http://localhost:3000"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "health",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "health.js"]
+    },
+    "logs": {
+      "aliases": [],
+      "args": {
+        "server": {
+          "description": "Server name (optional, shows all if omitted)",
+          "name": "server",
+          "required": false
+        }
+      },
+      "description": "View MCP server logs",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> filesystem",
+        "<%= config.bin %> <%= command.id %> filesystem --tail 50"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "tail": {
+          "char": "n",
+          "description": "Number of lines to show",
+          "name": "tail",
+          "default": 100,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "follow": {
+          "char": "f",
+          "description": "Follow log output (not yet implemented)",
+          "name": "follow",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "logs",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "logs.js"]
+    },
+    "status": {
+      "aliases": [],
+      "args": {},
+      "description": "Show MCP Gateway instance status",
+      "examples": ["<%= config.bin %> <%= command.id %>"],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "status",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "status.js"]
+    },
+    "auth:disable": {
+      "aliases": [],
+      "args": {},
+      "description": "Disable authentication (set disableAuth: true in auth config)",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> --registry ./registry.json",
+        "<%= config.bin %> <%= command.id %> -r /path/to/registry.json"
+      ],
+      "flags": {
+        "registry": {
+          "char": "r",
+          "description": "Path to registry.json",
+          "name": "registry",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "auth:disable",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "auth", "disable.js"]
+    },
+    "auth:enable": {
+      "aliases": [],
+      "args": {},
+      "description": "Enable authentication (set disableAuth: false in auth config)",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> --registry ./registry.json",
+        "<%= config.bin %> <%= command.id %> -r /path/to/registry.json"
+      ],
+      "flags": {
+        "registry": {
+          "char": "r",
+          "description": "Path to registry.json",
+          "name": "registry",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "auth:enable",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "auth", "enable.js"]
+    },
+    "auth:token": {
+      "aliases": [],
+      "args": {},
+      "description": "Display the API key from system keychain",
+      "examples": ["<%= config.bin %> <%= command.id %>"],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "auth:token",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "auth", "token.js"]
+    },
+    "firewall:list": {
+      "aliases": ["firewall:ls"],
+      "args": {},
+      "description": "List all firewall rules",
+      "examples": ["<%= config.bin %> <%= command.id %>"],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "firewall:list",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "firewall", "list.js"]
+    },
+    "ldap:list": {
+      "aliases": ["ldap:ls"],
+      "args": {},
+      "description": "List all LDAP providers",
+      "examples": ["<%= config.bin %> <%= command.id %>"],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "ldap:list",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "ldap", "list.js"]
+    },
+    "role:list": {
+      "aliases": [],
+      "args": {},
+      "description": "List all available roles and their permissions",
+      "examples": ["<%= config.bin %> <%= command.id %>"],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "role:list",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "role", "list.js"]
+    },
+    "auth:allow:add": {
+      "aliases": [],
+      "args": {
+        "ip": {
+          "description": "IP address or CIDR range",
+          "name": "ip",
+          "required": true
+        }
+      },
+      "description": "Add an IP address or CIDR to the allowlist",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> 192.168.1.100 --registry ./registry.json",
+        "<%= config.bin %> <%= command.id %> 10.0.0.0/24 -r ./registry.json"
+      ],
+      "flags": {
+        "registry": {
+          "char": "r",
+          "description": "Path to registry.json",
+          "name": "registry",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "auth:allow:add",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "auth", "allow", "add.js"]
+    },
+    "auth:allow:list": {
+      "aliases": [],
+      "args": {},
+      "description": "List IP addresses in the allowlist",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> --registry ./registry.json"
+      ],
+      "flags": {
+        "registry": {
+          "char": "r",
+          "description": "Path to registry.json",
+          "name": "registry",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "auth:allow:list",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "auth", "allow", "list.js"]
+    },
+    "auth:allow:remove": {
+      "aliases": [],
+      "args": {
+        "ip": {
+          "description": "IP address or CIDR range",
+          "name": "ip",
+          "required": true
+        }
+      },
+      "description": "Remove an IP address or CIDR from the allowlist",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> 192.168.1.100 --registry ./registry.json",
+        "<%= config.bin %> <%= command.id %> 10.0.0.0/24 -r ./registry.json"
+      ],
+      "flags": {
+        "registry": {
+          "char": "r",
+          "description": "Path to registry.json",
+          "name": "registry",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "auth:allow:remove",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "auth", "allow", "remove.js"]
+    },
+    "servers:create": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Create a new MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> my-server --source pkg --command npx --args @obs-mcp/server",
+        "<%= config.bin %> <%= command.id %> my-server --source git --command https://github.com/user/repo.git",
+        "<%= config.bin %> <%= command.id %> my-server --source local --command /path/to/script.js --lifecycle persistent"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "source": {
+          "description": "Server source type",
+          "name": "source",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": ["pkg", "git", "container", "remote", "local"],
+          "type": "option"
+        },
+        "command": {
+          "description": "Command to execute",
+          "name": "command",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "args": {
+          "description": "Command arguments (comma-separated)",
+          "name": "args",
+          "hasDynamicHelp": false,
+          "multiple": true,
+          "type": "option"
+        },
+        "enabled": {
+          "description": "Enable server",
+          "name": "enabled",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "lifecycle": {
+          "description": "Server lifecycle mode",
+          "name": "lifecycle",
+          "default": "on-demand",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": ["persistent", "on-demand"],
+          "type": "option"
+        },
+        "timeout": {
+          "description": "Timeout in milliseconds",
+          "name": "timeout",
+          "default": 30000,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:create",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "create.js"]
+    },
+    "servers:delete": {
+      "aliases": ["servers:rm"],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Delete an MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> filesystem --force",
+        "<%= config.bin %> <%= command.id %> obs-mcp -f"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "force": {
+          "char": "f",
+          "description": "Skip confirmation",
+          "name": "force",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:delete",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "delete.js"]
+    },
+    "servers:disable": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Disable an MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> filesystem",
+        "<%= config.bin %> <%= command.id %> obs-mcp --url http://localhost:3000"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:disable",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "disable.js"]
+    },
+    "servers:enable": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Enable an MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> filesystem",
+        "<%= config.bin %> <%= command.id %> obs-mcp --url http://localhost:3000"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:enable",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "enable.js"]
+    },
+    "servers:get": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Get details for a specific MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> filesystem",
+        "<%= config.bin %> <%= command.id %> obs-mcp --url http://localhost:3000"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:get",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "get.js"]
+    },
+    "servers:list": {
+      "aliases": ["servers:ls"],
+      "args": {},
+      "description": "List all MCP servers",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --url http://localhost:3000",
+        "<%= config.bin %> <%= command.id %> --no-auth"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:list",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "list.js"]
+    },
+    "servers:restart": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Restart an MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> filesystem",
+        "<%= config.bin %> <%= command.id %> obs-mcp --url http://localhost:3000"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:restart",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "restart.js"]
+    },
+    "servers:start": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Start an MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> filesystem",
+        "<%= config.bin %> <%= command.id %> obs-mcp --url http://localhost:3000"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:start",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "start.js"]
+    },
+    "servers:stop": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Server name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Stop an MCP server",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> filesystem",
+        "<%= config.bin %> <%= command.id %> obs-mcp --url http://localhost:3000"
+      ],
+      "flags": {
+        "url": {
+          "description": "Gateway base URL",
+          "env": "MCP_GATEWAY_URL",
+          "name": "url",
+          "default": "http://localhost:3000",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "debug": {
+          "description": "Enable debug output",
+          "name": "debug",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-auth": {
+          "description": "Disable authentication (for development)",
+          "name": "no-auth",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "servers:stop",
+      "pluginAlias": "@mcp-gateway/cli",
+      "pluginName": "@mcp-gateway/cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": ["dist", "commands", "servers", "stop.js"]
+    }
+  },
+  "version": "3.0.0"
+}
