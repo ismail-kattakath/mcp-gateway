@@ -6,7 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { getDatabase, transaction } from '../database.js';
+import { getDatabase } from '../database.js';
 import {
   getEncryptionKey,
   FieldEncryption,
