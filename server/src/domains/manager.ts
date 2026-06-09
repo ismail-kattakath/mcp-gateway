@@ -180,7 +180,7 @@ export class DomainManager {
 
     this.domains.set(normalized, existingDomain);
 
-    logger.info(`Domain updated: ${sanitizeString(normalized)}`);
+    logger.info('Domain updated', { domain: sanitizeString(normalized) });
 
     // Regenerate Caddyfile and reload
     await this.syncCaddyfile();
