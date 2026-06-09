@@ -204,7 +204,7 @@ export class DomainManager {
 
     this.domains.set(normalized, existingDomain);
 
-    logger.info(`Domain ${enabled ? 'enabled' : 'disabled'}: ${sanitizeString(normalized)}`);
+    logger.info(`Domain ${enabled ? 'enabled' : 'disabled'}`);
 
     // Regenerate Caddyfile and reload
     await this.syncCaddyfile();
