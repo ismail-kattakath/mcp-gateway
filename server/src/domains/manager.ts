@@ -103,7 +103,8 @@ export class DomainManager {
     // Warn for local domains
     if (isLocalDomain(normalized)) {
       logger.warn(`Adding local domain (TLS may not work): ${sanitizeString(normalized)}`);
-    }
+      const safeDomainForLog = sanitizeString(normalized);
+      logger.warn('Adding local domain (TLS may not work)', { domain: safeDomainForLog });
 
     // Create domain object
     const newDomain: Domain = {
