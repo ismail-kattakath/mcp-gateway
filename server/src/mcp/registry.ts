@@ -300,9 +300,33 @@ export async function initRegistry(
   }
 
   registryPath = path.resolve(filePath);
+
+  // If the file doesn't exist, fall back to an empty v3.0 registry so the
+  // server can still boot (e.g. database-first deployments that never had a
+  // registry.json, or smoke-test runs without a mounted config).
+  try {
+    await fs.access(registryPath);
+  } catch {
+    logger.warn(
+      `Registry file not found at ${registryPath}; starting with empty registry (database-first mode).`
+    );
+    currentRegistry = applyDefaultsToEmptyRegistry();
+    return currentRegistry;
+  }
+
   logger.info(`Initializing registry from file: ${registryPath}`);
   currentRegistry = await loadRegistry(registryPath);
   return currentRegistry;
+}
+
+/**
+ * Build a minimal v3.0 registry with default gateway config and no servers.
+ * Used when no registry.json exists and the database is empty.
+ */
+function applyDefaultsToEmptyRegistry(): Registry {
+  const empty: any = { version: '3.0', servers: {} };
+  applyDefaults(empty);
+  return empty as Registry;
 }
 
 export function getRegistry(): Registry {

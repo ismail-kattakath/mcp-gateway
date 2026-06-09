@@ -34,6 +34,10 @@ import {
 } from './mcp/protocol.js';
 import { listAllTools } from './mcp/router.js';
 import { createAuthMiddleware } from './middleware/auth.js';
+import {
+  securityHeaders,
+  additionalSecurityHeaders,
+} from './middleware/security-headers.js';
 import { getOrCreateApiKey, printApiKeyAndExit, rotateApiKeyAndExit } from './security/apikey.js';
 import { startStdioTransport } from './mcp/stdio-transport.js';
 import { createApiRouter } from './api/routes.js';
@@ -227,6 +231,14 @@ async function initializeServer(): Promise<HttpServer | null> {
     // Behind a reverse proxy on loopback — honor X-Forwarded-* so
     // req.ip and req.protocol reflect the real client / scheme.
     app.set('trust proxy', 'loopback');
+
+    // Security headers — must come before response handlers and other
+    // middleware so they're set on every response, including errors and
+    // /health. Adds X-Content-Type-Options, X-Frame-Options, HSTS,
+    // Referrer-Policy, Permissions-Policy, etc.
+    app.use(securityHeaders);
+    app.use(additionalSecurityHeaders);
+
     app.use(express.json());
 
     // Initialize performance middleware
