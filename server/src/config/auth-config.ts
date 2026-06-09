@@ -94,10 +94,7 @@ export function saveAuthConfig(config: AuthConfig, registryPath?: string): void 
 /**
  * Update specific auth config fields
  */
-export function updateAuthConfig(
-  updates: Partial<AuthConfig>,
-  registryPath?: string
-): void {
+export function updateAuthConfig(updates: Partial<AuthConfig>, registryPath?: string): void {
   const current = loadAuthConfig(registryPath);
   const merged = {
     ...current,

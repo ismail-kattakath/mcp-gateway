@@ -278,7 +278,9 @@ async function initializeServer(): Promise<HttpServer | null> {
       // If auth is disabled, allow access to docs
       const disabledFromEnv = process.env.GATEWAY_DISABLE_AUTH?.toLowerCase();
       const authDisabled =
-        disabledFromEnv !== undefined ? disabledFromEnv === 'true' : gatewayConfig.disableAuth === true;
+        disabledFromEnv !== undefined
+          ? disabledFromEnv === 'true'
+          : gatewayConfig.disableAuth === true;
 
       if (authDisabled) {
         return next();
@@ -305,7 +307,9 @@ async function initializeServer(): Promise<HttpServer | null> {
       // Check if auth is disabled
       const disabledFromEnv = process.env.GATEWAY_DISABLE_AUTH?.toLowerCase();
       const authDisabled =
-        disabledFromEnv !== undefined ? disabledFromEnv === 'true' : gatewayConfig.disableAuth === true;
+        disabledFromEnv !== undefined
+          ? disabledFromEnv === 'true'
+          : gatewayConfig.disableAuth === true;
 
       res.json({
         servers: serverManager.getAllStatuses(),
@@ -335,7 +339,8 @@ async function initializeServer(): Promise<HttpServer | null> {
         source: process.env.OCI_IMAGE_SOURCE || 'https://github.com/ismail-kattakath/mcp-gateway',
         title: process.env.OCI_IMAGE_TITLE || 'mcp-gateway',
         description:
-          process.env.OCI_IMAGE_DESCRIPTION || 'Universal aggregator for Model Context Protocol servers',
+          process.env.OCI_IMAGE_DESCRIPTION ||
+          'Universal aggregator for Model Context Protocol servers',
         licenses: process.env.OCI_IMAGE_LICENSES || 'MIT',
         nodeVersion: process.version,
         platform: process.platform,
