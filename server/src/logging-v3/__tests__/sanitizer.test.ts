@@ -50,8 +50,8 @@ describe('Enhanced Sanitization', () => {
     });
 
     it('should redact Stripe API keys', () => {
-      const liveKey = 'sk_live_51234567890abcdefghijklmnop';
-      const testKey = 'sk_test_51234567890abcdefghijklmnop';
+      const liveKey = 'sk_live_FAKE1234567890TESTKEY';
+      const testKey = 'sk_test_FAKE1234567890TESTKEY';
 
       expect(sanitizeStringEnhanced(liveKey)).toContain('[REDACTED_STRIPE_SECRET]');
       expect(sanitizeStringEnhanced(testKey)).toContain('[REDACTED_STRIPE_TEST]');
