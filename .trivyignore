@@ -1,0 +1,9 @@
+# Trivy vulnerability ignore list
+# Format: CVE-ID or vulnerability ID
+
+# CVE-2024-21538: cross-spawn ReDoS vulnerability
+# This is a false positive - the vulnerability exists in npm's global
+# installation (node:22-alpine base image), not in our application code.
+# Our dependencies use cross-spawn 7.0.6+ which has the fix.
+# The base image's npm will be updated in future Node.js releases.
+CVE-2024-21538
