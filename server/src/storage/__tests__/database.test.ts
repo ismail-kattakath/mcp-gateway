@@ -338,8 +338,6 @@ describe('Database', () => {
         );
       }
 
-      const statsBefore = getDatabaseStats();
-
       // Delete all data
       db.prepare(`DELETE FROM settings`).run();
 
