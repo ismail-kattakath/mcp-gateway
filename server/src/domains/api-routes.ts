@@ -345,6 +345,11 @@ router.post('/:name/enable', async (req: Request, res: Response) => {
         ? normalizedName
         : '[INVALID_DOMAIN]';
     logger.info(`Domain enabled via API: ${safeNameForLog}`);
+    const safeNameForLog =
+      isValidDomain(normalizedName) || isValidWildcardDomain(normalizedName)
+        ? normalizedName
+        : '[INVALID_DOMAIN]';
+    logger.info(`Domain enabled via API: ${safeNameForLog}`);
         ? normalizedName
         : '[INVALID_DOMAIN]';
 
