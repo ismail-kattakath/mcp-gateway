@@ -8,9 +8,13 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { IpFilter, IpDeniedError } from 'express-ipfilter';
+// express-ipfilter is a CommonJS module; Node's ESM import doesn't reliably
+// detect both named exports, so import default and destructure.
+import expressIpfilter from 'express-ipfilter';
+const { IpFilter, IpDeniedError } = expressIpfilter;
+import ipaddr from 'ipaddr.js';
 import { listFirewallRules } from '../../storage/models/firewall-rules.js';
-import { loadFirewallConfig, type FirewallMode } from './config.js';
+import { loadFirewallConfig } from './config.js';
 import logger, { sanitizeString } from '../../logging/logger.js';
 
 /**
@@ -159,13 +163,11 @@ export async function testIpAgainstRules(
   const denyRules = rules.filter((r) => r.rule_type === 'deny').map((r) => r.ip_range);
 
   // Use ipaddr.js for CIDR matching (same library as express-ipfilter)
-  const ipaddr = require('ipaddr.js');
-
   try {
-    let addr = ipaddr.parse(ip);
+    let addr: ipaddr.IPv4 | ipaddr.IPv6 = ipaddr.parse(ip);
 
     // Normalize IPv4-mapped IPv6
-    if (addr.kind() === 'ipv6' && addr.isIPv4MappedAddress()) {
+    if (addr instanceof ipaddr.IPv6 && addr.isIPv4MappedAddress()) {
       addr = addr.toIPv4Address();
     }
 
@@ -195,8 +197,6 @@ export async function testIpAgainstRules(
  * Check if an IP address matches a CIDR rule
  */
 function matchesCidr(addr: any, rule: string): boolean {
-  const ipaddr = require('ipaddr.js');
-
   try {
     if (rule.includes('/')) {
       // CIDR notation

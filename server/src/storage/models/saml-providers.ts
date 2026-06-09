@@ -472,7 +472,17 @@ export class SAMLProvidersModel {
   }
 }
 
-// Singleton instance
-export const samlProvidersModel = new SAMLProvidersModel();
+// Lazy singleton — instantiate on first access so module import does not
+// require an initialized database (important for test isolation).
+let _samlProvidersModel: SAMLProvidersModel | null = null;
+
+export const samlProvidersModel = new Proxy({} as SAMLProvidersModel, {
+  get(_target, prop) {
+    if (!_samlProvidersModel) {
+      _samlProvidersModel = new SAMLProvidersModel();
+    }
+    return (_samlProvidersModel as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
 
 export default samlProvidersModel;

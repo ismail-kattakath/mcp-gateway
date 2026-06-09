@@ -12,7 +12,7 @@ import {
   getTraceContextForLogging,
   hasActiveTrace,
 } from '../../tracing/propagation.js';
-import { withSpan, getTraceId, getSpanId } from '../../tracing/tracer.js';
+import { withSpan, getTraceId } from '../../tracing/tracer.js';
 import type { IncomingHttpHeaders } from 'http';
 
 describe('Trace Context Propagation', () => {

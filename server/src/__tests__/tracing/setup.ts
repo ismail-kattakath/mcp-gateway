@@ -10,7 +10,7 @@ import {
   SimpleSpanProcessor,
   AlwaysOnSampler,
 } from '@opentelemetry/sdk-trace-node';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { beforeAll, afterAll } from 'vitest';
 
@@ -20,7 +20,7 @@ export const memoryExporter = new InMemorySpanExporter();
 beforeAll(() => {
   // Initialize OpenTelemetry SDK for tests
   sdk = new NodeSDK({
-    resource: new Resource({
+    resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: 'mcp-gateway-test',
     }),
     spanProcessor: new SimpleSpanProcessor(memoryExporter),

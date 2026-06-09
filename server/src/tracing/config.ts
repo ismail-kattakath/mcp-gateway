@@ -10,7 +10,7 @@
  * - OTEL_TRACING_ENABLED - Enable/disable tracing (default: true)
  */
 
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes, type Resource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 /**
@@ -58,7 +58,9 @@ export function getTracingConfig(): TracingConfig {
  * Create OpenTelemetry resource with service information
  */
 export function createResource(config: TracingConfig): Resource {
-  return new Resource({
+  // @opentelemetry/resources v2 replaced the `new Resource(...)` constructor
+  // with the `resourceFromAttributes(...)` factory.
+  return resourceFromAttributes({
     [ATTR_SERVICE_NAME]: config.serviceName,
     [ATTR_SERVICE_VERSION]: config.serviceVersion,
   });

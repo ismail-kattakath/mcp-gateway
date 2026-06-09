@@ -22,7 +22,7 @@ import {
 import { testIpAgainstRules } from '../security/firewall/ipfilter.js';
 import { validateIpRange } from '../security/firewall/migration.js';
 import { syncIptablesToDatabase } from '../security/firewall/iptables.js';
-import logger, { sanitizeString } from '../logging/logger.js';
+import logger from '../logging/logger.js';
 
 export function createFirewallRouter(): Router {
   const router = Router();

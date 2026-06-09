@@ -16,7 +16,7 @@ import {
   syncIptablesToDatabase,
   checkIptablesPermissions,
 } from './iptables.js';
-import { loadFirewallConfig, saveFirewallConfig, type FirewallConfig } from './config.js';
+import { loadFirewallConfig } from './config.js';
 import { migrateIpAllowlist, checkLegacyIpAllowlist, validateIpRange } from './migration.js';
 import logger from '../../logging/logger.js';
 

@@ -10,6 +10,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { homedir } from 'os';
+import ipaddr from 'ipaddr.js';
 import logger, { sanitizeString } from '../../logging/logger.js';
 import {
   createFirewallRule,
@@ -168,8 +169,6 @@ export function checkLegacyIpAllowlist(registryPath?: string): boolean {
  * Validate IP or CIDR notation
  */
 export function validateIpRange(ipRange: string): { valid: boolean; error?: string } {
-  const ipaddr = require('ipaddr.js');
-
   try {
     if (ipRange.includes('/')) {
       // CIDR notation

@@ -11,6 +11,8 @@ import { Router, Request, Response } from 'express';
 import type { Registry, Server } from '../types/registry.js';
 import type { ServerManager } from '../mcp/backends/index.js';
 import logger, { sanitizeServerName } from '../logging/logger.js';
+import { ServerModel } from '../storage/models/servers.js';
+import { reloadFromDatabase } from '../mcp/registry.js';
 
 interface ApiRouterOptions {
   serverManager: ServerManager;
@@ -162,8 +164,18 @@ export function createApiRouter({ serverManager, registry }: ApiRouterOptions): 
         return res.status(409).json({ error: `Server already exists: ${name}` });
       }
 
-      // Add to registry (in-memory — caller must persist to disk)
-      registry.servers[name] = config;
+      // Persist to database
+      const serverModel = new ServerModel();
+      await serverModel.create({
+        name,
+        source: config.source,
+        config,
+        lifecycle: config.lifecycle || 'on-demand',
+        enabled: config.enabled !== false,
+      });
+
+      // Reload registry from database to sync in-memory state
+      await reloadFromDatabase();
 
       // Auto-start if enabled and persistent
       if (config.enabled && config.lifecycle === 'persistent') {
@@ -171,7 +183,9 @@ export function createApiRouter({ serverManager, registry }: ApiRouterOptions): 
       }
 
       const status = serverManager.getServerStatus(name);
-      logger.info(`Server created: ${sanitizeServerName(name)}`, { source: config.source });
+      logger.info(`Server created and persisted: ${sanitizeServerName(name)}`, {
+        source: config.source,
+      });
       return res.status(201).json({ success: true, name, status });
     } catch (error) {
       const err = error as Error;
@@ -238,8 +252,17 @@ export function createApiRouter({ serverManager, registry }: ApiRouterOptions): 
 
       const wasRunning = serverManager.getServerStatus(serverName)?.state === 'running';
 
-      // Update config
-      registry.servers[serverName] = config;
+      // Persist to database
+      const serverModel = new ServerModel();
+      await serverModel.update(serverName, {
+        source: config.source,
+        config,
+        lifecycle: config.lifecycle,
+        enabled: config.enabled,
+      });
+
+      // Reload registry from database to sync in-memory state
+      await reloadFromDatabase();
 
       // Restart if it was running
       if (wasRunning) {
@@ -250,7 +273,7 @@ export function createApiRouter({ serverManager, registry }: ApiRouterOptions): 
       }
 
       const status = serverManager.getServerStatus(serverName);
-      logger.info(`Server updated: ${sanitizeServerName(serverName)}`, {
+      logger.info(`Server updated and persisted: ${sanitizeServerName(serverName)}`, {
         restarted: wasRunning,
       });
       return res.json({ success: true, name: serverName, restarted: wasRunning, status });
@@ -304,10 +327,14 @@ export function createApiRouter({ serverManager, registry }: ApiRouterOptions): 
       // Stop if running
       await serverManager.stopServer(serverName);
 
-      // Remove from registry
-      delete registry.servers[serverName];
+      // Delete from database
+      const serverModel = new ServerModel();
+      await serverModel.delete(serverName);
 
-      logger.info(`Server deleted: ${sanitizeServerName(serverName)}`);
+      // Reload registry from database to sync in-memory state
+      await reloadFromDatabase();
+
+      logger.info(`Server deleted and removed from database: ${sanitizeServerName(serverName)}`);
       return res.json({ success: true, name: serverName });
     } catch (error) {
       const err = error as Error;
@@ -519,15 +546,28 @@ export function createApiRouter({ serverManager, registry }: ApiRouterOptions): 
    *       401:
    *         $ref: '#/components/responses/Unauthorized'
    */
-  router.post('/servers/:serverName/enable', (req: Request, res: Response) => {
-    const { serverName } = req.params;
-    const config = registry.servers[serverName];
-    if (!config) {
-      return res.status(404).json({ error: `Server not found: ${serverName}` });
+  router.post('/servers/:serverName/enable', async (req: Request, res: Response) => {
+    try {
+      const { serverName } = req.params;
+      const config = registry.servers[serverName];
+      if (!config) {
+        return res.status(404).json({ error: `Server not found: ${serverName}` });
+      }
+
+      // Persist to database
+      const serverModel = new ServerModel();
+      await serverModel.update(serverName, { enabled: true });
+
+      // Reload registry from database to sync in-memory state
+      await reloadFromDatabase();
+
+      logger.info(`Server enabled and persisted: ${sanitizeServerName(serverName)}`);
+      return res.json({ success: true, serverName, enabled: true });
+    } catch (error) {
+      const err = error as Error;
+      logger.error('Failed to enable server', { error: err.message });
+      return res.status(500).json({ error: err.message });
     }
-    config.enabled = true;
-    logger.info(`Server enabled: ${sanitizeServerName(serverName)}`);
-    return res.json({ success: true, serverName, enabled: true });
   });
 
   /**
@@ -572,9 +612,18 @@ export function createApiRouter({ serverManager, registry }: ApiRouterOptions): 
       if (!config) {
         return res.status(404).json({ error: `Server not found: ${serverName}` });
       }
-      config.enabled = false;
+
+      // Stop server first
       await serverManager.stopServer(serverName);
-      logger.info(`Server disabled: ${sanitizeServerName(serverName)}`);
+
+      // Persist to database
+      const serverModel = new ServerModel();
+      await serverModel.update(serverName, { enabled: false });
+
+      // Reload registry from database to sync in-memory state
+      await reloadFromDatabase();
+
+      logger.info(`Server disabled and persisted: ${sanitizeServerName(serverName)}`);
       return res.json({ success: true, serverName, enabled: false });
     } catch (error) {
       const err = error as Error;

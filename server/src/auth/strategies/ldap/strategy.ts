@@ -13,7 +13,6 @@ import type { DoneCallback } from 'passport';
 import { ldapProvidersModel } from '../../../storage/models/ldap-providers.js';
 import { LDAPClient } from './client.js';
 import { provisionLDAPUser, logAuthenticationAttempt } from './provisioning.js';
-import { extractGroupNames } from './groups.js';
 import logger from '../../../logging/logger.js';
 import { sanitizeString } from '../../../logging/sanitizer.js';
 

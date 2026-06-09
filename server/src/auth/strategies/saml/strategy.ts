@@ -46,7 +46,8 @@ export function createSAMLStrategy(providerName: string): SAMLStrategy {
     entryPoint: provider.sso_url,
     issuer: provider.sp_entity_id,
     callbackUrl: provider.acs_url,
-    cert: formatCertificate(provider.certificate),
+    // passport-saml v5 renamed `cert` → `idpCert`
+    idpCert: formatCertificate(provider.certificate),
 
     // Signature validation
     wantAssertionsSigned: provider.want_assertions_signed,

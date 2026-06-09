@@ -10,8 +10,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateCertificateChain, checkCRL } from '../validation.js';
 import fs from 'fs';
 
-// Mock fs for file operations
-vi.mock('fs');
+// Partial mock of fs — only stub the two functions the tests override.
+// Mocking the whole module (vi.mock('fs')) breaks setup.ts, which uses
+// fs.readFileSync to load schema.sql during database initialization.
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs');
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      readFileSync: vi.fn(actual.readFileSync),
+      existsSync: vi.fn(actual.existsSync),
+    },
+    readFileSync: vi.fn(actual.readFileSync),
+    existsSync: vi.fn(actual.existsSync),
+  };
+});
 
 describe('mTLS Certificate Validation', () => {
   beforeEach(() => {

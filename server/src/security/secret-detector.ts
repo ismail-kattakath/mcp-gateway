@@ -31,31 +31,31 @@ const SECRET_PATTERNS: SecretPattern[] = [
   // Generic API keys and tokens
   {
     name: 'API Key',
-    pattern: /api[_-]?key\s*[:=]\s*['"]?[a-zA-Z0-9]{20,}['"]?/i,
+    pattern: /api[_-]?key\s*[:=]\s*['"]?[a-zA-Z0-9_-]{20,}['"]?/gi,
     severity: 'high',
     description: 'API key detected',
   },
   {
     name: 'Auth Token',
-    pattern: /auth[_-]?token\s*[:=]\s*['"]?[a-zA-Z0-9]{20,}['"]?/i,
+    pattern: /auth[_-]?token\s*[:=]\s*['"]?[a-zA-Z0-9_-]{20,}['"]?/gi,
     severity: 'high',
     description: 'Authentication token detected',
   },
   {
     name: 'Bearer Token',
-    pattern: /bearer\s+[a-zA-Z0-9_\-\.]{20,}/gi,
+    pattern: /bearer\s+[a-zA-Z0-9_\-.]{20,}/gi,
     severity: 'high',
     description: 'Bearer token detected',
   },
   {
     name: 'Password',
-    pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/i,
+    pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/gi,
     severity: 'high',
     description: 'Password detected',
   },
   {
     name: 'Secret',
-    pattern: /secret\s*[:=]\s*['"]?[a-zA-Z0-9]{16,}['"]?/i,
+    pattern: /secret\s*[:=]\s*['"]?[a-zA-Z0-9]{16,}['"]?/gi,
     severity: 'high',
     description: 'Secret value detected',
   },
@@ -69,7 +69,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     name: 'AWS Secret Key',
-    pattern: /aws[_-]?secret[_-]?access[_-]?key\s*[:=]\s*['"]?[a-zA-Z0-9/+=]{40}['"]?/i,
+    pattern: /aws[_-]?secret[_-]?access[_-]?key\s*[:=]\s*['"]?[a-zA-Z0-9/+=]{40}['"]?/gi,
     severity: 'high',
     description: 'AWS secret access key detected',
   },
@@ -77,19 +77,19 @@ const SECRET_PATTERNS: SecretPattern[] = [
   // GitHub tokens
   {
     name: 'GitHub Personal Access Token',
-    pattern: /ghp_[a-zA-Z0-9]{36}/g,
+    pattern: /ghp_[a-zA-Z0-9]{30,}/g,
     severity: 'high',
     description: 'GitHub personal access token detected',
   },
   {
     name: 'GitHub OAuth Token',
-    pattern: /gho_[a-zA-Z0-9]{36}/g,
+    pattern: /gho_[a-zA-Z0-9]{30,}/g,
     severity: 'high',
     description: 'GitHub OAuth token detected',
   },
   {
     name: 'GitHub App Token',
-    pattern: /ghs_[a-zA-Z0-9]{36}/g,
+    pattern: /ghs_[a-zA-Z0-9]{30,}/g,
     severity: 'high',
     description: 'GitHub app token detected',
   },

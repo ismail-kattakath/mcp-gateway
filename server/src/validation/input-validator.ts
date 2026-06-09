@@ -81,6 +81,15 @@ export class InputValidator {
       throw new ValidationError('Server name must be a string', 'serverName', name);
     }
 
+    // Length check before sanitization (sanitizeServerName truncates to 50 chars)
+    if (name.length === 0 || name.length > 64) {
+      throw new ValidationError(
+        'Invalid server name length: must be 1-64 chars',
+        'serverName',
+        name
+      );
+    }
+
     // Sanitize first to remove dangerous characters
     const sanitized = sanitizeServerName(name);
 
@@ -422,7 +431,7 @@ export class InputValidator {
 
     // Docker image: [registry/][namespace/]name[:tag|@digest]
     // Must be lowercase, alphanumeric + hyphens/underscores/dots/colons
-    const pattern = /^[a-z0-9][a-z0-9._\/-]*(?::[a-z0-9._-]+|@sha256:[a-f0-9]{64})?$/;
+    const pattern = /^[a-z0-9][a-z0-9._/-]*(?::[a-z0-9._-]+|@sha256:[a-f0-9]{64})?$/;
 
     if (!pattern.test(image)) {
       throw new ValidationError(

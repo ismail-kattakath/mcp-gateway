@@ -440,7 +440,17 @@ export class LDAPProvidersModel {
   }
 }
 
-// Singleton instance
-export const ldapProvidersModel = new LDAPProvidersModel();
+// Lazy singleton — instantiate on first access so module import does not
+// require an initialized database (important for test isolation).
+let _ldapProvidersModel: LDAPProvidersModel | null = null;
+
+export const ldapProvidersModel = new Proxy({} as LDAPProvidersModel, {
+  get(_target, prop) {
+    if (!_ldapProvidersModel) {
+      _ldapProvidersModel = new LDAPProvidersModel();
+    }
+    return (_ldapProvidersModel as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
 
 export default ldapProvidersModel;

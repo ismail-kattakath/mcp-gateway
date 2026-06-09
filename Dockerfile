@@ -3,11 +3,13 @@
 
 # =====================================
 # Stage 1: build server (TypeScript -> JavaScript)
-FROM node:20-alpine AS server-builder
+FROM node:22-alpine AS server-builder
 WORKDIR /app
 
-# Install build tools for native dependencies (better-sqlite3)
-RUN apk add --no-cache python3 make g++
+# Install build tools for native dependencies:
+#  - better-sqlite3: python3, make, g++
+#  - kerberos: krb5-dev (gssapi headers)
+RUN apk add --no-cache python3 make g++ krb5-dev
 
 # Copy type definitions needed by server
 COPY types/ ./types/
@@ -24,7 +26,7 @@ RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # =====================================
 # Stage 2: build the UI bundle
-FROM node:20-alpine AS ui-builder
+FROM node:22-alpine AS ui-builder
 WORKDIR /app/ui
 
 COPY ui/package*.json ./
@@ -35,10 +37,13 @@ RUN npm run build
 
 # =====================================
 # Stage 3: production runtime (security hardened)
-FROM node:20-alpine
+FROM node:22-alpine
 
-# Create non-root user and group
-RUN addgroup -g 1000 gateway && \
+# Create non-root user and group. node:20-alpine ships with a `node` user at
+# UID/GID 1000 — remove it so we can reuse those IDs for `gateway`.
+RUN (deluser --remove-home node 2>/dev/null || true) && \
+    (delgroup node 2>/dev/null || true) && \
+    addgroup -g 1000 gateway && \
     adduser -D -u 1000 -G gateway gateway
 
 WORKDIR /app
@@ -49,7 +54,7 @@ WORKDIR /app
 #   python3+uv — `source: "pkg"` with uvx / pipx commands
 #   bash       — for `source: "local"` shell-script wrappers
 #   curl       — HEALTHCHECK
-RUN apk add --no-cache git docker-cli python3 py3-pip curl bash && \
+RUN apk add --no-cache git docker-cli python3 py3-pip curl bash krb5-libs libsecret && \
     pip3 install --no-cache-dir --break-system-packages uv
 
 # Copy compiled server code and runtime dependencies with correct ownership

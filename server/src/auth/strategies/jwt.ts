@@ -24,7 +24,10 @@ export interface AuthenticatedUser {
 }
 
 /**
- * Get JWT secret from environment
+ * Get JWT secret from environment — invoked lazily per-request so that
+ * module load doesn't require JWT_SECRET to be set. (The server may be
+ * started with auth disabled, or initializeServer() may load the secret
+ * from disk via getOrCreateJwtSecret() before any auth request lands.)
  */
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -37,11 +40,19 @@ function getJwtSecret(): string {
 }
 
 /**
- * JWT strategy options
+ * JWT strategy options. passport-jwt supports a `secretOrKeyProvider`
+ * callback that runs per-request, deferring the env-var lookup until
+ * the first authentication attempt.
  */
 const jwtOptions: StrategyOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: getJwtSecret(),
+  secretOrKeyProvider: (_req, _rawJwtToken, done) => {
+    try {
+      done(null, getJwtSecret());
+    } catch (err) {
+      done(err as Error);
+    }
+  },
   issuer: 'mcp-gateway',
   audience: 'mcp-gateway-api',
   algorithms: ['HS256'],

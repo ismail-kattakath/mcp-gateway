@@ -26,6 +26,10 @@ describe('Database', () => {
   let testDbPath: string;
 
   beforeEach(() => {
+    // Close any DB from the global test setup so each test can init its own
+    if (isDatabaseInitialized()) {
+      closeDatabase();
+    }
     testDbPath = path.join('/tmp', `test-mcp-gateway-${Date.now()}-${Math.random()}.db`);
   });
 

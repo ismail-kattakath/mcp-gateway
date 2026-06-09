@@ -9,11 +9,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Key Architecture:**
 
 - **Monorepo**: `server/` (Node.js TypeScript gateway) + `ui/` (React dashboard)
+- **Storage**: SQLite database-first with automatic migration from registry.json
 - **Transport modes**: stdio (spawned clients), SSE, HTTP
 - **Five server sources**: `pkg` (npm/uvx/pipx), `git` (clone+build), `container` (Docker), `remote` (HTTP/SSE), `local` (existing scripts)
 - **Lifecycle modes**: `persistent` (always running) or `on-demand` (lazy-loaded, reaped after 5min idle)
 - **Security**: Auto-generated API keys stored in system keychain, optional IP allowlist, comprehensive security hardening (OWASP Top 10, CWE Top 25)
-- **REST API**: Full CRUD operations for server management, OpenAPI 3.0 spec, Swagger UI docs
+- **REST API**: Full CRUD operations with database persistence, OpenAPI 3.0 spec, Swagger UI docs
 - **Security Hardening**: Input validation, rate limiting, security headers, secrets management, container security
 - **Production Deployment**: Kubernetes manifests, Helm chart, Docker Compose, standalone server configurations with HA, autoscaling, and monitoring
 
@@ -196,9 +197,38 @@ MCP Server (obs-mcp, filesystem, etc.)
 
 **`schema/registry-v2.schema.json`** — Source of truth for registry.json structure. TypeScript mirror at `server/src/types/registry.d.ts`.
 
-## Registry Configuration
+## Server Configuration (Database-First)
 
-The `registry.json` file is the single source of truth for server configuration. Each server is keyed by a **server name** (lowercase, alphanumeric + hyphens) and declares a `source` field:
+**MCP Gateway v3.0 stores server configurations in SQLite database** with automatic migration from registry.json on first startup.
+
+### Database Storage
+
+- **Primary storage**: SQLite `servers` table (`~/.mcp/gateway.db`)
+- **Persistence**: All REST API operations (POST/PUT/DELETE) write directly to database
+- **Auto-migration**: On first startup, registry.json is automatically imported to database
+- **Backward compatibility**: File-based mode available via `MCP_REGISTRY_SOURCE=file`
+
+### Migration Behavior
+
+1. **First startup with registry.json**:
+   - Database is empty
+   - Gateway auto-migrates registry.json → database
+   - Original file renamed to `registry.json.migrated`
+   - Backup created at `registry.json.backup.<timestamp>`
+
+2. **Subsequent startups**:
+   - Gateway loads servers from database
+   - registry.json ignored (use CLI to import/export)
+
+3. **Manual migration**:
+   ```bash
+   mcp registry import registry.json        # Import file → DB
+   mcp registry export registry.json        # Export DB → file (backup)
+   ```
+
+### Server Sources
+
+Each server is keyed by a **server name** (lowercase, alphanumeric + hyphens) and declares a `source` field:
 
 | Source      | Use Case                                     |
 | ----------- | -------------------------------------------- |
