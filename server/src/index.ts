@@ -21,7 +21,7 @@ import express, { Request, Response, NextFunction, Express } from 'express';
 import cors from 'cors';
 import path from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { Server as HttpServer } from 'http';
 import logger from './logging/logger.js';
 import { initRegistry, getRegistry, getGatewayConfig, watchRegistry } from './mcp/registry.js';
@@ -84,6 +84,10 @@ import {
   createETagMiddleware,
 } from './performance/index.js';
 
+process.on('uncaughtException', (err) => {
+  console.error('[startup] uncaughtException:', err);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -101,9 +105,10 @@ async function ensureDefaultAdminUser(): Promise<void> {
     const userCount = usersModel.count();
     if (userCount === 0) {
       logger.info('No users found, creating default admin user');
+      const defaultPassword = 'changeme-now';
       const defaultUser = await usersModel.create({
         username: 'admin',
-        password: 'changeme',
+        password: defaultPassword,
         email: 'admin@mcp-gateway.local',
         role: 'admin',
         status: 'active',
@@ -111,7 +116,7 @@ async function ensureDefaultAdminUser(): Promise<void> {
       logger.warn('⚠️  DEFAULT ADMIN USER CREATED', {
         userId: defaultUser.id,
         username: 'admin',
-        password: 'changeme',
+        password: defaultPassword,
         warning: 'CHANGE THIS PASSWORD IMMEDIATELY',
         message: 'Default credentials are insecure for production use',
         instructions: 'Run: mcp auth user update admin --password <new-password>',
@@ -688,7 +693,12 @@ process.on('unhandledRejection', (reason: unknown) => {
   logger.error('Unhandled rejection', { reason: err?.message || reason, stack: err?.stack });
 });
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Entry-point detection: support `node dist/index.js`, `node /abs/path/index.js`,
+// symlinked CLIs, and trailing-slash quirks. The previous
+// `import.meta.url === \`file://${process.argv[1]}\`` form is fragile because
+// process.argv[1] can be resolved through symlinks or differ from the URL form.
+const mainUrl = pathToFileURL(process.argv[1] ?? '').href;
+if (import.meta.url === mainUrl) {
   initializeServer().catch((error: Error) => {
     logger.error('Fatal error during startup', { error: error.message, stack: error.stack });
     process.exit(1);

@@ -7,7 +7,10 @@
  * Related: Epic #4 (Authentication Framework), Issue #51
  */
 
-import HeaderAPIKeyStrategy from 'passport-headerapikey';
+// passport-headerapikey is a CommonJS module; under Node's ESM interop the
+// default export is the module namespace, not the constructor. Use the
+// named export so it works in both CJS and ESM consumers.
+import { HeaderAPIKeyStrategy } from 'passport-headerapikey';
 import { verifyAccessToken, isLegacyApiKey } from '../tokens.js';
 import { usersModel } from '../../storage/models/users.js';
 import { getOrCreateApiKey } from '../../security/apikey.js';
