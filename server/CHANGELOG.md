@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/ismail-kattakath/mcp-gateway/compare/v2.0.0...v2.1.0) (2026-06-09)
+
+
+### Features
+
+* epic [#13](https://github.com/ismail-kattakath/mcp-gateway/issues/13) - SQLite storage layer with field-level encryption ([#235](https://github.com/ismail-kattakath/mcp-gateway/issues/235)) ([4c42e69](https://github.com/ismail-kattakath/mcp-gateway/commit/4c42e69a1c7191821827dd71e681812af2b4aee9))
+
 ## [2.0.0](https://github.com/ismail-kattakath/mcp-gateway/compare/v1.1.0...v2.0.0) (2026-06-09)
 
 
