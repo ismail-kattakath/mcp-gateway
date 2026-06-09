@@ -13,7 +13,6 @@
  */
 
 import fs from 'fs';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
 import { getDatabase, transaction } from './database.js';
