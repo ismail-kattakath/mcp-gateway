@@ -26,8 +26,9 @@ export function isValidDomain(domain: string): boolean {
 
   // RFC 1035 domain regex
   // Matches: example.com, sub.example.com, my-site.com, etc.
+  // Requires at least one dot (TLD required)
   const domainRegex =
-    /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
+    /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 
   return domainRegex.test(normalizedDomain);
 }
@@ -95,12 +96,22 @@ export function normalizeDomain(domain: string): string {
  * Check if domain is localhost or local development domain
  */
 export function isLocalDomain(domain: string): boolean {
+  // Check for IPv6 addresses before normalization to preserve ::1 format
+  if (domain === '::1' || domain.toLowerCase() === '::1') {
+    return true;
+  }
+
+  // Check for other IPv6 loopback ranges (0:0:0:0:0:0:0:1 and compressed forms)
+  const ipv6LoopbackRegex = /^(0:){7}1$|^::1$/i;
+  if (ipv6LoopbackRegex.test(domain)) {
+    return true;
+  }
+
   const normalized = normalizeDomain(domain);
 
   const localPatterns = [
     'localhost',
     '127.0.0.1',
-    '::1',
     '0.0.0.0',
     /^.+\.local$/,
     /^.+\.localhost$/,
@@ -126,6 +137,11 @@ export function getRootDomain(domain: string): string {
   const parts = normalized.split('.');
 
   if (parts.length < 2) {
+    throw new Error('Invalid domain: must have at least two labels');
+  }
+
+  // Validate that first label is non-empty (reject domains starting with dot)
+  if (parts[0] === '') {
     throw new Error('Invalid domain: must have at least two labels');
   }
 
