@@ -6,21 +6,10 @@
   "changelog-path": "CHANGELOG.md",
   "pull-request-title-pattern": "chore(${branch}): release ${version}",
   "separate-pull-requests": false,
-  "plugins": [
-    {
-      "type": "linked-versions",
-      "groupName": "mcp-gateway",
-      "components": ["server", "ui"]
-    }
-  ],
   "packages": {
-    "server": {
-      "package-name": "mcp-gateway-server",
+    ".": {
+      "package-name": "mcp-gateway",
       "changelog-path": "CHANGELOG.md"
-    },
-    "ui": {
-      "package-name": "mcp-gateway-ui",
-      "skip-github-release": true
     }
   }
 }
