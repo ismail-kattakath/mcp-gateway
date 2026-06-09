@@ -3,7 +3,7 @@
 
 # =====================================
 # Stage 1: build server (TypeScript -> JavaScript)
-FROM node:20-alpine AS server-builder
+FROM node:22-alpine AS server-builder
 WORKDIR /app
 
 # Install build tools for native dependencies:
@@ -26,7 +26,7 @@ RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # =====================================
 # Stage 2: build the UI bundle
-FROM node:20-alpine AS ui-builder
+FROM node:22-alpine AS ui-builder
 WORKDIR /app/ui
 
 COPY ui/package*.json ./
@@ -37,7 +37,7 @@ RUN npm run build
 
 # =====================================
 # Stage 3: production runtime (security hardened)
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Create non-root user and group. node:20-alpine ships with a `node` user at
 # UID/GID 1000 — remove it so we can reuse those IDs for `gateway`.
