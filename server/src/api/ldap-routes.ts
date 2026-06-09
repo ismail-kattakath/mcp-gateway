@@ -41,13 +41,13 @@ export function createLDAPRouter(): Router {
   router.get('/providers', (req: Request, res: Response) => {
     try {
       const providers = ldapProvidersModel.list();
-      res.json(providers);
+      return res.json(providers);
     } catch (error) {
       const err = error as Error;
       logger.error('Failed to list LDAP providers', {
         error: sanitizeString(err.message),
       });
-      res.status(500).json({ error: 'Failed to list LDAP providers' });
+      return res.status(500).json({ error: 'Failed to list LDAP providers' });
     }
   });
 
@@ -90,14 +90,14 @@ export function createLDAPRouter(): Router {
         return res.status(404).json({ error: `LDAP provider '${name}' not found` });
       }
 
-      res.json(provider);
+      return res.json(provider);
     } catch (error) {
       const err = error as Error;
       logger.error('Failed to get LDAP provider', {
         name: sanitizeString(req.params.name),
         error: sanitizeString(err.message),
       });
-      res.status(500).json({ error: 'Failed to get LDAP provider' });
+      return res.status(500).json({ error: 'Failed to get LDAP provider' });
     }
   });
 
@@ -134,7 +134,7 @@ export function createLDAPRouter(): Router {
   router.post('/providers', async (req: Request, res: Response) => {
     try {
       const provider = await ldapProvidersModel.create(req.body);
-      res.status(201).json(provider);
+      return res.status(201).json(provider);
     } catch (error) {
       const err = error as Error;
       logger.error('Failed to create LDAP provider', {
@@ -145,7 +145,7 @@ export function createLDAPRouter(): Router {
         return res.status(409).json({ error: err.message });
       }
 
-      res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: err.message });
     }
   });
 
@@ -205,14 +205,14 @@ export function createLDAPRouter(): Router {
         name: sanitizeString(name),
       });
 
-      res.json(updated);
+      return res.json(updated);
     } catch (error) {
       const err = error as Error;
       logger.error('Failed to update LDAP provider', {
         name: sanitizeString(req.params.name),
         error: sanitizeString(err.message),
       });
-      res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: err.message });
     }
   });
 
@@ -268,14 +268,14 @@ export function createLDAPRouter(): Router {
         name: sanitizeString(name),
       });
 
-      res.json({ message: 'LDAP provider deleted' });
+      return res.json({ message: 'LDAP provider deleted' });
     } catch (error) {
       const err = error as Error;
       logger.error('Failed to delete LDAP provider', {
         name: sanitizeString(req.params.name),
         error: sanitizeString(err.message),
       });
-      res.status(500).json({ error: 'Failed to delete LDAP provider' });
+      return res.status(500).json({ error: 'Failed to delete LDAP provider' });
     }
   });
 

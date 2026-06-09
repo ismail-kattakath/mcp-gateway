@@ -1002,7 +1002,7 @@ router.post('/ldap/:provider/login', (req: Request, res: Response, next) => {
   }
 
   // Authenticate using passport LDAP strategy
-  passport.authenticate(
+  return passport.authenticate(
     `ldap-${provider}`,
     { session: false },
     async (err: Error | null, user: any) => {

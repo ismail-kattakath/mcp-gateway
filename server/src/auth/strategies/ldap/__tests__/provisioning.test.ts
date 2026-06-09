@@ -142,14 +142,12 @@ describe('LDAP Provisioning', () => {
       const { provisionLDAPUser } = await import('../provisioning.js');
 
       // Mock user found by DN
-      (getDatabase as any)()
-        .prepare()
-        .get.mockReturnValue({
-          id: 'existing-user-id',
-          username: 'jdoe',
-          ldap_provider: 'test-ldap',
-          ldap_dn: mockProfile.dn,
-        });
+      (getDatabase as any)().prepare().get.mockReturnValue({
+        id: 'existing-user-id',
+        username: 'jdoe',
+        ldap_provider: 'test-ldap',
+        ldap_dn: mockProfile.dn,
+      });
 
       (usersModel.findById as any).mockReturnValue({
         id: 'existing-user-id',

@@ -583,7 +583,7 @@ export function createFirewallRouter(): Router {
   router.post('/flush', async (req: Request, res: Response) => {
     try {
       const { tenant } = req.query;
-      deleteAllFirewallRulesByTenant(tenant as string | null ?? null);
+      deleteAllFirewallRulesByTenant((tenant as string | null) ?? null);
 
       // Sync iptables if enabled
       const config = await loadFirewallConfig(tenant as string | undefined);

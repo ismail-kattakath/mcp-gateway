@@ -153,8 +153,7 @@ export function createADProviderPreset(
 ): Partial<LDAPProviderPublic> {
   return {
     ...partial,
-    search_filter:
-      partial.search_filter || AD_PRESETS.SAMACCOUNTNAME_FILTER,
+    search_filter: partial.search_filter || AD_PRESETS.SAMACCOUNTNAME_FILTER,
     attribute_mapping: {
       ...AD_PRESETS.DEFAULT_ATTRIBUTES,
       ...(partial.attribute_mapping || {}),

@@ -248,7 +248,10 @@ export class LDAPClient {
       }
 
       // Search for user entry
-      const searchFilter = this.provider.search_filter.replace('{{username}}', sanitizeUsername(username));
+      const searchFilter = this.provider.search_filter.replace(
+        '{{username}}',
+        sanitizeUsername(username)
+      );
       const searchResult = await this.search(client, this.provider.base_dn, searchFilter);
 
       if (searchResult.length === 0) {
@@ -294,7 +297,9 @@ export class LDAPClient {
    * @param username - Username
    * @returns User entry
    */
-  async searchUser(username: string): Promise<{ dn: string; attributes: Record<string, any> } | null> {
+  async searchUser(
+    username: string
+  ): Promise<{ dn: string; attributes: Record<string, any> } | null> {
     const client = await this.pool.getConnection();
 
     try {
@@ -304,7 +309,10 @@ export class LDAPClient {
       }
 
       // Search for user entry
-      const searchFilter = this.provider.search_filter.replace('{{username}}', sanitizeUsername(username));
+      const searchFilter = this.provider.search_filter.replace(
+        '{{username}}',
+        sanitizeUsername(username)
+      );
       const searchResult = await this.search(client, this.provider.base_dn, searchFilter);
 
       if (searchResult.length === 0) {
@@ -376,10 +384,13 @@ export class LDAPClient {
     const attributes: Record<string, any> = {};
     const mapping = this.provider.attribute_mapping;
 
+    // Cast entry to access attributes
+    const entryObj = entry as any;
+
     // Extract mapped attributes
     for (const [userField, ldapAttr] of Object.entries(mapping)) {
-      if (ldapAttr && entry.pojo.attributes) {
-        const attr = entry.pojo.attributes.find((a: any) => a.type === ldapAttr);
+      if (ldapAttr && entryObj.pojo && entryObj.pojo.attributes) {
+        const attr = entryObj.pojo.attributes.find((a: any) => a.type === ldapAttr);
         if (attr && attr.values && attr.values.length > 0) {
           // Handle multi-valued attributes (e.g., memberOf)
           attributes[userField] = attr.values.length === 1 ? attr.values[0] : attr.values;

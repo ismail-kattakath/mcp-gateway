@@ -9,6 +9,7 @@
 
 import { Strategy as CustomStrategy } from 'passport-custom';
 import type { Request } from 'express';
+import type { DoneCallback } from 'passport';
 import { ldapProvidersModel } from '../../../storage/models/ldap-providers.js';
 import { LDAPClient } from './client.js';
 import { provisionLDAPUser, logAuthenticationAttempt } from './provisioning.js';
@@ -30,7 +31,7 @@ const clientCache = new Map<string, LDAPClient>();
 export function createLDAPStrategy(providerName: string): CustomStrategy {
   logger.info('Creating LDAP strategy', { provider: sanitizeString(providerName) });
 
-  return new CustomStrategy(async (req: Request, done) => {
+  return new CustomStrategy(async (req: Request, done: DoneCallback) => {
     try {
       // Load provider config
       const provider = ldapProvidersModel.findByName(providerName);
@@ -237,4 +238,10 @@ export async function healthCheckLDAPProvider(providerName: string): Promise<boo
   return client.healthCheck();
 }
 
-export default { createLDAPStrategy, registerLDAPStrategies, destroyLDAPClient, destroyAllLDAPClients, healthCheckLDAPProvider };
+export default {
+  createLDAPStrategy,
+  registerLDAPStrategies,
+  destroyLDAPClient,
+  destroyAllLDAPClients,
+  healthCheckLDAPProvider,
+};

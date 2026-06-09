@@ -68,7 +68,10 @@ function loadLegacyAuthConfig(registryPath?: string): LegacyAuthConfig | null {
 /**
  * Migrate v2.x IP allowlist to v3.0 firewall rules
  */
-export async function migrateIpAllowlist(registryPath?: string, tenant?: string | null): Promise<void> {
+export async function migrateIpAllowlist(
+  registryPath?: string,
+  tenant?: string | null
+): Promise<void> {
   const legacyConfig = loadLegacyAuthConfig(registryPath);
 
   if (!legacyConfig || !legacyConfig.allowedIPs || legacyConfig.allowedIPs.length === 0) {
