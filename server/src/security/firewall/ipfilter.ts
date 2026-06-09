@@ -8,7 +8,10 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { IpFilter, IpDeniedError } from 'express-ipfilter';
+// express-ipfilter is a CommonJS module; Node's ESM import doesn't reliably
+// detect both named exports, so import default and destructure.
+import expressIpfilter from 'express-ipfilter';
+const { IpFilter, IpDeniedError } = expressIpfilter;
 import ipaddr from 'ipaddr.js';
 import { listFirewallRules } from '../../storage/models/firewall-rules.js';
 import { loadFirewallConfig } from './config.js';
